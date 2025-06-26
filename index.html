@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/ui-mockups/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#EC4899" />
+    <meta name="background-color" content="#FFFAF0" />
+    
+    <!-- iOS Specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="PimpMyCase" />
+    <link rel="apple-touch-icon" href="/ui-mockups/logo.png" />
+    
+    <!-- Android Specific -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- SEO and Social -->
+    <title>PIMP MY CASE® - Custom Phone Cases Instantly</title>
+    <meta name="description" content="Create custom phone cases instantly with AI-powered design tools. Upload photos, choose templates, and get professional-quality cases printed on demand." />
+    <meta property="og:title" content="PIMP MY CASE® - Custom Phone Cases" />
+    <meta property="og:description" content="Create custom phone cases instantly with AI-powered design tools." />
+    <meta property="og:image" content="/ui-mockups/logo.png" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Loading Screen -->
+    <style>
+      .loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #FFFAF0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      .loading-logo {
+        font-family: 'Inter', sans-serif;
+        font-weight: 900;
+        font-size: 2rem;
+        color: #1f2937;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading" class="loading-screen">
+      <div class="loading-logo">PIMP MY CASE®</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Hide loading screen when React app loads
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.style.opacity = '0';
+            setTimeout(() => loading.remove(), 300);
+          }
+        }, 500);
+      });
+    </script>
+  </body>
+</html> 

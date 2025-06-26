@@ -1,0 +1,64 @@
+{
+  "name": "PIMP MY CASE",
+  "short_name": "PimpMyCase",
+  "description": "Create custom phone cases instantly with AI-powered design tools",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#EC4899",
+  "background_color": "#FFFAF0",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/ui-mockups/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/ui-mockups/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["photo", "utilities", "lifestyle"],
+  "lang": "en",
+  "screenshots": [
+    {
+      "src": "/ui-mockups/001_Landing.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Welcome screen"
+    },
+    {
+      "src": "/ui-mockups/003_DesignMode.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Design selection"
+    },
+    {
+      "src": "/ui-mockups/005_Preview.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Case preview"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Start",
+      "short_name": "Start",
+      "description": "Start creating a phone case",
+      "url": "/welcome",
+      "icons": [
+        {
+          "src": "/ui-mockups/logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+} 

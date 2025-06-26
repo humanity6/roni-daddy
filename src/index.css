@@ -1,0 +1,282 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Cubano font */
+@font-face {
+  font-family: 'Cubano';
+  src: url('/fonts/Cubano.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Poppins Light font */
+@font-face {
+  font-family: 'PoppinsLight';
+  src: url('/fonts/Poppins-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html {
+    font-family: 'PoppinsLight', system-ui, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: #FFFAF0;
+    overscroll-behavior: none;
+    touch-action: pan-x pan-y;
+  }
+  
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Use Cubano for standard heading tags */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cubano', sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold py-4 px-8 rounded-2xl shadow-lg active:scale-95 transition-all duration-200 touch-manipulation;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-gray-700 font-medium py-4 px-6 rounded-2xl shadow-md border border-gray-200 active:scale-95 transition-all duration-200 touch-manipulation;
+  }
+  
+  .phone-option {
+    @apply bg-white rounded-3xl p-6 shadow-lg border-2 border-transparent active:scale-95 transition-all duration-200 touch-manipulation;
+  }
+  
+  .phone-option.selected {
+    @apply border-pink-500 bg-pink-50;
+  }
+  
+  .screen-container {
+    @apply min-h-screen flex flex-col animate-fade-in relative overflow-hidden;
+    background: #FFFAF0;
+  }
+  
+  .phone-case-image {
+    @apply w-full h-full;
+    object-fit: cover;
+    object-position: center;
+  }
+  
+  .phone-case-image-contain {
+    @apply w-full h-full;
+    object-fit: contain;
+    object-position: center;
+  }
+  
+  /* Phone template positioning - easy to adjust */
+  .phone-case-content {
+    position: absolute;
+    top: 3px;      /* Adjust this value */
+    left: 30px;     /* Adjust this value */
+    right: 30px;    /* Adjust this value */
+    bottom: 3px;   /* Adjust this value */
+    border-radius: 28px; /* Adjust this value */
+    overflow: hidden;
+  }
+  
+  .phone-case-preview {
+    position: absolute;
+    top: 8%;        /* Adjust this value */
+    left: 6%;       /* Adjust this value */
+    right: 6%;      /* Adjust this value */
+    bottom: 8%;     /* Adjust this value */
+    border-radius: 20px; /* Adjust this value */
+    overflow: hidden;
+  }
+  
+  .pastel-blobs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  
+  .blob {
+    position: absolute;
+    opacity: 0.6;
+  }
+  
+  /* Dynamic blob base styles - positioning and sizing handled by React */
+  
+  /* Floating animations for dynamic blobs */
+  @keyframes float-0 {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(10px, -15px) rotate(1deg); }
+    50% { transform: translate(-5px, -10px) rotate(-1deg); }
+    75% { transform: translate(-10px, 5px) rotate(0.5deg); }
+  }
+  
+  @keyframes float-1 {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(-8px, -12px) rotate(-0.5deg); }
+    66% { transform: translate(12px, 8px) rotate(1deg); }
+  }
+  
+  @keyframes float-2 {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    20% { transform: translate(5px, -8px) rotate(0.5deg); }
+    40% { transform: translate(-10px, -5px) rotate(-1deg); }
+    60% { transform: translate(8px, 10px) rotate(0.5deg); }
+    80% { transform: translate(-3px, 12px) rotate(-0.5deg); }
+  }
+  
+  /* Responsive adjustments for mobile */
+  @media (max-width: 768px) {
+    .pastel-blobs .blob {
+      transform: scale(0.7);
+    }
+  }
+  
+  /* Smooth horizontal scrolling for color picker */
+  .color-slider {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+  }
+  
+  .color-slider::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .color-option {
+    scroll-snap-align: center;
+    flex-shrink: 0;
+  }
+  
+  /* Smooth dropdown animations and scrolling */
+  .dropdown-menu {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+    overscroll-behavior: contain;
+  }
+  
+  .dropdown-menu::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  .dropdown-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .dropdown-menu::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 2px;
+  }
+  
+  .dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
+  }
+  
+  .dropdown-enter {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  
+  .dropdown-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 200ms ease-in-out, transform 200ms ease-in-out;
+  }
+  
+  .dropdown-exit {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .dropdown-exit-active {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 200ms ease-in-out, transform 200ms ease-in-out;
+  }
+  
+  /* Fade in animation for screens */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+  }
+  
+  /* Loading spinner animation */
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  /* Bounce animation */
+  @keyframes bounce {
+    0%, 20%, 53%, 80%, 100% {
+      transform: translate3d(0,0,0);
+    }
+    40%, 43% {
+      transform: translate3d(0,-15px,0);
+    }
+    70% {
+      transform: translate3d(0,-5px,0);
+    }
+    90% {
+      transform: translate3d(0,-2px,0);
+    }
+  }
+  
+  .animate-bounce {
+    animation: bounce 1s infinite;
+  }
+  
+  /* Pulse animation for success states */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+} 
