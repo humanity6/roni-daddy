@@ -48,59 +48,64 @@ const PastelBlobs = () => {
 
   const blobs = useMemo(
     () => [
+      // Top-left – light blue
       {
         id: 1,
-        color: '#DDF4C8', // pale green
+        color: '#D8ECF4',
         style: {
-          top: '-80px',
-          left: '-90px',
-          width: '300px',
-          height: '220px',
-          borderRadius: '60% 40% 55% 45% / 65% 60% 40% 35%',
+          top: '-40px',
+          left: '-60px',
+          width: '180px',
+          height: '160px',
+          borderRadius: '65% 35% 70% 30% / 60% 55% 45% 55%',
         },
       },
+      // Top-right – soft pink
       {
         id: 2,
-        color: '#F8D9DE', // soft pink
+        color: '#F8D9DE',
         style: {
-          top: '-50px',
-          right: '-70px',
-          width: '240px',
-          height: '260px',
-          borderRadius: '40% 60% 50% 50% / 60% 40% 60% 40%',
+          top: '-30px',
+          right: '-40px',
+          width: '160px',
+          height: '190px',
+          borderRadius: '40% 60% 55% 45% / 50% 60% 40% 50%',
         },
       },
+      // Mid-right – light blue (slightly off-screen)
       {
         id: 3,
-        color: '#D8ECF4', // light blue
+        color: '#D8ECF4',
         style: {
-          top: '45%',
-          right: '-120px',
-          width: '300px',
-          height: '260px',
-          borderRadius: '35% 65% 60% 40% / 50% 45% 55% 50%',
+          top: '42%',
+          right: '-90px',
+          width: '180px',
+          height: '180px',
+          borderRadius: '30% 70% 65% 35% / 55% 45% 60% 40%',
         },
       },
+      // Bottom-left – deeper pink
       {
         id: 4,
-        color: '#FFF7CF', // pastel yellow
+        color: '#F8D9DE',
         style: {
-          bottom: '-60px',
-          left: '-100px',
-          width: '340px',
-          height: '180px',
-          borderRadius: '55% 45% 40% 60% / 70% 50% 50% 30%',
+          bottom: '-40px',
+          left: '-70px',
+          width: '190px',
+          height: '170px',
+          borderRadius: '70% 30% 60% 40% / 65% 35% 55% 45%',
         },
       },
+      // Bottom-right – pale green
       {
         id: 5,
-        color: '#C8E6C9', // mint green
+        color: '#DDF4C8',
         style: {
-          bottom: '-80px',
-          right: '-80px',
-          width: '280px',
-          height: '280px',
-          borderRadius: '50% 50% 40% 60% / 60% 40% 60% 40%',
+          bottom: '-50px',
+          right: '-60px',
+          width: '220px',
+          height: '210px',
+          borderRadius: '55% 45% 50% 50% / 60% 50% 65% 35%',
         },
       },
     ],

@@ -6,7 +6,7 @@ import PastelBlobs from '../components/PastelBlobs'
 const SamsungModelScreen = () => {
   const navigate = useNavigate()
   const { actions } = useAppState()
-  const [selectedModel, setSelectedModel] = useState('GALAXY S24 ULTRA')
+  const [selectedModel, setSelectedModel] = useState('GALAXY S24')
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const samsungModels = [
@@ -86,29 +86,40 @@ const SamsungModelScreen = () => {
       {/* Header */}
       <div
         style={{
-          background: '#deecd0',
+          position: 'relative',
           width: '380px',
           height: '140px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '0px',
+          marginBottom: '20px',
           marginTop: '60px',
-          clipPath: "path('M0,65 C20,5 360,5 380,65 C370,105 310,120 240,110 C190,125 70,120 0,90 Z')",
-          position: 'relative',
           zIndex: 10
         }}
       >
+        <img
+          src="/samsung blob.svg"
+          alt="Header Background"
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: -1
+          }}
+        />
         <h1 
           style={{
             fontSize: '36px',
             fontWeight: 'bold',
-            color: '#000000',
+            color: '#474746',
             textAlign: 'center',
             margin: '0',
             fontFamily: 'Cubano, sans-serif',
             letterSpacing: '1px',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            position: 'relative',
+            zIndex: 1
           }}
         >
           SAMSUNG MODEL
@@ -237,8 +248,8 @@ const SamsungModelScreen = () => {
             bottom: '60px',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '100px',
-            height: '100px',
+            width: '80px',
+            height: '80px',
             borderRadius: '50%',
             background: '#deecd0',
             border: 'none',
@@ -257,14 +268,14 @@ const SamsungModelScreen = () => {
           {/* Inner Circle - Thinner border */}
           <div
             style={{
-              width: '70px',
-              height: '70px',
+              width: '60px',
+              height: '60px',
               borderRadius: '50%',
               background: '#deecd0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '14px',
+              fontSize: '12px',
               fontWeight: 'bold',
               color: '#2c3e50',
               fontFamily: 'PoppinsLight, sans-serif',

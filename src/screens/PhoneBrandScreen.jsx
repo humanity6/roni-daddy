@@ -55,13 +55,13 @@ const PhoneBrandScreen = () => {
   return (
     <div 
       style={{ 
-        height: '100vh',
+        minHeight: '100vh',
         background: '#f8f8f8',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        padding: '30px 20px 40px',
+        justifyContent: 'center',
+        padding: '40px 20px',
         position: 'relative',
         overflow: 'hidden',
         fontFamily: 'Cubano, sans-serif'
@@ -73,30 +73,40 @@ const PhoneBrandScreen = () => {
       {/* Header Blob */}
       <div
         style={{
-          background: '#dff7f6',
+          position: 'relative',
           width: '380px',
           height: '140px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginTop: '20px',
-          marginBottom: '10px',
-          clipPath: "path('M0,65 C20,5 360,5 380,65 C370,105 310,120 240,110 C190,125 70,120 0,90 Z')",
-          position: 'relative',
+          marginBottom: '20px',
           zIndex: 10
         }}
       >
+        <img
+          src="/blueblob.svg"
+          alt="Header Background"
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: -1
+          }}
+        />
         <h1 
           style={{
             fontSize: '40px',
             fontWeight: 'normal',
-            color: '#2c3e50',
+            color: '#474746',
             textAlign: 'center',
             width: '100%',
             margin: '0',
             padding: '0',
             lineHeight: '1.1',
-            fontFamily: 'Cubano, sans-serif'
+            fontFamily: 'Cubano, sans-serif',
+            position: 'relative',
+            zIndex: 1
           }}
         >CHOOSE YOUR<br/>PHONE
         </h1>
@@ -106,10 +116,10 @@ const PhoneBrandScreen = () => {
       <div style={{ 
         display: 'flex', 
         flexDirection: 'column', 
-        gap: '24px', 
+        gap: '32px', 
         width: '100%',
-        maxWidth: '180px',
-        marginBottom: '0',
+        maxWidth: '200px',
+        marginBottom: '-50px',
         position: 'relative',
         zIndex: 10
       }}>
@@ -120,15 +130,14 @@ const PhoneBrandScreen = () => {
             disabled={!brand.available}
             style={{
               borderRadius: '28px',
-              padding: '12px',
+              padding: '18px',
               cursor: brand.available ? 'pointer' : 'not-allowed',
               transition: 'transform 0.25s ease',
               position: 'relative',
               background: brand.frameColor,
               border: 'none',
               opacity: brand.available ? 1 : 0.7,
-              minWidth: '180px',
-              width: '180px'
+              minWidth: '210px'
             }}
             onMouseEnter={(e) => {
               if (brand.available) {
@@ -146,12 +155,12 @@ const PhoneBrandScreen = () => {
               style={{
                 background: '#ffffff',
                 borderRadius: '18px',
-                padding: '14px 14px 18px 14px',
+                padding: '28px 24px 32px 28px',
                 position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
-                minHeight: '70px'
+                minHeight: '100px'
               }}
             >
               {/* Power button - top right */}
@@ -228,7 +237,7 @@ const PhoneBrandScreen = () => {
         <img 
           src="/logo.png" 
           alt="Pimp My Case Logo" 
-          style={{ height: '22vh', maxHeight: '260px', minHeight: '120px', width: 'auto', marginTop: 'auto' }} 
+          style={{ height: '300px', width: 'auto' }} 
         />
       </div>
 
