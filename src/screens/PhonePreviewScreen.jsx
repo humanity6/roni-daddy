@@ -53,6 +53,15 @@ const PhonePreviewScreen = () => {
           uploadedImage
         }
       })
+    } else if (template?.id?.startsWith('film-strip')) {
+      navigate('/film-strip', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
     } else {
       navigate('/text-input', {
         state: {
@@ -185,7 +194,7 @@ const PhonePreviewScreen = () => {
 
       {/* Submit Button – pink outer ring, white inner ring, pink core */}
       <div className="relative z-10 p-6 flex justify-center">
-        {uploadedImage ? (
+        {template?.id?.startsWith('film-strip') || uploadedImage ? (
           <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
             <div className="rounded-full bg-white p-[6px]">
               <button

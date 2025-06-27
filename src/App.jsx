@@ -17,6 +17,8 @@ import MultiOrderQueueScreen from './screens/MultiOrderQueueScreen'
 import FunnyToonScreen from './screens/FunnyToonScreen'
 import FunnyToonGenerateScreen from './screens/FunnyToonGenerateScreen'
 import PaymentScreen from './screens/PaymentScreen'
+import FilmStripScreen from './screens/FilmStripScreen'
+import FilmStripUploadScreen from './screens/FilmStripUploadScreen'
 
 function App() {
   return (
@@ -41,6 +43,8 @@ function App() {
           <Route path="/funny-toon" element={<FunnyToonScreen />} />
           <Route path="/funny-toon-generate" element={<FunnyToonGenerateScreen />} />
           <Route path="/payment" element={<PaymentScreen />} />
+          <Route path="/film-strip" element={<FilmStripScreen />} />
+          <Route path="/film-strip-upload" element={<FilmStripUploadScreen />} />
         </Routes>
       </div>
     </AppStateProvider>
