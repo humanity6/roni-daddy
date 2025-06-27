@@ -14,6 +14,9 @@ import QRScreen from './screens/QRScreen'
 import ReadyToPayScreen from './screens/ReadyToPayScreen'
 import OrderConfirmedScreen from './screens/OrderConfirmedScreen'
 import MultiOrderQueueScreen from './screens/MultiOrderQueueScreen'
+import FunnyToonScreen from './screens/FunnyToonScreen'
+import FunnyToonGenerateScreen from './screens/FunnyToonGenerateScreen'
+import PaymentScreen from './screens/PaymentScreen'
 
 function App() {
   return (
@@ -35,6 +38,9 @@ function App() {
           <Route path="/ready-to-pay" element={<ReadyToPayScreen />} />
           <Route path="/multi-order-queue" element={<MultiOrderQueueScreen />} />
           <Route path="/order-confirmed" element={<OrderConfirmedScreen />} />
+          <Route path="/funny-toon" element={<FunnyToonScreen />} />
+          <Route path="/funny-toon-generate" element={<FunnyToonGenerateScreen />} />
+          <Route path="/payment" element={<PaymentScreen />} />
         </Routes>
       </div>
     </AppStateProvider>

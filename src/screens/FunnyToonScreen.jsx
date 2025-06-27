@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Upload, 
-  ZoomIn, 
-  ZoomOut, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Upload,
+  ZoomIn,
+  ZoomOut,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
@@ -14,12 +14,13 @@ import {
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 
-const PhonePreviewScreen = () => {
+const FunnyToonScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template } = location.state || {}
-  
-  const [uploadedImage, setUploadedImage] = useState(null)
+  const { brand, model, color, template, uploadedImage: initialImage } = location.state || {}
+
+  const [uploadedImage, setUploadedImage] = useState(initialImage || null)
+  const [toonStyle, setToonStyle] = useState('') // no style selected initially
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
@@ -33,41 +34,33 @@ const PhonePreviewScreen = () => {
   }
 
   const handleBack = () => {
-    navigate('/template-selection', { 
-      state: { 
-        brand, 
-        model, 
-        color 
-      } 
+    navigate('/phone-preview', {
+      state: {
+        brand,
+        model,
+        color,
+        template,
+        uploadedImage
+      }
     })
   }
 
   const handleNext = () => {
-    if (template?.id === 'funny-toon') {
-      navigate('/funny-toon', {
-        state: {
-          brand,
-          model,
-          color,
-          template,
-          uploadedImage
-        }
-      })
-    } else {
-      navigate('/text-input', {
-        state: {
-          brand,
-          model,
-          color,
-          template,
-          uploadedImage
-        }
-      })
-    }
+    navigate('/funny-toon-generate', {
+      state: {
+        brand,
+        model,
+        color,
+        template,
+        uploadedImage,
+        toonStyle
+      }
+    })
   }
 
   const resetInputs = () => {
-    setUploadedImage(null)
+    setUploadedImage(initialImage || null)
+    setToonStyle('')
   }
 
   const getColorClass = (colorId) => {
@@ -84,31 +77,30 @@ const PhonePreviewScreen = () => {
   return (
     <div className="screen-container">
       <PastelBlobs />
-      
+
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4">
-        {/* Back Arrow – outlined pastel-pink circle */}
-        <button 
+        <button
           onClick={handleBack}
           className="w-12 h-12 rounded-full bg-white/90 border-4 border-pink-300 flex items-center justify-center active:scale-95 transition-transform shadow-lg"
         >
           <ArrowLeft size={20} className="text-pink-400" />
         </button>
+        <h1 className="text-lg font-semibold text-gray-800">Funny Toon</h1>
         <div className="w-12 h-12"></div>
       </div>
 
       {/* Main Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
         {/* Phone Case Preview */}
-        <div className="relative mb-8">
-          {/* Phone Case Container */}
+        <div className="relative mb-6">
           <div className="relative w-72 h-[480px]">
-            {/* User's uploaded image - positioned to fit exactly within phone template boundaries */}
+            {/* User's uploaded image */}
             <div className="phone-case-content">
               {uploadedImage ? (
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded design" 
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded design"
                   className="phone-case-image"
                 />
               ) : (
@@ -120,21 +112,20 @@ const PhonePreviewScreen = () => {
                 </div>
               )}
             </div>
-            
-            {/* Phone Template Overlay - camera holes and edges on top */}
+            {/* Phone Template Overlay */}
             <div className="absolute inset-0">
-              <img 
-                src="/phone-template.png" 
-                alt="Phone template overlay" 
+              <img
+                src="/phone-template.png"
+                alt="Phone template overlay"
                 className="w-full h-full object-contain pointer-events-none"
               />
             </div>
           </div>
         </div>
 
-        {/* Control Buttons Row – pastel-green squares */}
+        {/* Control Buttons Row – placeholder reuse (optional) */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[{Icon: ZoomOut}, {Icon: ZoomIn}, {Icon: RefreshCw}, {Icon: ArrowRight}, {Icon: ArrowLeft}, {Icon: ArrowDown}, {Icon: ArrowUp}].map(({Icon}, idx) => (
+          {[{ Icon: ZoomOut }, { Icon: ZoomIn }, { Icon: RefreshCw }, { Icon: ArrowRight }, { Icon: ArrowLeft }, { Icon: ArrowDown }, { Icon: ArrowUp }].map(({ Icon }, idx) => (
             <button
               key={idx}
               className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform"
@@ -144,37 +135,45 @@ const PhonePreviewScreen = () => {
           ))}
         </div>
 
-        {/* Navigation Arrows below – square white buttons */}
-        <div className="flex items-center justify-between w-full max-w-xs mb-6 px-2">
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+        {/* Navigation Arrows with Toon Style options between */}
+        <div className="flex items-center w-full max-w-xs mb-6 px-2">
+          {/* Left Arrow */}
+          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform">
             <ChevronLeft size={24} className="text-gray-600" />
           </button>
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+
+          {/* Style buttons */}
+          <div className="flex flex-col flex-grow mx-2 space-y-2">
+            {[
+              { id: 'wild-wacky', label: 'Wild & Wacky' },
+              { id: 'smooth-funny', label: 'Smooth & Funny' }
+            ].map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setToonStyle(option.id)}
+                className={`w-full py-2 rounded-full text-sm font-medium shadow-md transition-transform active:scale-95 ${
+                  toonStyle === option.id
+                    ? 'bg-blue-200 text-blue-800 ring-2 ring-blue-400'
+                    : 'bg-white border border-gray-300 text-gray-700'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Right Arrow */}
+          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform">
             <ChevronRight size={24} className="text-gray-600" />
           </button>
         </div>
 
         {/* Upload Image Button */}
-        <div className="w-full max-w-xs mb-4">
-          <label className="block">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-            <div className="w-full bg-blue-100 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 transition-transform cursor-pointer shadow-lg">
-              <div className="flex items-center justify-center space-x-2">
-                <Upload size={20} />
-                <span>Upload Image</span>
-              </div>
-            </div>
-          </label>
-        </div>
+        {/* Note: image already uploaded in previous screen */}
 
         {/* Reset Inputs Button */}
-        {uploadedImage && (
-          <button 
+        {toonStyle && (
+          <button
             onClick={resetInputs}
             className="w-full max-w-xs bg-green-200 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 transition-transform shadow-lg mb-4"
           >
@@ -183,9 +182,9 @@ const PhonePreviewScreen = () => {
         )}
       </div>
 
-      {/* Submit Button – pink outer ring, white inner ring, pink core */}
+      {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
-        {uploadedImage ? (
+        {toonStyle ? (
           <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
             <div className="rounded-full bg-white p-[6px]">
               <button
@@ -209,4 +208,4 @@ const PhonePreviewScreen = () => {
   )
 }
 
-export default PhonePreviewScreen 
+export default FunnyToonScreen 
