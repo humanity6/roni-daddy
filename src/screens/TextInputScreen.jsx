@@ -6,8 +6,8 @@ import PastelBlobs from '../components/PastelBlobs'
 const TextInputScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, inputText: initialText, textPosition: initialPosition } = location.state || {}
-  const { imageTransforms, stripCount } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, transform: initialTransform, imageTransforms, inputText: initialText, textPosition: initialPosition } = location.state || {}
+  const { stripCount } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 }) // percentage from top-left
@@ -201,6 +201,7 @@ const TextInputScreen = () => {
                     src={uploadedImage} 
                     alt="Uploaded design" 
                     className="phone-case-image"
+                    style={initialTransform ? { transform:`translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin:'center center' } : undefined}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-50">

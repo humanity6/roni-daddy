@@ -14,7 +14,7 @@ import PastelBlobs from '../components/PastelBlobs'
 const RetroRemixScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage } = location.state || {}
+  const { brand, model, color, template, uploadedImage, transform: initialTransform } = location.state || {}
 
   /* --------------------------------------------------------------------
    * UI STATE
@@ -25,7 +25,7 @@ const RetroRemixScreen = () => {
   /* --------------------------------------------------------------------
    * IMAGE TRANSFORM STATE
    * ------------------------------------------------------------------*/
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
 
   const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
   const moveRight = () => setTransform((p) => ({ ...p, x: Math.min(p.x + 5, 50) }))
@@ -39,14 +39,13 @@ const RetroRemixScreen = () => {
    * NAVIGATION HANDLERS
    * ------------------------------------------------------------------*/
   const handleBack = () => {
-    // Simply go back to the phone preview keeping state
-    navigate(-1)
+    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform } })
   }
 
   const handleSubmit = () => {
     // For now just console log – further flow TBD
     /* eslint-disable no-console */
-    console.log('SUBMIT RETRO REMIX', { brand, model, color, keyword, optionalText })
+    console.log('SUBMIT RETRO REMIX', { brand, model, color, keyword, optionalText, transform })
   }
 
   /* --------------------------------------------------------------------

@@ -25,7 +25,8 @@ const FunnyToonGenerateScreen = () => {
     template,
     uploadedImage,
     toonStyle,
-    aiCredits: initialCredits = 4
+    aiCredits: initialCredits = 4,
+    transform: initialTransform
   } = location.state || {}
 
   const [aiCredits, setAiCredits] = useState(initialCredits)
@@ -34,6 +35,19 @@ const FunnyToonGenerateScreen = () => {
   const [originalImageFile, setOriginalImageFile] = useState(null)
   const [error, setError] = useState(null)
   const [debugInfo, setDebugInfo] = useState('')
+  const [firstGenerateTriggered, setFirstGenerateTriggered] = useState(false)
+
+  // Transform state for adjusting image inside case
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
+
+  /* Transform helpers */
+  const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
+  const moveRight = () => setTransform((p) => ({ ...p, x: Math.min(p.x + 5, 50) }))
+  const moveUp = () => setTransform((p) => ({ ...p, y: Math.max(p.y - 5, -50) }))
+  const moveDown = () => setTransform((p) => ({ ...p, y: Math.min(p.y + 5, 50) }))
+  const zoomIn = () => setTransform((p) => ({ ...p, scale: Math.min(p.scale + 0.1, 5) }))
+  const zoomOut = () => setTransform((p) => ({ ...p, scale: Math.max(p.scale - 0.1, 0.5) }))
+  const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
 
   // Convert data URL back to File for API calls
   useEffect(() => {
@@ -60,6 +74,14 @@ const FunnyToonGenerateScreen = () => {
     }
   }, [uploadedImage])
 
+  // Automatically trigger first generation once image file is ready
+  useEffect(() => {
+    if (originalImageFile && !firstGenerateTriggered && aiCredits > 0 && !generatedImage && !isGenerating) {
+      handleRegenerate()
+      setFirstGenerateTriggered(true)
+    }
+  }, [originalImageFile, firstGenerateTriggered, aiCredits, generatedImage, isGenerating])
+
   const handleBack = () => {
     navigate('/funny-toon', {
       state: {
@@ -69,7 +91,8 @@ const FunnyToonGenerateScreen = () => {
         template,
         uploadedImage,
         toonStyle,
-        aiCredits
+        aiCredits,
+        transform
       }
     })
   }
@@ -145,7 +168,8 @@ const FunnyToonGenerateScreen = () => {
         color,
         template,
         uploadedImage: generatedImage || uploadedImage, // Use generated image if available
-        toonStyle
+        toonStyle,
+        transform
       }
     })
   }
@@ -185,6 +209,7 @@ const FunnyToonGenerateScreen = () => {
                   src={generatedImage} 
                   alt="AI Generated design" 
                   className="phone-case-image"
+                  style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                   onError={(e) => {
                     console.error('Image load error:', e)
                     setError('Failed to load generated image')
@@ -195,6 +220,7 @@ const FunnyToonGenerateScreen = () => {
                   src={uploadedImage} 
                   alt="Original uploaded design" 
                   className="phone-case-image"
+                  style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
@@ -223,32 +249,24 @@ const FunnyToonGenerateScreen = () => {
           </div>
         </div>
 
-        {/* Debug info */}
-        {debugInfo && (
-          <div className="mb-2 p-2 bg-gray-100 rounded text-xs text-gray-600 text-center max-w-xs">
-            🔍 {debugInfo}
-          </div>
-        )}
-
-        {/* Style info */}
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center max-w-xs">
-          <p className="text-sm text-blue-800 font-medium">
-            Style: {toonStyle || 'Classic Cartoon'}
-          </p>
-          <p className="text-xs text-blue-600 mt-1">
-            {generatedImage ? 'AI Generated ✨' : uploadedImage ? 'Original image (click regenerate)' : 'Ready to generate'}
-          </p>
-        </div>
-
-        {/* Placeholder controls row */}
+        {/* Controls row */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[ZoomOut, ZoomIn, RefreshCw, ArrowRight, ArrowLeft, ArrowDown, ArrowUp].map((Icon, idx) => (
-            <button 
-              key={idx} 
-              className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform"
-              disabled={isGenerating}
+          {[
+            { Icon: ZoomOut, action: zoomOut },
+            { Icon: ZoomIn, action: zoomIn },
+            { Icon: RefreshCw, action: resetTransform },
+            { Icon: ArrowRight, action: moveRight },
+            { Icon: ArrowLeft, action: moveLeft },
+            { Icon: ArrowDown, action: moveDown },
+            { Icon: ArrowUp, action: moveUp },
+          ].map(({ Icon, action }, idx) => (
+            <button
+              key={idx}
+              onClick={action}
+              disabled={isGenerating || (!generatedImage && !uploadedImage)}
+              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-transform ${isGenerating ? 'bg-gray-100 cursor-not-allowed' : 'bg-green-100 hover:bg-green-200'}`}
             >
-              <Icon size={20} className={isGenerating ? "text-gray-400" : "text-gray-700"} />
+              <Icon size={20} className={isGenerating ? 'text-gray-400' : 'text-gray-700'} />
             </button>
           ))}
         </div>

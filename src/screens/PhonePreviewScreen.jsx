@@ -51,7 +51,8 @@ const PhonePreviewScreen = () => {
           model,
           color,
           template,
-          uploadedImage
+          uploadedImage,
+          transform
         }
       })
     } else if (template?.id === 'funny-toon') {
@@ -61,7 +62,8 @@ const PhonePreviewScreen = () => {
           model,
           color,
           template,
-          uploadedImage
+          uploadedImage,
+          transform
         }
       })
     } else if (template?.id === 'footy-fan') {
@@ -71,7 +73,8 @@ const PhonePreviewScreen = () => {
           model,
           color,
           template,
-          uploadedImage
+          uploadedImage,
+          transform
         }
       })
     } else if (template?.id?.startsWith('film-strip')) {
@@ -99,7 +102,8 @@ const PhonePreviewScreen = () => {
           model,
           color,
           template,
-          uploadedImage
+          uploadedImage,
+          transform
         }
       })
     }

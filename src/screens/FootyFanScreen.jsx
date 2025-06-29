@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Upload, ZoomIn, ZoomOut, RefreshCw, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowRight
@@ -18,20 +18,34 @@ const LEAGUES = {
 const FootyFanScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage: initialImage } = location.state || {}
+  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform } = location.state || {}
 
   const [uploadedImage, setUploadedImage] = useState(initialImage || null)
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
+  const fileInputRef = useRef(null)
 
   const TEAMS = Object.values(LEAGUES).flat()
   const [team, setTeam] = useState('Liverpool')
 
   const handleBack = () => {
-    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage } })
+    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform } })
   }
 
   const handleNext = () => {
-    navigate('/footy-fan-style', { state: { brand, model, color, template, uploadedImage, team } })
+    navigate('/footy-fan-style', { state: { brand, model, color, template, uploadedImage, team, transform } })
+  }
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (ev) => setUploadedImage(ev.target.result)
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const openFilePicker = () => {
+    fileInputRef.current && fileInputRef.current.click()
   }
 
   const resetInputs = () => {
@@ -68,7 +82,9 @@ const FootyFanScreen = () => {
           <div className="relative w-72 h-[480px]">
             <div className="phone-case-content">
               {uploadedImage ? <img src={uploadedImage} alt="Upload" className="phone-case-image" style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }} /> : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50"><Upload size={48} className="text-gray-400" /></div>
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 cursor-pointer" onClick={openFilePicker}>
+                  <Upload size={48} className="text-gray-400" />
+                </div>
               )}
             </div>
             <div className="absolute inset-0 pointer-events-none"><img src="/phone-template.png" className="w-full h-full object-contain" /></div>
@@ -125,6 +141,9 @@ const FootyFanScreen = () => {
         {team && (
           <button onClick={resetInputs} className="w-full max-w-xs bg-green-200 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 shadow-lg mb-4">Reset Inputs</button>
         )}
+
+        {/* Hidden upload input */}
+        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display:'none' }} />
       </div>
 
       {/* Submit */}

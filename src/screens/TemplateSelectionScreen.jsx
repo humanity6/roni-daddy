@@ -236,7 +236,7 @@ const TemplateSelectionScreen = () => {
         >
           <ArrowLeft size={20} className="text-pink-500" />
         </button>
-        <h1 className="text-3xl md:text-4xl font-cubano text-gray-800 tracking-wide">PICK A DESIGN MODE</h1>
+        <h1 className="text-2xl md:text-3xl font-cubano text-gray-800 tracking-normal">PICK A DESIGN MODE</h1>
         <div className="w-12 h-12"></div>
       </div>
 
@@ -247,7 +247,7 @@ const TemplateSelectionScreen = () => {
           {groupedTemplates.map((row, idx) => (
             <div
               key={idx}
-              className={`grid ${idx === 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-x-0.5 gap-y-1`}
+              className={`grid ${idx === 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-x-2 gap-y-3`}
             >
               {row.map((template) => (
                 <button

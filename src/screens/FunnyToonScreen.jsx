@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -17,11 +17,12 @@ import PastelBlobs from '../components/PastelBlobs'
 const FunnyToonScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage: initialImage } = location.state || {}
+  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform } = location.state || {}
 
   const [uploadedImage, setUploadedImage] = useState(initialImage || null)
   const [toonStyle, setToonStyle] = useState('') // no style selected initially
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
+  const fileInputRef = useRef(null)
 
   /* Image transform helpers */
   const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
@@ -43,6 +44,10 @@ const FunnyToonScreen = () => {
     }
   }
 
+  const openFilePicker = () => {
+    if (fileInputRef.current) fileInputRef.current.click()
+  }
+
   const handleBack = () => {
     navigate('/phone-preview', {
       state: {
@@ -50,7 +55,8 @@ const FunnyToonScreen = () => {
         model,
         color,
         template,
-        uploadedImage
+        uploadedImage,
+        transform
       }
     })
   }
@@ -63,7 +69,8 @@ const FunnyToonScreen = () => {
         color,
         template,
         uploadedImage,
-        toonStyle
+        toonStyle,
+        transform
       }
     })
   }
@@ -116,10 +123,10 @@ const FunnyToonScreen = () => {
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 cursor-pointer" onClick={openFilePicker}>
                   <div className="text-center text-gray-400">
                     <Upload size={48} className="mx-auto mb-3" />
-                    <p className="text-sm">Your design here</p>
+                    <p className="text-sm">Tap to add image</p>
                   </div>
                 </div>
               )}
@@ -202,6 +209,9 @@ const FunnyToonScreen = () => {
             Reset Inputs
           </button>
         )}
+
+        {/* Hidden file input */}
+        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display:'none' }} />
       </div>
 
       {/* Submit Button */}

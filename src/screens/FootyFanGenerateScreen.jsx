@@ -26,11 +26,22 @@ const FootyFanGenerateScreen = () => {
     uploadedImage,
     team,
     style,
-    aiCredits: initialCredits = 4
+    aiCredits: initialCredits = 4,
+    transform: initialTransform
   } = location.state || {}
 
   const [aiCredits, setAiCredits] = useState(initialCredits)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
+
+  /* transform controls */
+  const moveLeft = () => setTransform((p)=>({...p,x:Math.max(p.x-5,-50)}))
+  const moveRight = () => setTransform((p)=>({...p,x:Math.min(p.x+5,50)}))
+  const moveUp = () => setTransform((p)=>({...p,y:Math.max(p.y-5,-50)}))
+  const moveDown = () => setTransform((p)=>({...p,y:Math.min(p.y+5,50)}))
+  const zoomIn = () => setTransform((p)=>({...p,scale:Math.min(p.scale+0.1,5)}))
+  const zoomOut = () => setTransform((p)=>({...p,scale:Math.max(p.scale-0.1,0.5)}))
+  const resetTransform = () => setTransform({x:0,y:0,scale:2})
 
   const handleBack = () => {
     navigate('/footy-fan-style', {
@@ -42,7 +53,8 @@ const FootyFanGenerateScreen = () => {
         uploadedImage,
         team,
         style,
-        aiCredits
+        aiCredits,
+        transform
       }
     })
   }
@@ -66,7 +78,8 @@ const FootyFanGenerateScreen = () => {
         template,
         uploadedImage,
         team,
-        style
+        style,
+        transform
       }
     })
   }
@@ -94,7 +107,7 @@ const FootyFanGenerateScreen = () => {
           <div className="relative w-72 h-[480px]">
             <div className="phone-case-content">
               {uploadedImage ? (
-                <img src={uploadedImage} alt="Upload" className="phone-case-image" />
+                <img src={uploadedImage} alt="Upload" className="phone-case-image" style={{ transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin:'center center' }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   <Upload size={48} className="text-gray-400" />
@@ -109,11 +122,16 @@ const FootyFanGenerateScreen = () => {
 
         {/* Control buttons row */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[ZoomOut, ZoomIn, RefreshCw, ArrowRight, ArrowLeft, ArrowDown, ArrowUp].map((Icon, idx) => (
-            <button
-              key={idx}
-              className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95"
-            >
+          {[
+            {Icon:ZoomOut, action:zoomOut},
+            {Icon:ZoomIn, action:zoomIn},
+            {Icon:RefreshCw, action:resetTransform},
+            {Icon:ArrowRight, action:moveRight},
+            {Icon:ArrowLeft, action:moveLeft},
+            {Icon:ArrowDown, action:moveDown},
+            {Icon:ArrowUp, action:moveUp},
+          ].map(({Icon,action},idx)=>(
+            <button key={idx} onClick={action} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95">
               <Icon size={20} className="text-gray-700" />
             </button>
           ))}

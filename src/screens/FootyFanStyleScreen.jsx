@@ -31,12 +31,15 @@ const FootyFanStyleScreen = () => {
     color,
     template,
     uploadedImage,
-    team
+    team,
+    transform: initialTransform
   } = location.state || {}
 
   // Selected preset or custom text
   const [styleChoice, setStyleChoice] = useState(PRESET_STYLES[0])
   const [customText, setCustomText] = useState('')
+
+  const [transform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
 
   const isCustom = styleChoice === 'Custom…'
   const chosenStyle = isCustom ? customText : styleChoice
@@ -49,7 +52,8 @@ const FootyFanStyleScreen = () => {
         color,
         template,
         uploadedImage,
-        team
+        team,
+        transform
       }
     })
   }
@@ -64,7 +68,8 @@ const FootyFanStyleScreen = () => {
         uploadedImage,
         team,
         style: chosenStyle,
-        aiCredits: 4 // initial credits like other flow
+        aiCredits: 4, // initial credits like other flow
+        transform,
       }
     })
   }
@@ -97,7 +102,7 @@ const FootyFanStyleScreen = () => {
           <div className="relative w-72 h-[480px]">
             <div className="phone-case-content">
               {uploadedImage ? (
-                <img src={uploadedImage} alt="Upload" className="phone-case-image" />
+                <img src={uploadedImage} alt="Upload" className="phone-case-image" style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   <Upload size={48} className="text-gray-400" />
