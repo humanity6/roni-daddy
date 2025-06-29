@@ -1,7 +1,7 @@
 // AI Image Generation Service
 // Handles communication with the FastAPI backend
 
-const API_BASE_URL = 'https://pimp-my-case-backend.onrender.com'  // Update this with your actual Render URL
+const API_BASE_URL = 'http://192.168.100.4:8000'
 
 class AIImageService {
   /**

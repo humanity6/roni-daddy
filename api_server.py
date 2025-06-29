@@ -27,10 +27,7 @@ app.add_middleware(
         "http://localhost:5173", 
         "http://localhost:3000",
         "http://192.168.100.4:5173",  # Your IP address
-        "http://127.0.0.1:5173",
-        "https://pimp-my-case.vercel.app",  # Your Vercel frontend
-        "https://*.vercel.app",  # Allow all Vercel subdomains
-        "https://*.render.com"   # Allow Render domains for testing
+        "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
     allow_methods=["*"],
