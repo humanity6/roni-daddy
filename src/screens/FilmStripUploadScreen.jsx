@@ -27,6 +27,9 @@ const FilmStripUploadScreen = () => {
   const [imageTransforms, setImageTransforms] = useState(
     Array(totalSlots).fill(defaultTransform)
   )
+  const [imageOrientations, setImageOrientations] = useState(
+    Array(totalSlots).fill('unknown') // 'portrait' | 'landscape'
+  )
 
   const handleBack = () => {
     navigate('/film-strip', {
@@ -67,6 +70,17 @@ const FilmStripUploadScreen = () => {
         next[currentIdx] = { ...defaultTransform }
         return next
       })
+
+      // Determine orientation for this image
+      const probe = new Image()
+      probe.onload = () => {
+        setImageOrientations((prev) => {
+          const next = [...prev]
+          next[currentIdx] = probe.width >= probe.height ? 'landscape' : 'portrait'
+          return next
+        })
+      }
+      probe.src = ev.target.result
     }
     reader.readAsDataURL(file)
     e.target.value = ''
@@ -82,7 +96,9 @@ const FilmStripUploadScreen = () => {
         model,
         color,
         template,
-        uploadedImages
+        uploadedImages,
+        imageTransforms,
+        stripCount
       }
     })
   }
@@ -112,8 +128,22 @@ const FilmStripUploadScreen = () => {
 
   const moveUp = () => updateTransform(currentIdx, (t) => ({ y: t.y - 5 }))
   const moveDown = () => updateTransform(currentIdx, (t) => ({ y: t.y + 5 }))
-  const moveLeft = () => updateTransform(currentIdx, (t) => ({ x: t.x - 5 }))
-  const moveRight = () => updateTransform(currentIdx, (t) => ({ x: t.x + 5 }))
+  const moveLeft = () => {
+    const orient = imageOrientations[currentIdx]
+    if (orient === 'landscape') {
+      updateTransform(currentIdx, (t) => ({ x: t.x - 10 }))
+    } else {
+      updateTransform(currentIdx, (t) => ({ y: t.y - 10 }))
+    }
+  }
+  const moveRight = () => {
+    const orient = imageOrientations[currentIdx]
+    if (orient === 'landscape') {
+      updateTransform(currentIdx, (t) => ({ x: t.x + 10 }))
+    } else {
+      updateTransform(currentIdx, (t) => ({ y: t.y + 10 }))
+    }
+  }
   const zoomIn = () => updateTransform(currentIdx, (t) => ({ scale: t.scale + 0.1 }))
   const zoomOut = () => updateTransform(currentIdx, (t) => ({ scale: t.scale - 0.1 }))
   const resetTransform = () => updateTransform(currentIdx, defaultTransform)

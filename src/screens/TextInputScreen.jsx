@@ -7,18 +7,31 @@ const TextInputScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { brand, model, color, template, uploadedImage, uploadedImages, inputText: initialText, textPosition: initialPosition } = location.state || {}
+  const { imageTransforms, stripCount } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 }) // percentage from top-left
 
   const handleBack = () => {
-    if (template?.imageCount && template.imageCount > 1 && !template.id?.startsWith('film-strip')) {
+    if (template?.id?.startsWith('film-strip')) {
+      navigate('/film-strip-upload', {
+        state: {
+          brand,
+          model,
+          color,
+          template,
+          stripCount
+        }
+      })
+    } else if (template?.imageCount && template.imageCount > 1) {
       navigate('/multi-image-upload', {
         state: {
           brand,
           model,
           color,
-          template
+          template,
+          imageTransforms,
+          stripCount
         }
       })
     } else {
@@ -27,7 +40,9 @@ const TextInputScreen = () => {
           brand, 
           model, 
           color, 
-          template 
+          template,
+          imageTransforms,
+          stripCount
         } 
       })
     }
@@ -42,6 +57,8 @@ const TextInputScreen = () => {
         template, 
         uploadedImage,
         uploadedImages,
+        imageTransforms,
+        stripCount,
         inputText,
         textPosition
       } 
@@ -97,64 +114,123 @@ const TextInputScreen = () => {
       {/* Main Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
         {/* Phone Case Preview */}
-        <div className="relative mb-8">
-          <div className="relative w-72 h-[480px]">
-            {/* User's uploaded image */}
-            <div className="phone-case-content">
-              {uploadedImages && uploadedImages.length > 0 ? (
-                <div className="w-full h-full overflow-hidden">
-                  {uploadedImages.length === 4 ? (
-                    <div className="w-full h-full flex flex-wrap">
-                      {uploadedImages.map((img, idx) => (
-                        <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
-                          <img src={img} alt={`design ${idx+1}`} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
+        <div className="relative mb-6">
+          {template?.id?.startsWith('film-strip') ? (
+            <div className="relative w-[525px] h-[525px] overflow-hidden">
+              <div
+                className="absolute inset-0 flex flex-col justify-center items-center z-10"
+                style={{ paddingTop:'0px', paddingBottom:'0px', paddingLeft:'180px', paddingRight:'179px'}}
+              >
+                {uploadedImages && uploadedImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="w-full overflow-hidden border-t-[8px] border-b-[8px] border-black"
+                    style={{ height: `${100 / (stripCount || 3) - 2}%` }}
+                  >
+                    <img 
+                      src={img} 
+                      alt={`design ${idx+1}`} 
+                      className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: imageTransforms && imageTransforms[idx] 
+                          ? `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`
+                          : '50% 50%',
+                        transform: imageTransforms && imageTransforms[idx] 
+                          ? `scale(${imageTransforms[idx].scale})`
+                          : 'scale(1)'
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-0 z-20 pointer-events-none">
+                <img src="/filmstrip-case.png" alt="Film strip case" className="w-full h-full object-contain" />
+              </div>
+            </div>
+          ) : (
+            <div className="relative w-72 h-[480px]">
+              {/* User's uploaded image */}
+              <div className="phone-case-content">
+                {uploadedImages && uploadedImages.length > 0 ? (
+                  // Default layouts for other templates
+                  <div className="w-full h-full overflow-hidden">
+                    {uploadedImages.length === 4 ? (
+                      <div className="w-full h-full flex flex-wrap">
+                        {uploadedImages.map((img, idx) => (
+                          <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
+                            <img 
+                              src={img} 
+                              alt={`design ${idx+1}`} 
+                              className="w-full h-full object-cover"
+                              style={{
+                                objectPosition: imageTransforms && imageTransforms[idx] 
+                                  ? `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`
+                                  : '50% 50%',
+                                transform: imageTransforms && imageTransforms[idx] 
+                                  ? `scale(${imageTransforms[idx].scale})`
+                                  : 'scale(1)'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col">
+                        {uploadedImages.map((img, idx) => (
+                          <div key={idx} className="flex-1 overflow-hidden">
+                            <img 
+                              src={img} 
+                              alt={`design ${idx+1}`} 
+                              className="w-full h-full object-cover"
+                              style={{
+                                objectPosition: imageTransforms && imageTransforms[idx] 
+                                  ? `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`
+                                  : '50% 50%',
+                                transform: imageTransforms && imageTransforms[idx] 
+                                  ? `scale(${imageTransforms[idx].scale})`
+                                  : 'scale(1)'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : uploadedImage ? (
+                  <img 
+                    src={uploadedImage} 
+                    alt="Uploaded design" 
+                    className="phone-case-image"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                    <div className="text-center text-gray-400">
+                      <Type size={48} className="mx-auto mb-3" />
+                      <p className="text-sm">Your design here</p>
                     </div>
-                  ) : (
-                    <div className="w-full h-full flex flex-col">
-                      {uploadedImages.map((img, idx) => (
-                        <div key={idx} className={`flex-1 overflow-hidden`}>
-                          <img src={img} alt={`design ${idx+1}`} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : uploadedImage ? (
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded design" 
-                  className="phone-case-image"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                  <div className="text-center text-gray-400">
-                    <Type size={48} className="mx-auto mb-3" />
-                    <p className="text-sm">Your design here</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Text overlay preview */}
+              {inputText && (
+                <div style={getTextStyle()}>
+                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                    <p className="text-lg font-medium">{inputText}</p>
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Text overlay preview */}
-            {inputText && (
-              <div style={getTextStyle()}>
-                <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                  <p className="text-lg font-medium">{inputText}</p>
-                </div>
+              
+              {/* Case Template Overlay */}
+              <div className="absolute inset-0 pointer-events-none">
+                <img 
+                  src="/phone-template.png" 
+                  alt="Phone case overlay" 
+                  className="w-full h-full object-contain"
+                />
               </div>
-            )}
-            
-            {/* Phone Template Overlay */}
-            <div className="absolute inset-0">
-              <img 
-                src="/phone-template.png" 
-                alt="Phone template overlay" 
-                className="w-full h-full object-contain pointer-events-none"
-              />
             </div>
-          </div>
+          )}
         </div>
 
         {/* Text Input Section */}

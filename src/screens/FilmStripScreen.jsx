@@ -28,9 +28,9 @@ const FilmStripScreen = () => {
   }
 
   const handleBack = () => {
-    // go back to phone preview
-    navigate('/phone-preview', {
-      state: { brand, model, color, template }
+    // go back to template selection
+    navigate('/template-selection', {
+      state: { brand, model, color }
     })
   }
 
