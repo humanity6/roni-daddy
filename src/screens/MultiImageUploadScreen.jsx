@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Upload, RefreshCw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, ArrowRight as ArrowForward, ArrowUp, ArrowDown, ArrowLeft as ArrowBack } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { enhanceImage } from '../utils/imageEnhancer'
 
 const MultiImageUploadScreen = () => {
   const navigate = useNavigate()
@@ -27,20 +28,20 @@ const MultiImageUploadScreen = () => {
     fileInputRef.current?.click()
   }
 
-  const handleFilesSelected = (e) => {
+  const handleFilesSelected = async (e) => {
     const file = e.target.files[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (ev) => {
+    try {
+      const processed = await enhanceImage(file)
       setImages((prev) => {
         const next = [...prev]
-        next[currentIdx] = { ...next[currentIdx], src: ev.target.result, scale: 2 }
+        next[currentIdx] = { ...next[currentIdx], src: processed, scale: 2 }
         return next
       })
-      // Stay on current image so user can crop/adjust before moving to next
+    } catch (err) {
+      console.error('Image processing failed', err)
     }
-    reader.readAsDataURL(file)
     e.target.value = ''
   }
 

@@ -11,6 +11,7 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { enhanceImage } from '../utils/imageEnhancer'
 // Using public filmstrip case image
 
 const FilmStripUploadScreen = () => {
@@ -41,29 +42,26 @@ const FilmStripUploadScreen = () => {
     fileInputRef.current?.click()
   }
 
-  const handleFilesSelected = (e) => {
+  const handleFilesSelected = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    
-    console.log(`Uploading image for slot ${currentIdx}:`, file.name)
-    
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      console.log(`Image loaded for slot ${currentIdx}, data length:`, ev.target.result.length)
-      
+
+    try {
+      // film strip frames expect 4:3 aspect ratio
+      const processed = await enhanceImage(file, { targetAspectRatio: 4 / 3 })
+
       setUploadedImages((prev) => {
         const next = [...prev]
-        next[currentIdx] = ev.target.result
-        console.log(`Updated images array:`, next.map((img, idx) => img ? `Slot ${idx}: Image loaded` : `Slot ${idx}: Empty`))
+        next[currentIdx] = processed
         return next
       })
-      
-      // Auto-advance to next empty slot if available
+
+      // Auto-advance
       const nextEmptySlot = uploadedImages.findIndex((img, idx) => !img && idx > currentIdx)
       if (nextEmptySlot !== -1) {
         setCurrentIdx(nextEmptySlot)
       }
-      
+
       // Reset transform for this slot
       setImageTransforms((prev) => {
         const next = [...prev]
@@ -71,7 +69,7 @@ const FilmStripUploadScreen = () => {
         return next
       })
 
-      // Determine orientation for this image
+      // Determine orientation for arrow helper logic
       const probe = new Image()
       probe.onload = () => {
         setImageOrientations((prev) => {
@@ -80,9 +78,10 @@ const FilmStripUploadScreen = () => {
           return next
         })
       }
-      probe.src = ev.target.result
+      probe.src = processed
+    } catch (err) {
+      console.error('Image processing failed', err)
     }
-    reader.readAsDataURL(file)
     e.target.value = ''
   }
 

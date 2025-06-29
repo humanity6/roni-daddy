@@ -13,6 +13,7 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { enhanceImage } from '../utils/imageEnhancer'
 
 const PhonePreviewScreen = () => {
   const navigate = useNavigate()
@@ -22,14 +23,15 @@ const PhonePreviewScreen = () => {
   const [uploadedImage, setUploadedImage] = useState(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setUploadedImage(e.target.result)
+      try {
+        const processed = await enhanceImage(file)
+        setUploadedImage(processed)
+      } catch (err) {
+        console.error('Image processing failed', err)
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -158,6 +160,9 @@ const PhonePreviewScreen = () => {
         <div className="relative mb-8">
           {/* Phone Case Container */}
           <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             {/* User's uploaded image - positioned to fit exactly within phone template boundaries */}
             <div className="phone-case-content">
               {uploadedImage ? (

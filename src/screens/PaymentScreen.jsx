@@ -1,6 +1,22 @@
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
+// Map of available fonts to CSS font-family declarations (mirrors earlier screens)
+const FONT_MAP = {
+  'Arial': 'Arial, sans-serif',
+  'Georgia': 'Georgia, serif',
+  'Helvetica': 'Helvetica, sans-serif',
+  'Times New Roman': 'Times New Roman, serif',
+  'Verdana': 'Verdana, sans-serif',
+  'Comic Sans': 'Comic Sans MS, cursive',
+  'Impact': 'Impact, sans-serif',
+  'Palatino': 'Palatino, serif',
+  'Roboto': 'Roboto, sans-serif',
+  'Open Sans': 'Open Sans, sans-serif',
+  'Montserrat': 'Montserrat, sans-serif',
+  'Lato': 'Lato, sans-serif'
+}
+
 const PaymentScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
@@ -8,6 +24,11 @@ const PaymentScreen = () => {
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
     designImage,
+    inputText,
+    selectedFont = 'Arial',
+    fontSize = 18,
+    selectedTextColor = '#ffffff',
+    textPosition,
     price = 18.99,
   } = location.state || {}
 
@@ -46,6 +67,21 @@ const PaymentScreen = () => {
       borderRadius: '45% 55% 65% 35% / 50% 60% 40% 50%'
     }
   ]
+
+  // Compute style helpers reused from previous screens
+  const getPreviewStyle = () => ({
+    fontFamily: FONT_MAP[selectedFont] || 'Arial, sans-serif',
+    fontSize: `${fontSize}px`,
+    color: selectedTextColor
+  })
+
+  const getTextStyle = () => ({
+    position: 'absolute',
+    left: `${textPosition?.x || 50}%`,
+    top: `${textPosition?.y || 50}%`,
+    transform: 'translate(-50%, -50%)',
+    pointerEvents: 'none'
+  })
 
   const handleBack = () => {
     navigate(-1)
@@ -89,6 +125,15 @@ const PaymentScreen = () => {
                 <img src={designImage} alt="Your design" className="phone-case-image" />
               ) : (
                 <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">No design</div>
+              )}
+
+              {/* Text overlay preview */}
+              {inputText && (
+                <div style={getTextStyle()}>
+                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                    <p style={getPreviewStyle()}>{inputText}</p>
+                  </div>
+                </div>
               )}
             </div>
             {/* Template overlay */}

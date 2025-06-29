@@ -83,7 +83,7 @@ const FontSelectionScreen = () => {
   }
 
   return (
-    <div className="screen-container">
+    <div className="screen-container" style={{ overflow: 'visible' }}>
       <PastelBlobs />
       
       {/* Header */}
@@ -99,7 +99,7 @@ const FontSelectionScreen = () => {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+      <div className="relative z-50 flex-1 flex flex-col items-center justify-center px-6">
         {/* Phone Case Preview */}
         <div className="relative mb-8">
           <div className="relative w-72 h-[480px]">
@@ -197,7 +197,7 @@ const FontSelectionScreen = () => {
 
           {/* Dropdown Menu */}
           {isDropdownOpen && (
-            <div className="dropdown-menu absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 max-h-64 overflow-y-auto z-50">
+            <div className="dropdown-menu absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-200 max-h-64 overflow-y-auto pointer-events-auto z-50">
               {fonts.map((font) => (
                 <button
                   key={font.name}

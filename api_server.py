@@ -18,7 +18,7 @@ load_dotenv()  # Current directory
 load_dotenv("image gen/.env")  # Image gen subdirectory
 load_dotenv(".env")  # Explicit current directory
 
-app = FastAPI(title="Roni Daddy AI Image Generator API", version="1.0.0")
+app = FastAPI(title="Roni AI Image Generator API", version="1.0.0")
 
 # CORS middleware for React frontend
 app.add_middleware(
@@ -293,7 +293,7 @@ def save_generated_image(base64_data: str, template_id: str) -> tuple:
 
 @app.get("/")
 async def root():
-    return {"message": "Roni Daddy AI Image Generator API", "status": "active"}
+    return {"message": "Roni AI Image Generator API", "status": "active"}
 
 @app.get("/health")
 async def health_check():

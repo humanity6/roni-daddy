@@ -57,6 +57,11 @@ const TextColorSelectionScreen = () => {
     navigate('/payment', {
       state: {
         designImage: uploadedImage,
+        inputText,
+        selectedFont,
+        fontSize,
+        selectedTextColor,
+        textPosition,
         price: 16.99 // or default
       }
     })

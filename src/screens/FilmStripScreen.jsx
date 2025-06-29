@@ -74,6 +74,9 @@ const FilmStripScreen = () => {
         {/* Phone Case Preview */}
         <div className="relative mb-6">
           <div className="relative w-[525px] h-[525px]">
+            {/* Separate border element for film strip */}
+            <div className="phone-case-border filmstrip"></div>
+            
             <div className="phone-case-content mask-filmstrip">
               {/* Preview area for filmstrip layout */}
               <div className="absolute inset-0 flex flex-col justify-center items-center z-10 px-8 py-12">
