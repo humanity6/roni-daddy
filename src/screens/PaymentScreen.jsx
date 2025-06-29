@@ -24,6 +24,8 @@ const PaymentScreen = () => {
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
     designImage,
+    uploadedImages,
+    imageTransforms,
     inputText,
     selectedFont = 'Arial',
     fontSize = 18,
@@ -89,7 +91,14 @@ const PaymentScreen = () => {
   }
 
   const handlePay = () => {
-    navigate('/order-confirmed', { state: { designImage, price } })
+    navigate('/order-confirmed', { 
+      state: { 
+        designImage, 
+        uploadedImages,
+        imageTransforms,
+        price 
+      } 
+    })
   }
 
   return (
@@ -125,7 +134,48 @@ const PaymentScreen = () => {
             
             {/* Dynamic design image */}
             <div className="phone-case-content">
-              {designImage ? (
+              {uploadedImages && uploadedImages.length > 0 ? (
+                // Multi-image layouts
+                <div className="w-full h-full overflow-hidden">
+                  {uploadedImages.length === 4 ? (
+                    <div className="w-full h-full flex flex-wrap">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
+                          <img 
+                            src={img} 
+                            alt={`design ${idx+1}`} 
+                            className="w-full h-full object-cover"
+                            style={{
+                              transform: imageTransforms && imageTransforms[idx] 
+                                ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                : 'translate(0%, 0%) scale(1)',
+                              transformOrigin: 'center center'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className="flex-1 overflow-hidden">
+                          <img 
+                            src={img} 
+                            alt={`design ${idx+1}`} 
+                            className="w-full h-full object-cover"
+                            style={{
+                              transform: imageTransforms && imageTransforms[idx] 
+                                ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                : 'translate(0%, 0%) scale(1)',
+                              transformOrigin: 'center center'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : designImage ? (
                 <img 
                   src={designImage} 
                   alt="Your design" 

@@ -135,12 +135,10 @@ const TextInputScreen = () => {
                       alt={`design ${idx+1}`} 
                       className="w-full h-full object-cover"
                       style={{
-                        objectPosition: imageTransforms && imageTransforms[idx] 
-                          ? `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`
-                          : '50% 50%',
                         transform: imageTransforms && imageTransforms[idx] 
-                          ? `scale(${imageTransforms[idx].scale})`
-                          : 'scale(1)'
+                          ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                          : 'translate(0%, 0%) scale(1)',
+                        transformOrigin: 'center center'
                       }}
                     />
                   </div>
@@ -169,12 +167,10 @@ const TextInputScreen = () => {
                               alt={`design ${idx+1}`} 
                               className="w-full h-full object-cover"
                               style={{
-                                objectPosition: imageTransforms && imageTransforms[idx] 
-                                  ? `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`
-                                  : '50% 50%',
                                 transform: imageTransforms && imageTransforms[idx] 
-                                  ? `scale(${imageTransforms[idx].scale})`
-                                  : 'scale(1)'
+                                  ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                  : 'translate(0%, 0%) scale(1)',
+                                transformOrigin: 'center center'
                               }}
                             />
                           </div>
@@ -189,12 +185,10 @@ const TextInputScreen = () => {
                               alt={`design ${idx+1}`} 
                               className="w-full h-full object-cover"
                               style={{
-                                objectPosition: imageTransforms && imageTransforms[idx] 
-                                  ? `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`
-                                  : '50% 50%',
                                 transform: imageTransforms && imageTransforms[idx] 
-                                  ? `scale(${imageTransforms[idx].scale})`
-                                  : 'scale(1)'
+                                  ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                  : 'translate(0%, 0%) scale(1)',
+                                transformOrigin: 'center center'
                               }}
                             />
                           </div>

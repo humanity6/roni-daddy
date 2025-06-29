@@ -148,14 +148,23 @@ const MultiImageUploadScreen = () => {
   const resetImages = () => setImages(Array(requiredCount).fill(null).map(() => ({ src: null, x: 0, y: 0, scale: 2 })))
 
   const handleNext = () => {
+    // Extract image URLs and transforms from the images array
+    const imageUrls = images.map(img => img.src).filter(src => src !== null)
+    const imageTransforms = images.map(img => ({
+      x: img.x,
+      y: img.y,
+      scale: img.scale
+    }))
+    
     navigate('/text-input', {
       state: {
         brand,
         model,
         color,
         template,
-        uploadedImages: images,
-        uploadedImage: images[0] // keep first for backward compat
+        uploadedImages: imageUrls,
+        uploadedImage: images[0]?.src || null, // keep first for backward compat
+        imageTransforms: imageTransforms
       }
     })
   }

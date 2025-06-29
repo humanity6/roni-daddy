@@ -7,7 +7,7 @@ import CircleSubmitButton from '../components/CircleSubmitButton'
 const TextColorSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, inputText, selectedFont, fontSize, textPosition, transform: initialTransform } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, selectedFont, fontSize, textPosition, transform: initialTransform } = location.state || {}
   
   const [selectedTextColor, setSelectedTextColor] = useState('#ffffff')
 
@@ -46,6 +46,8 @@ const TextColorSelectionScreen = () => {
         color, 
         template, 
         uploadedImage,
+        uploadedImages,
+        imageTransforms,
         inputText,
         selectedFont,
         fontSize,
@@ -59,6 +61,8 @@ const TextColorSelectionScreen = () => {
     navigate('/payment', {
       state: {
         designImage: uploadedImage,
+        uploadedImages,
+        imageTransforms,
         inputText,
         selectedFont,
         fontSize,
@@ -131,7 +135,48 @@ const TextColorSelectionScreen = () => {
             
             {/* User's uploaded image */}
             <div className="phone-case-content">
-              {uploadedImage ? (
+              {uploadedImages && uploadedImages.length > 0 ? (
+                // Multi-image layouts
+                <div className="w-full h-full overflow-hidden">
+                  {uploadedImages.length === 4 ? (
+                    <div className="w-full h-full flex flex-wrap">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
+                          <img 
+                            src={img} 
+                            alt={`design ${idx+1}`} 
+                            className="w-full h-full object-cover"
+                            style={{
+                              transform: imageTransforms && imageTransforms[idx] 
+                                ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                : 'translate(0%, 0%) scale(1)',
+                              transformOrigin: 'center center'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className="flex-1 overflow-hidden">
+                          <img 
+                            src={img} 
+                            alt={`design ${idx+1}`} 
+                            className="w-full h-full object-cover"
+                            style={{
+                              transform: imageTransforms && imageTransforms[idx] 
+                                ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                : 'translate(0%, 0%) scale(1)',
+                              transformOrigin: 'center center'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : uploadedImage ? (
                 <img 
                   src={uploadedImage} 
                   alt="Uploaded design" 
