@@ -105,6 +105,9 @@ const FootyFanGenerateScreen = () => {
         {/* Phone preview */}
         <div className="relative mb-6">
           <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             <div className="phone-case-content">
               {uploadedImage ? (
                 <img src={uploadedImage} alt="Upload" className="phone-case-image" style={{ transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin:'center center' }} />

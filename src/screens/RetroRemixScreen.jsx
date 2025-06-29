@@ -77,12 +77,15 @@ const RetroRemixScreen = () => {
       <div className="relative z-10 flex flex-col items-center px-6 mt-2">
         {/* PHONE PREVIEW */}
         <div className="relative w-72 h-[480px] mb-4">
+          {/* Separate border element - positioned independently */}
+          <div className="phone-case-border"></div>
+          
           <div className="phone-case-content">
             {uploadedImage ? (
               <img
                 src={uploadedImage}
                 alt="Uploaded"
-                className="phone-case-image"
+                className="phone-case-image-contain"
                 style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
               />
             ) : (

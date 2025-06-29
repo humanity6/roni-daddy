@@ -41,6 +41,8 @@ const TextInputScreen = () => {
           model, 
           color, 
           template,
+          uploadedImage,
+          transform: initialTransform,
           imageTransforms,
           stripCount
         } 
@@ -60,7 +62,8 @@ const TextInputScreen = () => {
         imageTransforms,
         stripCount,
         inputText,
-        textPosition
+        textPosition,
+        transform: initialTransform
       } 
     })
   }
@@ -149,6 +152,9 @@ const TextInputScreen = () => {
             </div>
           ) : (
             <div className="relative w-72 h-[480px]">
+              {/* Separate border element - positioned independently */}
+              <div className="phone-case-border"></div>
+              
               {/* User's uploaded image */}
               <div className="phone-case-content">
                 {uploadedImages && uploadedImages.length > 0 ? (
@@ -200,7 +206,7 @@ const TextInputScreen = () => {
                   <img 
                     src={uploadedImage} 
                     alt="Uploaded design" 
-                    className="phone-case-image"
+                    className="phone-case-image-contain"
                     style={initialTransform ? { transform:`translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin:'center center' } : undefined}
                   />
                 ) : (

@@ -85,7 +85,7 @@
   
   .phone-case-image-contain {
     @apply w-full h-full;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
     background-color: transparent;
     max-width: 100%;

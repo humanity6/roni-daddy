@@ -42,6 +42,9 @@ const GlitchScreen = () => {
       <div className="relative z-10 flex flex-col items-center px-6 mt-2">
         {/* Phone preview */}
         <div className="relative w-72 h-[480px] mb-4">
+          {/* Separate border element - positioned independently */}
+          <div className="phone-case-border"></div>
+          
           <div className="phone-case-content">
             {image && (
               <img src={image} alt="Uploaded" className="phone-case-image" style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }} />

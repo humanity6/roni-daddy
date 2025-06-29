@@ -29,6 +29,7 @@ const PaymentScreen = () => {
     fontSize = 18,
     selectedTextColor = '#ffffff',
     textPosition,
+    transform: initialTransform,
     price = 18.99,
   } = location.state || {}
 
@@ -119,10 +120,18 @@ const PaymentScreen = () => {
         {/* Phone render */}
         <div className="flex-1 flex flex-col items-center justify-start pt-2">
           <div className="relative w-64 h-[420px] mx-auto">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             {/* Dynamic design image */}
             <div className="phone-case-content">
               {designImage ? (
-                <img src={designImage} alt="Your design" className="phone-case-image" />
+                <img 
+                  src={designImage} 
+                  alt="Your design" 
+                  className="phone-case-image-contain"
+                  style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
+                />
               ) : (
                 <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">No design</div>
               )}

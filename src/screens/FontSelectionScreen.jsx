@@ -7,7 +7,7 @@ import CircleSubmitButton from '../components/CircleSubmitButton'
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, inputText, textPosition } = location.state || {}
+  const { brand, model, color, template, uploadedImage, inputText, textPosition, transform: initialTransform } = location.state || {}
   
   const [selectedFont, setSelectedFont] = useState('Arial')
   const [fontSize, setFontSize] = useState(18)
@@ -39,7 +39,8 @@ const FontSelectionScreen = () => {
         inputText,
         selectedFont,
         fontSize,
-        textPosition
+        textPosition,
+        transform: initialTransform
       } 
     })
   }
@@ -55,7 +56,8 @@ const FontSelectionScreen = () => {
         inputText,
         selectedFont,
         fontSize,
-        textPosition
+        textPosition,
+        transform: initialTransform
       } 
     })
   }
@@ -103,13 +105,17 @@ const FontSelectionScreen = () => {
         {/* Phone Case Preview */}
         <div className="relative mb-8">
           <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             {/* User's uploaded image */}
             <div className="phone-case-content">
               {uploadedImage ? (
                 <img 
                   src={uploadedImage} 
                   alt="Uploaded design" 
-                  className="phone-case-image"
+                  className="phone-case-image-contain"
+                  style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">

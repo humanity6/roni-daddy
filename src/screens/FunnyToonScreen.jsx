@@ -113,13 +113,16 @@ const FunnyToonScreen = () => {
         {/* Phone Case Preview */}
         <div className="relative mb-6">
           <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             {/* User's uploaded image */}
             <div className="phone-case-content">
               {uploadedImage ? (
                 <img
                   src={uploadedImage}
                   alt="Uploaded design"
-                  className="phone-case-image"
+                  className="phone-case-image-contain"
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (

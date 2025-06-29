@@ -40,12 +40,11 @@ const PhonePreviewScreen = () => {
           const scaleX = containerWidth / img.width
           const scaleY = containerHeight / img.height
           
-          // For object-fit: cover, we need to use the larger scale to ensure no white borders
-          const autoScale = Math.max(scaleX, scaleY)
+          // For object-fit: contain, use the smaller scale to ensure no cropping
+          const autoScale = Math.min(scaleX, scaleY)
           
-          // For tall images (like 2268x4032), we need more aggressive scaling
-          // Ensure the scale is high enough to fill the container completely
-          const finalScale = Math.max(autoScale * 1.2, 1.5) // Increase base scale and minimum
+          // Scale up slightly to fill more space while still preventing cropping
+          const finalScale = Math.max(autoScale * 3, 1.0)
           
           setTransform({ x: 0, y: 0, scale: finalScale })
         }

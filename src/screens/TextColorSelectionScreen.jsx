@@ -7,7 +7,7 @@ import CircleSubmitButton from '../components/CircleSubmitButton'
 const TextColorSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, inputText, selectedFont, fontSize, textPosition } = location.state || {}
+  const { brand, model, color, template, uploadedImage, inputText, selectedFont, fontSize, textPosition, transform: initialTransform } = location.state || {}
   
   const [selectedTextColor, setSelectedTextColor] = useState('#ffffff')
 
@@ -48,7 +48,9 @@ const TextColorSelectionScreen = () => {
         uploadedImage,
         inputText,
         selectedFont,
-        textPosition
+        fontSize,
+        textPosition,
+        transform: initialTransform
       } 
     })
   }
@@ -62,6 +64,7 @@ const TextColorSelectionScreen = () => {
         fontSize,
         selectedTextColor,
         textPosition,
+        transform: initialTransform,
         price: 16.99 // or default
       }
     })
@@ -123,13 +126,17 @@ const TextColorSelectionScreen = () => {
         {/* Phone Case Preview */}
         <div className="relative mb-8">
           <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             {/* User's uploaded image */}
             <div className="phone-case-content">
               {uploadedImage ? (
                 <img 
                   src={uploadedImage} 
                   alt="Uploaded design" 
-                  className="phone-case-image"
+                  className="phone-case-image-contain"
+                  style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">

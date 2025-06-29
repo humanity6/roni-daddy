@@ -202,13 +202,16 @@ const FunnyToonGenerateScreen = () => {
         {/* Phone preview */}
         <div className="relative mb-6">
           <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
             <div className="phone-case-content">
               {/* Show generated image if available, otherwise show uploaded image */}
               {generatedImage ? (
                 <img 
                   src={generatedImage} 
                   alt="AI Generated design" 
-                  className="phone-case-image"
+                  className="phone-case-image-contain"
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                   onError={(e) => {
                     console.error('Image load error:', e)
@@ -219,7 +222,7 @@ const FunnyToonGenerateScreen = () => {
                 <img 
                   src={uploadedImage} 
                   alt="Original uploaded design" 
-                  className="phone-case-image"
+                  className="phone-case-image-contain"
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
@@ -241,10 +244,14 @@ const FunnyToonGenerateScreen = () => {
                 </div>
               )}
             </div>
-
-            {/* Overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-              <img src="/phone-template.png" alt="Phone template" className="w-full h-full object-contain" />
+            
+            {/* Phone Template Overlay - camera holes and edges on top */}
+            <div className="absolute inset-0">
+              <img 
+                src="/phone-template.png" 
+                alt="Phone template overlay" 
+                className="w-full h-full object-contain pointer-events-none"
+              />
             </div>
           </div>
         </div>
