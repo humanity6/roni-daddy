@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Type, Minus, Plus, ChevronDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import CircleSubmitButton from '../components/CircleSubmitButton'
 
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
@@ -241,13 +242,8 @@ const FontSelectionScreen = () => {
       )}
 
       {/* Submit Button */}
-      <div className="relative z-10 p-6">
-        <button 
-          onClick={handleNext}
-          className="w-16 h-16 rounded-full mx-auto bg-gradient-to-r from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-xl active:scale-95 transition-all duration-200"
-        >
-          <span className="font-bold text-sm">Submit</span>
-        </button>
+      <div className="relative z-10 p-6 flex justify-center">
+        <CircleSubmitButton onClick={handleNext} label="Submit" />
       </div>
     </div>
   )

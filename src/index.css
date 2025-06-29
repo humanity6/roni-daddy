@@ -23,6 +23,7 @@
 @layer base {
   * {
     box-sizing: border-box;
+    letter-spacing: 1.5px !important; /* Ensure consistent character spacing across app */
   }
   
   html {
@@ -89,21 +90,33 @@
   /* Phone template positioning - easy to adjust */
   .phone-case-content {
     position: absolute;
-    top: 0.7%;        /* Adjust this value */
-    left: 6%;       /* Adjust this value */
-    right: 6%;      /* Adjust this value */
-    bottom: 0.7%;     /* Adjust this value */
-    border-radius: 50px; /* Adjust this value */
+    top: 1px;        /* Adjust this value */
+    left: 5%;       /* Adjust this value */
+    right: 5%;      /* Adjust this value */
+    bottom: 1px;     /* Adjust this value */
+    border-radius: 42px; /* Adjust this value */
     overflow: hidden;
+  }
+  
+  /* Film-strip design has a much narrower safe area –
+     override the generic phone-case content bounds so that
+     user content stays inside the inner rectangle (doesn't
+     spill into the sprocket holes or rails). */
+  .phone-case-content.mask-filmstrip {
+    top: 18%;       /* pull content down below camera area  */
+    bottom: 18%;    /* leave margin at bottom               */
+    left: 28%;      /* keep clear of left sprocket rail     */
+    right: 28%;     /* keep clear of right sprocket rail    */
+    border-radius: 16px; /* tighter radius for inner photo area */
   }
   
   .phone-case-preview {
     position: absolute;
     top: 8%;        /* Adjust this value */
-    left: 6%;       /* Adjust this value */
-    right: 6%;      /* Adjust this value */
+    left: 4%;       /* Adjust this value */
+    right: 4%;      /* Adjust this value */
     bottom: 8%;     /* Adjust this value */
-    border-radius: 20px; /* Adjust this value */
+    border-radius: 35px; /* Adjust this value */
     overflow: hidden;
   }
   
@@ -278,5 +291,48 @@
   
   .animate-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  /* Utility to clip any content to the phone-case silhouette */
+  .mask-phone {
+    /* Standard */
+    mask-image: url('/filmstrip-template.png');
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-mode: alpha;
+    /* WebKit */
+    -webkit-mask-image: url('/filmstrip-template.png');
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-mode: alpha;
+  }
+  
+  /* Clip to filmstrip silhouette (includes sprocket holes) */
+  .mask-filmstrip {
+    mask-image: url('/filmstrip.png');
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-mode: alpha;
+    -webkit-mask-image: url('/filmstrip.png');
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-mode: alpha;
+  }
+  
+  /* Custom z-index utilities for proper layering */
+  .z-5 {
+    z-index: 5;
+  }
+  
+  .z-15 {
+    z-index: 15;
+  }
+  
+  .z-25 {
+    z-index: 25;
   }
 } 

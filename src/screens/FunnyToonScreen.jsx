@@ -21,6 +21,16 @@ const FunnyToonScreen = () => {
 
   const [uploadedImage, setUploadedImage] = useState(initialImage || null)
   const [toonStyle, setToonStyle] = useState('') // no style selected initially
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
+
+  /* Image transform helpers */
+  const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
+  const moveRight = () => setTransform((p) => ({ ...p, x: Math.min(p.x + 5, 50) }))
+  const moveUp = () => setTransform((p) => ({ ...p, y: Math.max(p.y - 5, -50) }))
+  const moveDown = () => setTransform((p) => ({ ...p, y: Math.min(p.y + 5, 50) }))
+  const zoomIn = () => setTransform((p) => ({ ...p, scale: Math.min(p.scale + 0.1, 5) }))
+  const zoomOut = () => setTransform((p) => ({ ...p, scale: Math.max(p.scale - 0.1, 0.5) }))
+  const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
@@ -61,6 +71,7 @@ const FunnyToonScreen = () => {
   const resetInputs = () => {
     setUploadedImage(initialImage || null)
     setToonStyle('')
+    resetTransform()
   }
 
   const getColorClass = (colorId) => {
@@ -102,6 +113,7 @@ const FunnyToonScreen = () => {
                   src={uploadedImage}
                   alt="Uploaded design"
                   className="phone-case-image"
+                  style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
@@ -125,12 +137,22 @@ const FunnyToonScreen = () => {
 
         {/* Control Buttons Row – placeholder reuse (optional) */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[{ Icon: ZoomOut }, { Icon: ZoomIn }, { Icon: RefreshCw }, { Icon: ArrowRight }, { Icon: ArrowLeft }, { Icon: ArrowDown }, { Icon: ArrowUp }].map(({ Icon }, idx) => (
+          {[
+            { Icon: ZoomOut, action: zoomOut },
+            { Icon: ZoomIn, action: zoomIn },
+            { Icon: RefreshCw, action: resetTransform },
+            { Icon: ArrowRight, action: moveRight },
+            { Icon: ArrowLeft, action: moveLeft },
+            { Icon: ArrowDown, action: moveDown },
+            { Icon: ArrowUp, action: moveUp },
+          ].map(({ Icon, action }, idx) => (
             <button
               key={idx}
-              className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              onClick={action}
+              disabled={!uploadedImage}
+              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
             >
-              <Icon size={20} className="text-gray-700" />
+              <Icon size={20} className={uploadedImage ? 'text-gray-700' : 'text-gray-400'} />
             </button>
           ))}
         </div>

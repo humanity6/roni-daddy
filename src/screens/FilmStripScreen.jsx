@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
-  Upload,
   ZoomIn,
   ZoomOut,
   RefreshCw,
@@ -11,6 +10,8 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+// Film-strip rails overlay
+// Using public filmstrip case image
 
 const FilmStripScreen = () => {
   const navigate = useNavigate()
@@ -69,44 +70,34 @@ const FilmStripScreen = () => {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-start px-6 mt-4">
         {/* Phone Case Preview */}
         <div className="relative mb-6">
-          <div className="relative w-72 h-[480px]">
-            <div className="phone-case-content relative flex flex-col justify-between p-1">
-              {/* Internal film strip edges */}
-              <div className="absolute inset-y-0 left-0 w-3 bg-black flex flex-col justify-between py-2">
-                {Array.from({ length: 11 }).map((_, i) => (
-                  <div key={i} className="w-2 h-2 bg-white mx-auto my-1 rounded-sm"></div>
-                ))}
-              </div>
-              <div className="absolute inset-y-0 right-0 w-3 bg-black flex flex-col justify-between py-2">
-                {Array.from({ length: 11 }).map((_, i) => (
-                  <div key={i} className="w-2 h-2 bg-white mx-auto my-1 rounded-sm"></div>
-                ))}
-              </div>
-              {stripCount ? (
-                Array.from({ length: stripCount }).map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="flex-1 mb-1 last:mb-0 overflow-hidden bg-gray-50 flex items-center justify-center"
+          <div className="relative w-[525px] h-[525px]">
+            <div className="phone-case-content mask-filmstrip">
+              {/* Preview area for filmstrip layout */}
+              <div className="absolute inset-0 flex flex-col justify-center items-center z-10 px-8 py-12">
+                {Array.from({ length: stripCount || 3 }).map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className="w-full mb-2 overflow-hidden bg-gray-200/50 border border-gray-300" 
+                    style={{
+                      height: `${100 / (stripCount || 3) - 2}%`,
+                      aspectRatio: '4/3'
+                    }}
                   >
-                    <Upload size={24} className="text-gray-300" />
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-gray-400 text-xs">Frame {idx + 1}</span>
+                    </div>
                   </div>
-                ))
-              ) : (
-                // empty placeholder before user chooses option
-                <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                  <div className="text-center text-gray-400">
-                    <Upload size={48} className="mx-auto mb-3" />
-                    <p className="text-sm">Choose strip option</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* Template overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-              <img src="/phone-template.png" alt="Phone template" className="w-full h-full object-contain" />
+                ))}
+              </div>
+
+              <img
+                src="/filmstrip-case.png"
+                alt="Film strip phone case"
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none z-10"
+              />
             </div>
           </div>
         </div>

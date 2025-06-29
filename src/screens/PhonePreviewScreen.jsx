@@ -20,6 +20,7 @@ const PhonePreviewScreen = () => {
   const { brand, model, color, template } = location.state || {}
   
   const [uploadedImage, setUploadedImage] = useState(null)
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
@@ -43,8 +44,28 @@ const PhonePreviewScreen = () => {
   }
 
   const handleNext = () => {
-    if (template?.id === 'funny-toon') {
+    if (template?.id === 'retro-remix') {
+      navigate('/retro-remix', {
+        state: {
+          brand,
+          model,
+          color,
+          template,
+          uploadedImage
+        }
+      })
+    } else if (template?.id === 'funny-toon') {
       navigate('/funny-toon', {
+        state: {
+          brand,
+          model,
+          color,
+          template,
+          uploadedImage
+        }
+      })
+    } else if (template?.id === 'footy-fan') {
+      navigate('/footy-fan', {
         state: {
           brand,
           model,
@@ -55,6 +76,15 @@ const PhonePreviewScreen = () => {
       })
     } else if (template?.id?.startsWith('film-strip')) {
       navigate('/film-strip', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
+    } else if (template?.imageCount && template.imageCount > 1) {
+      navigate('/multi-image-upload', {
         state: {
           brand,
           model,
@@ -77,6 +107,7 @@ const PhonePreviewScreen = () => {
 
   const resetInputs = () => {
     setUploadedImage(null)
+    resetTransform()
   }
 
   const getColorClass = (colorId) => {
@@ -89,6 +120,17 @@ const PhonePreviewScreen = () => {
     }
     return colorMap[colorId] || 'bg-gray-900'
   }
+
+  /* --------------------------------------------------------------------
+   * IMAGE TRANSFORM HELPERS
+   * ------------------------------------------------------------------*/
+  const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
+  const moveRight = () => setTransform((p) => ({ ...p, x: Math.min(p.x + 5, 50) }))
+  const moveUp = () => setTransform((p) => ({ ...p, y: Math.max(p.y - 5, -50) }))
+  const moveDown = () => setTransform((p) => ({ ...p, y: Math.min(p.y + 5, 50) }))
+  const zoomIn = () => setTransform((p) => ({ ...p, scale: Math.min(p.scale + 0.1, 5) }))
+  const zoomOut = () => setTransform((p) => ({ ...p, scale: Math.max(p.scale - 0.1, 0.5) }))
+  const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
 
   return (
     <div className="screen-container">
@@ -119,6 +161,7 @@ const PhonePreviewScreen = () => {
                   src={uploadedImage} 
                   alt="Uploaded design" 
                   className="phone-case-image"
+                  style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
@@ -143,12 +186,22 @@ const PhonePreviewScreen = () => {
 
         {/* Control Buttons Row – pastel-green squares */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[{Icon: ZoomOut}, {Icon: ZoomIn}, {Icon: RefreshCw}, {Icon: ArrowRight}, {Icon: ArrowLeft}, {Icon: ArrowDown}, {Icon: ArrowUp}].map(({Icon}, idx) => (
+          {[
+            { Icon: ZoomOut, action: zoomOut },
+            { Icon: ZoomIn, action: zoomIn },
+            { Icon: RefreshCw, action: resetTransform },
+            { Icon: ArrowRight, action: moveRight },
+            { Icon: ArrowLeft, action: moveLeft },
+            { Icon: ArrowDown, action: moveDown },
+            { Icon: ArrowUp, action: moveUp },
+          ].map(({ Icon, action }, idx) => (
             <button
               key={idx}
-              className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              onClick={action}
+              disabled={!uploadedImage}
+              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
             >
-              <Icon size={20} className="text-gray-700" />
+              <Icon size={20} className={uploadedImage ? 'text-gray-700' : 'text-gray-400'} />
             </button>
           ))}
         </div>
@@ -194,7 +247,7 @@ const PhonePreviewScreen = () => {
 
       {/* Submit Button – pink outer ring, white inner ring, pink core */}
       <div className="relative z-10 p-6 flex justify-center">
-        {template?.id?.startsWith('film-strip') || uploadedImage ? (
+        {template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1) || uploadedImage ? (
           <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
             <div className="rounded-full bg-white p-[6px]">
               <button

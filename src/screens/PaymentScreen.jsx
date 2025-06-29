@@ -52,7 +52,7 @@ const PaymentScreen = () => {
   }
 
   const handlePay = () => {
-    navigate('/ready-to-pay', { state: { designImage, price } })
+    navigate('/order-confirmed', { state: { designImage, price } })
   }
 
   return (

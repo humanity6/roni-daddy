@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/ui-mockups/logo.png" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- PWA Configuration -->
@@ -14,7 +14,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="PimpMyCase" />
-    <link rel="apple-touch-icon" href="/ui-mockups/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     
     <!-- Android Specific -->
     <meta name="mobile-web-app-capable" content="yes" />
@@ -24,12 +24,21 @@
     <meta name="description" content="Create custom phone cases instantly with AI-powered design tools. Upload photos, choose templates, and get professional-quality cases printed on demand." />
     <meta property="og:title" content="PIMP MY CASE® - Custom Phone Cases" />
     <meta property="og:description" content="Create custom phone cases instantly with AI-powered design tools." />
-    <meta property="og:image" content="/ui-mockups/logo.png" />
+    <meta property="og:image" content="/logo.png" />
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Local Cubano font -->
+    <style>
+      @font-face {
+        font-family: 'Cubano';
+        src: url('/fonts/Cubano.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
     
     <!-- Loading Screen -->
     <style>
@@ -39,15 +48,17 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: #FFFAF0;
+        background: #ffffff;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-direction: column;
+        gap: 12px;
         z-index: 9999;
       }
       .loading-logo {
-        font-family: 'Inter', sans-serif;
-        font-weight: 900;
+        font-family: 'Cubano', sans-serif;
+        font-weight: normal;
         font-size: 2rem;
         color: #1f2937;
         animation: pulse 1.5s ease-in-out infinite;
@@ -60,7 +71,7 @@
   </head>
   <body>
     <div id="loading" class="loading-screen">
-      <div class="loading-logo">PIMP MY CASE®</div>
+      <img src="/logo.png" alt="Pimp My Case Logo" style="height: 300px; width: auto;" />
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

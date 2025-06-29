@@ -1,25 +1,36 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 
 const TextInputScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, inputText: initialText, textPosition: initialPosition } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, inputText: initialText, textPosition: initialPosition } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 }) // percentage from top-left
 
   const handleBack = () => {
-    navigate('/phone-preview', { 
-      state: { 
-        brand, 
-        model, 
-        color, 
-        template 
-      } 
-    })
+    if (template?.imageCount && template.imageCount > 1 && !template.id?.startsWith('film-strip')) {
+      navigate('/multi-image-upload', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
+    } else {
+      navigate('/phone-preview', { 
+        state: { 
+          brand, 
+          model, 
+          color, 
+          template 
+        } 
+      })
+    }
   }
 
   const handleNext = () => {
@@ -30,6 +41,7 @@ const TextInputScreen = () => {
         color, 
         template, 
         uploadedImage,
+        uploadedImages,
         inputText,
         textPosition
       } 
@@ -89,7 +101,27 @@ const TextInputScreen = () => {
           <div className="relative w-72 h-[480px]">
             {/* User's uploaded image */}
             <div className="phone-case-content">
-              {uploadedImage ? (
+              {uploadedImages && uploadedImages.length > 0 ? (
+                <div className="w-full h-full overflow-hidden">
+                  {uploadedImages.length === 4 ? (
+                    <div className="w-full h-full flex flex-wrap">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
+                          <img src={img} alt={`design ${idx+1}`} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex flex-col">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className={`flex-1 overflow-hidden`}>
+                          <img src={img} alt={`design ${idx+1}`} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : uploadedImage ? (
                 <img 
                   src={uploadedImage} 
                   alt="Uploaded design" 
@@ -127,23 +159,36 @@ const TextInputScreen = () => {
 
         {/* Text Input Section */}
         <div className="w-full max-w-xs mb-6">
-          <div className="relative">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Enter Text"
-              className="w-full bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-full px-6 py-4 text-center text-lg font-medium shadow-lg focus:outline-none focus:border-pink-400 transition-colors"
-              maxLength={50}
-            />
-            {inputText && (
-              <button
-                onClick={resetInput}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center"
-              >
-                <X size={14} className="text-gray-600" />
-              </button>
-            )}
+          <div className="flex items-center space-x-2">
+            {/* Left Arrow */}
+            <button onClick={handleBack} className="w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+              <ChevronLeft size={20} className="text-gray-600" />
+            </button>
+
+            {/* Input field */}
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Enter Text"
+                className="w-full bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-full px-6 py-4 text-center text-lg font-poppins font-bold shadow-lg focus:outline-none focus:border-pink-400 transition-colors"
+                maxLength={50}
+              />
+              {inputText && (
+                <button
+                  onClick={resetInput}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center"
+                >
+                  <X size={14} className="text-gray-600" />
+                </button>
+              )}
+            </div>
+
+            {/* Right Arrow */}
+            <button onClick={handleNext} className="w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+              <ChevronRight size={20} className="text-gray-600" />
+            </button>
           </div>
           <p className="text-center text-xs text-gray-500 mt-2">
             {inputText.length}/50 characters
@@ -205,13 +250,20 @@ const TextInputScreen = () => {
       </div>
 
       {/* Submit Button */}
-      <div className="relative z-10 p-6">
-        <button 
-          onClick={handleNext}
-          className="w-16 h-16 rounded-full mx-auto bg-gradient-to-r from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-xl active:scale-95 transition-all duration-200"
-        >
-          <span className="font-bold text-sm">Submit</span>
-        </button>
+      <div className="relative z-10 p-6 flex justify-center">
+        {/* Outer Pink Ring */}
+        <div className="w-24 h-24 rounded-full border-4 border-pink-400 flex items-center justify-center shadow-xl">
+          {/* Updated: thicker outer ring */}
+          <div className="w-20 h-20 rounded-full border-2 border-white bg-white flex items-center justify-center">
+            {/* Inner Pink Circle */}
+            <button 
+              onClick={handleNext}
+              className="w-16 h-16 rounded-full bg-pink-500 text-white flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <span className="font-semibold text-sm">Submit</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

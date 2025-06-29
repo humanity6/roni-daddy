@@ -132,14 +132,38 @@ const TemplateSelectionScreen = () => {
     const template = templates.find(t => t.id === templateId)
     // Provide quick visual feedback before navigation
     setSelectedTemplate(templateId)
-    navigate('/phone-preview', {
-      state: {
-        brand,
-        model,
-        color,
-        template
-      }
-    })
+    
+    // Route film-strip template to film-strip screen
+    if (template.id?.startsWith('film-strip')) {
+      navigate('/film-strip', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
+    }
+    // Route multi-image templates directly to upload screen
+    else if (template?.imageCount && template.imageCount > 1) {
+      navigate('/multi-image-upload', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
+    } else {
+      navigate('/phone-preview', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
+    }
   }
 
   const handleBack = () => {
@@ -212,7 +236,7 @@ const TemplateSelectionScreen = () => {
         >
           <ArrowLeft size={20} className="text-pink-500" />
         </button>
-        <h1 className="text-2xl md:text-3xl font-cubano text-gray-800 tracking-wide">PICK A DESIGN MODE</h1>
+        <h1 className="text-3xl md:text-4xl font-cubano text-gray-800 tracking-wide">PICK A DESIGN MODE</h1>
         <div className="w-12 h-12"></div>
       </div>
 
@@ -234,8 +258,10 @@ const TemplateSelectionScreen = () => {
                   <div className="mb-0.5 w-full">
                     {renderTemplatePreview(template)}
                   </div>
-                  <div className="text-center text-[12px] text-gray-900 whitespace-nowrap">
-                    {template.name} <span className="font-bold">{template.price}</span>
+                  <div className="text-center text-sm md:text-base text-gray-900 whitespace-nowrap">
+                    {template.name} <span className="font-cubano text-[13px] md:text-[15px]">
+                      <span className="inline-block transform scale-110 origin-left">£</span>{template.price.replace('£', '')}
+                    </span>
                   </div>
                 </button>
               ))}

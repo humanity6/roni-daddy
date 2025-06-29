@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Type } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import CircleSubmitButton from '../components/CircleSubmitButton'
 
 const TextColorSelectionScreen = () => {
   const navigate = useNavigate()
@@ -53,19 +54,11 @@ const TextColorSelectionScreen = () => {
   }
 
   const handleNext = () => {
-    navigate('/phone-back-preview', { 
-      state: { 
-        brand, 
-        model, 
-        color, 
-        template, 
-        uploadedImage,
-        inputText,
-        selectedFont,
-        fontSize,
-        selectedTextColor,
-        textPosition
-      } 
+    navigate('/payment', {
+      state: {
+        designImage: uploadedImage,
+        price: 16.99 // or default
+      }
     })
   }
 
@@ -237,13 +230,8 @@ const TextColorSelectionScreen = () => {
       </div>
 
       {/* Submit Button */}
-      <div className="relative z-10 p-6">
-        <button 
-          onClick={handleNext}
-          className="w-16 h-16 rounded-full mx-auto bg-gradient-to-r from-pink-500 to-rose-500 text-white flex items-center justify-center shadow-xl active:scale-95 transition-all duration-200"
-        >
-          <span className="font-bold text-sm">Submit</span>
-        </button>
+      <div className="relative z-10 p-6 flex justify-center">
+        <CircleSubmitButton onClick={handleNext} label="Submit" />
       </div>
 
 

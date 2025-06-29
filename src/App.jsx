@@ -19,6 +19,13 @@ import FunnyToonGenerateScreen from './screens/FunnyToonGenerateScreen'
 import PaymentScreen from './screens/PaymentScreen'
 import FilmStripScreen from './screens/FilmStripScreen'
 import FilmStripUploadScreen from './screens/FilmStripUploadScreen'
+import MultiImageUploadScreen from './screens/MultiImageUploadScreen'
+import RetroRemixScreen from './screens/RetroRemixScreen'
+import CoverShootScreen from './screens/CoverShootScreen'
+import GlitchScreen from './screens/GlitchScreen'
+import FootyFanScreen from './screens/FootyFanScreen'
+import FootyFanStyleScreen from './screens/FootyFanStyleScreen'
+import FootyFanGenerateScreen from './screens/FootyFanGenerateScreen'
 
 function App() {
   return (
@@ -42,9 +49,18 @@ function App() {
           <Route path="/order-confirmed" element={<OrderConfirmedScreen />} />
           <Route path="/funny-toon" element={<FunnyToonScreen />} />
           <Route path="/funny-toon-generate" element={<FunnyToonGenerateScreen />} />
+          <Route path="/ai-regenerate" element={<FunnyToonGenerateScreen />} />
           <Route path="/payment" element={<PaymentScreen />} />
           <Route path="/film-strip" element={<FilmStripScreen />} />
           <Route path="/film-strip-upload" element={<FilmStripUploadScreen />} />
+          <Route path="/multi-image-upload" element={<MultiImageUploadScreen />} />
+          <Route path="/retro-remix" element={<RetroRemixScreen />} />
+          <Route path="/cover-shoot" element={<CoverShootScreen />} />
+          <Route path="/covershot" element={<CoverShootScreen />} />
+          <Route path="/glitch" element={<GlitchScreen />} />
+          <Route path="/footy-fan" element={<FootyFanScreen />} />
+          <Route path="/footy-fan-style" element={<FootyFanStyleScreen />} />
+          <Route path="/footy-fan-generate" element={<FootyFanGenerateScreen />} />
         </Routes>
       </div>
     </AppStateProvider>

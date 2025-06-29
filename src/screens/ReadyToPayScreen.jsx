@@ -34,7 +34,7 @@ const ReadyToPayScreen = () => {
             {/* Payment Interface */}
             <div className="grid grid-cols-2 w-full items-end">
               {/* Card Reader – bottom-left */}
-              <div className="flex items-end justify-center h-full">
+              <div className="flex items-end justify-start h-full pl-4">
                 <div className="w-44 h-28 bg-[#FFD6E2] rounded-full flex items-center justify-center">
                   <div className="w-24 h-7 bg-white rounded-full"></div>
                 </div>

@@ -11,14 +11,22 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+// Using public filmstrip case image
 
 const FilmStripUploadScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { brand, model, color, template, stripCount } = location.state || {}
+  const totalSlots = stripCount || 3
 
-  const [uploadedImages, setUploadedImages] = useState([])
+  const [uploadedImages, setUploadedImages] = useState(Array(totalSlots).fill(null))
+  const [currentIdx, setCurrentIdx] = useState(0)
   const fileInputRef = useRef(null)
+  // Per-image transform: { x: percentage, y: percentage, scale }
+  const defaultTransform = { x: 50, y: 50, scale: 1 }
+  const [imageTransforms, setImageTransforms] = useState(
+    Array(totalSlots).fill(defaultTransform)
+  )
 
   const handleBack = () => {
     navigate('/film-strip', {
@@ -27,21 +35,45 @@ const FilmStripUploadScreen = () => {
   }
 
   const openFilePicker = () => {
-    if (fileInputRef.current) fileInputRef.current.click()
+    fileInputRef.current?.click()
   }
 
   const handleFilesSelected = (e) => {
-    const files = Array.from(e.target.files).slice(0, stripCount)
-    const promises = files.map(
-      (file) =>
-        new Promise((resolve) => {
-          const reader = new FileReader()
-          reader.onload = (ev) => resolve(ev.target.result)
-          reader.readAsDataURL(file)
-        })
-    )
-    Promise.all(promises).then((imgs) => setUploadedImages(imgs))
+    const file = e.target.files[0]
+    if (!file) return
+    
+    console.log(`Uploading image for slot ${currentIdx}:`, file.name)
+    
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      console.log(`Image loaded for slot ${currentIdx}, data length:`, ev.target.result.length)
+      
+      setUploadedImages((prev) => {
+        const next = [...prev]
+        next[currentIdx] = ev.target.result
+        console.log(`Updated images array:`, next.map((img, idx) => img ? `Slot ${idx}: Image loaded` : `Slot ${idx}: Empty`))
+        return next
+      })
+      
+      // Auto-advance to next empty slot if available
+      const nextEmptySlot = uploadedImages.findIndex((img, idx) => !img && idx > currentIdx)
+      if (nextEmptySlot !== -1) {
+        setCurrentIdx(nextEmptySlot)
+      }
+      
+      // Reset transform for this slot
+      setImageTransforms((prev) => {
+        const next = [...prev]
+        next[currentIdx] = { ...defaultTransform }
+        return next
+      })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
   }
+
+  const goPrev = () => setCurrentIdx((prev) => Math.max(0, prev - 1))
+  const goNext = () => setCurrentIdx((prev) => Math.min(totalSlots - 1, prev + 1))
 
   const handleNext = () => {
     navigate('/text-input', {
@@ -55,9 +87,36 @@ const FilmStripUploadScreen = () => {
     })
   }
 
-  const resetImages = () => setUploadedImages([])
+  const resetImages = () => setUploadedImages(Array(totalSlots).fill(null))
 
-  const canSubmit = uploadedImages.length === stripCount
+  const filledCount = uploadedImages.filter((img) => img).length
+  const canSubmit = filledCount === totalSlots
+
+  // ----- Crop / Move helpers -----
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val))
+
+  const updateTransform = (idx, updater) => {
+    setImageTransforms((prev) => {
+      const next = [...prev]
+      const current = next[idx]
+      const changes = typeof updater === 'function' ? updater(current) : updater
+      const updated = { ...current, ...changes }
+      // Clamp values to keep image inside padding
+      updated.x = clamp(updated.x, 0, 100)
+      updated.y = clamp(updated.y, 0, 100)
+      updated.scale = clamp(updated.scale, 1, 3)
+      next[idx] = updated
+      return next
+    })
+  }
+
+  const moveUp = () => updateTransform(currentIdx, (t) => ({ y: t.y - 5 }))
+  const moveDown = () => updateTransform(currentIdx, (t) => ({ y: t.y + 5 }))
+  const moveLeft = () => updateTransform(currentIdx, (t) => ({ x: t.x - 5 }))
+  const moveRight = () => updateTransform(currentIdx, (t) => ({ x: t.x + 5 }))
+  const zoomIn = () => updateTransform(currentIdx, (t) => ({ scale: t.scale + 0.1 }))
+  const zoomOut = () => updateTransform(currentIdx, (t) => ({ scale: t.scale - 0.1 }))
+  const resetTransform = () => updateTransform(currentIdx, defaultTransform)
 
   return (
     <div className="screen-container">
@@ -77,47 +136,94 @@ const FilmStripUploadScreen = () => {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-start px-6 mt-4">
         <div className="relative mb-6">
-          <div className="relative w-72 h-[480px]">
-            <div className="phone-case-content relative flex flex-col justify-between p-1">
-              {/* Internal film strip edges */}
-              <div className="absolute inset-y-0 left-0 w-3 bg-black flex flex-col justify-between py-2">
-                {Array.from({ length: 11 }).map((_, i) => (
-                  <div key={i} className="w-2 h-2 bg-white mx-auto my-1 rounded-sm"></div>
-                ))}
-              </div>
-              <div className="absolute inset-y-0 right-0 w-3 bg-black flex flex-col justify-between py-2">
-                {Array.from({ length: 11 }).map((_, i) => (
-                  <div key={i} className="w-2 h-2 bg-white mx-auto my-1 rounded-sm"></div>
-                ))}
-              </div>
-              {Array.from({ length: stripCount }).map((_, idx) => (
-                <div
+          <div className="relative w-[525px] h-[525px] overflow-hidden">
+            {/* Images container - middle z-index */}
+            <div className="absolute inset-0 flex flex-col justify-center items-center z-10"style={{
+  paddingTop: '0px',
+  paddingBottom: '0px', 
+  paddingLeft: '180px',
+  paddingRight: '179px'
+}}>
+              {Array.from({ length: totalSlots }).map((_, idx) => (
+                <div 
                   key={idx}
-                  className="flex-1 mb-1 last:mb-0 overflow-hidden bg-gray-50 flex items-center justify-center"
+                  className="w-full overflow-hidden rounded-sm transition-all duration-300 border-t-[8px] border-b-[8px] border-black"
+                  style={{
+                    height: `${100 / totalSlots - 2}%`,
+                  }}
                 >
                   {uploadedImages[idx] ? (
-                    <img src={uploadedImages[idx]} className="w-full h-full object-cover" alt={`uploaded ${idx+1}`} />
+                    <img
+                      src={uploadedImages[idx]}
+                      alt={`Photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`,
+                        transform: `scale(${imageTransforms[idx].scale})`
+                      }}
+                    />
                   ) : (
-                    <Upload size={24} className="text-gray-300" />
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="flex flex-col items-center text-center">
+                        <Upload size={20} className={currentIdx === idx ? 'text-blue-500' : 'text-gray-400'} />
+                        {currentIdx === idx && (
+                          <p className="text-xs mt-1 text-blue-600 font-medium">Current</p>
+                        )}
+                      </div>
+                    </div>
                   )}
+                  
+                  {/* Current selection indicator removed per design update */}
                 </div>
               ))}
             </div>
-            <div className="absolute inset-0 pointer-events-none">
-              <img src="/phone-template.png" alt="phone template" className="w-full h-full object-contain" />
+
+            {/* Phone case overlay - highest z-index with transparent areas */}
+            <div className="absolute inset-0 z-20 pointer-events-none">
+              <img
+                src="/filmstrip-case.png"
+                alt="Film strip phone case"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
         </div>
 
         {/* Control Buttons Row (optional placeholders) */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[ZoomOut, ZoomIn, RefreshCw, ArrowRight, ArrowLeft, ArrowDown, ArrowUp].map((Icon, idx) => (
-            <button key={idx} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-              <Icon size={20} className="text-gray-700" />
-            </button>
-          ))}
+          <button onClick={zoomOut} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <ZoomOut size={20} className="text-gray-700" />
+          </button>
+          <button onClick={zoomIn} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <ZoomIn size={20} className="text-gray-700" />
+          </button>
+          <button onClick={resetTransform} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <RefreshCw size={20} className="text-gray-700" />
+          </button>
+          <button onClick={moveLeft} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <ArrowLeft size={20} className="text-gray-700" />
+          </button>
+          <button onClick={moveRight} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <ArrowRight size={20} className="text-gray-700" />
+          </button>
+          <button onClick={moveDown} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <ArrowDown size={20} className="text-gray-700" />
+          </button>
+          <button onClick={moveUp} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+            <ArrowUp size={20} className="text-gray-700" />
+          </button>
+        </div>
+
+        {/* Navigation Arrows */}
+        <div className="flex items-center justify-between w-full max-w-xs mb-4 px-2">
+          <button onClick={goPrev} disabled={currentIdx === 0} className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform disabled:opacity-40">
+            <ArrowLeft size={24} className="text-gray-600" />
+          </button>
+          <button onClick={goNext} disabled={currentIdx === totalSlots - 1} className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform disabled:opacity-40">
+            <ArrowRight size={24} className="text-gray-600" />
+          </button>
         </div>
 
         {/* Upload button */}
@@ -125,20 +231,39 @@ const FilmStripUploadScreen = () => {
           <button onClick={openFilePicker} className="w-full bg-blue-100 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 transition-transform shadow-lg">
             <div className="flex items-center justify-center space-x-2">
               <Upload size={20} />
-              <span>{uploadedImages.length ? 'Re-upload Images' : 'Upload Images'}</span>
+              <span>Upload Image {currentIdx + 1} of {totalSlots}{uploadedImages[currentIdx] ? ' (Replace)' : ''}</span>
             </div>
           </button>
           <input
             type="file"
             accept="image/*"
-            multiple
             ref={fileInputRef}
             className="hidden"
             onChange={handleFilesSelected}
           />
         </div>
 
-        {uploadedImages.length > 0 && (
+        {/* Show current selection info */}
+        <div className="text-center text-sm text-gray-600 mb-2">
+          Selected: Image {currentIdx + 1} of {totalSlots}
+          {uploadedImages[currentIdx] && <span className="text-green-600"> ✓</span>}
+        </div>
+
+        {/* Progress indicator */}
+        <div className="w-full max-w-xs mb-4">
+          <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Progress</span>
+            <span>{filledCount}/{totalSlots}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-green-400 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(filledCount / totalSlots) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {filledCount > 0 && (
           <button onClick={resetImages} className="w-full max-w-xs bg-green-200 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 transition-transform shadow-lg mb-4">
             Reset Images
           </button>
