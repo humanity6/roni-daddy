@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import aiImageService from '../services/aiImageService'
 
 const FunnyToonGenerateScreen = () => {
   const navigate = useNavigate()
@@ -29,6 +30,35 @@ const FunnyToonGenerateScreen = () => {
 
   const [aiCredits, setAiCredits] = useState(initialCredits)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generatedImage, setGeneratedImage] = useState(null) // Start with no generated image
+  const [originalImageFile, setOriginalImageFile] = useState(null)
+  const [error, setError] = useState(null)
+  const [debugInfo, setDebugInfo] = useState('')
+
+  // Convert data URL back to File for API calls
+  useEffect(() => {
+    console.log('🔍 Debug - uploadedImage:', uploadedImage ? 'exists' : 'null')
+    
+    if (uploadedImage && uploadedImage.startsWith('data:')) {
+      setDebugInfo('Converting image to file...')
+      // Convert data URL to File object for API calls
+      fetch(uploadedImage)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], 'uploaded-image.png', { type: 'image/png' })
+          setOriginalImageFile(file)
+          setDebugInfo(`Image file ready: ${file.size} bytes`)
+          console.log('🔍 Debug - Original file created:', file.size, 'bytes')
+        })
+        .catch(err => {
+          console.error('Error converting image:', err)
+          setError('Failed to process uploaded image')
+          setDebugInfo('Error converting image')
+        })
+    } else {
+      setDebugInfo('No uploaded image found')
+    }
+  }, [uploadedImage])
 
   const handleBack = () => {
     navigate('/funny-toon', {
@@ -44,15 +74,67 @@ const FunnyToonGenerateScreen = () => {
     })
   }
 
-  const handleRegenerate = () => {
-    if (aiCredits <= 0) return
-    // Fake regen process (could call an API)
+  const handleRegenerate = async () => {
+    console.log('🔍 Debug - Regenerate clicked')
+    console.log('🔍 Debug - aiCredits:', aiCredits)
+    console.log('🔍 Debug - originalImageFile:', originalImageFile ? `exists (${originalImageFile.size} bytes)` : 'null')
+    console.log('🔍 Debug - toonStyle:', toonStyle)
+    console.log('🔍 Debug - uploadedImage:', uploadedImage ? 'exists' : 'null')
+    
+    if (aiCredits <= 0) {
+      setError('No AI credits remaining')
+      return
+    }
+    
+    if (!originalImageFile) {
+      setError('No image file available for processing')
+      return
+    }
+    
     setIsGenerating(true)
-    setTimeout(() => {
+    setError(null)
+    setDebugInfo('Starting AI generation...')
+    
+    try {
+      console.log('🔍 Debug - Making API call...')
+      
+      // First check if API is running
+      const healthCheck = await aiImageService.checkHealth()
+      console.log('🔍 Debug - API Health:', healthCheck)
+      setDebugInfo(`API Status: ${healthCheck.status}`)
+      
+      // Generate new image using AI service
+      const result = await aiImageService.generateFunnyToon(
+        toonStyle || 'Classic Cartoon',
+        originalImageFile,
+        'medium' // quality
+      )
+      
+      console.log('🔍 Debug - AI Result:', result)
+      
+      if (result.success) {
+        // Get the generated image URL
+        const generatedImageUrl = aiImageService.getImageUrl(result.filename)
+        console.log('🔍 Debug - Generated image URL:', generatedImageUrl)
+        setGeneratedImage(generatedImageUrl)
+        setAiCredits((prev) => Math.max(0, prev - 1))
+        setDebugInfo('AI generation successful!')
+      } else {
+        throw new Error('Generation failed - no success flag')
+      }
+    } catch (err) {
+      console.error('🔍 Debug - AI Generation Error:', err)
+      const errorMessage = err.message || 'Failed to generate image. Please try again.'
+      setError(errorMessage)
+      setDebugInfo(`Error: ${errorMessage}`)
+      
+      // Check if it's a network error
+      if (err.message.includes('fetch')) {
+        setError('Cannot connect to AI server. Make sure the API server is running on port 8000.')
+      }
+    } finally {
       setIsGenerating(false)
-      setAiCredits((prev) => Math.max(0, prev - 1))
-      // In a real flow we'd set a new uploadedImage here
-    }, 1500)
+    }
   }
 
   const handleGenerate = () => {
@@ -62,7 +144,7 @@ const FunnyToonGenerateScreen = () => {
         model,
         color,
         template,
-        uploadedImage,
+        uploadedImage: generatedImage || uploadedImage, // Use generated image if available
         toonStyle
       }
     })
@@ -86,17 +168,49 @@ const FunnyToonGenerateScreen = () => {
 
       {/* Main Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm text-center max-w-xs">
+            {error}
+          </div>
+        )}
+
         {/* Phone preview */}
         <div className="relative mb-6">
           <div className="relative w-72 h-[480px]">
             <div className="phone-case-content">
-              {uploadedImage ? (
-                <img src={uploadedImage} alt="Uploaded design" className="phone-case-image" />
+              {/* Show generated image if available, otherwise show uploaded image */}
+              {generatedImage ? (
+                <img 
+                  src={generatedImage} 
+                  alt="AI Generated design" 
+                  className="phone-case-image"
+                  onError={(e) => {
+                    console.error('Image load error:', e)
+                    setError('Failed to load generated image')
+                  }}
+                />
+              ) : uploadedImage ? (
+                <img 
+                  src={uploadedImage} 
+                  alt="Original uploaded design" 
+                  className="phone-case-image"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   <div className="text-center text-gray-400">
                     <Upload size={48} className="mx-auto mb-3" />
                     <p className="text-sm">Your design here</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Loading overlay */}
+              {isGenerating && (
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+                  <div className="text-white text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+                    <p className="text-sm">Generating...</p>
                   </div>
                 </div>
               )}
@@ -109,11 +223,32 @@ const FunnyToonGenerateScreen = () => {
           </div>
         </div>
 
+        {/* Debug info */}
+        {debugInfo && (
+          <div className="mb-2 p-2 bg-gray-100 rounded text-xs text-gray-600 text-center max-w-xs">
+            🔍 {debugInfo}
+          </div>
+        )}
+
+        {/* Style info */}
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg text-center max-w-xs">
+          <p className="text-sm text-blue-800 font-medium">
+            Style: {toonStyle || 'Classic Cartoon'}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            {generatedImage ? 'AI Generated ✨' : uploadedImage ? 'Original image (click regenerate)' : 'Ready to generate'}
+          </p>
+        </div>
+
         {/* Placeholder controls row */}
         <div className="flex items-center justify-center space-x-3 mb-6">
           {[ZoomOut, ZoomIn, RefreshCw, ArrowRight, ArrowLeft, ArrowDown, ArrowUp].map((Icon, idx) => (
-            <button key={idx} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-              <Icon size={20} className="text-gray-700" />
+            <button 
+              key={idx} 
+              className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              disabled={isGenerating}
+            >
+              <Icon size={20} className={isGenerating ? "text-gray-400" : "text-gray-700"} />
             </button>
           ))}
         </div>
