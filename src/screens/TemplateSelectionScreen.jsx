@@ -167,7 +167,7 @@ const TemplateSelectionScreen = () => {
   }
 
   const handleBack = () => {
-    navigate('/phone-model', { 
+    navigate('/phone-brand', { 
       state: { 
         brand 
       } 
