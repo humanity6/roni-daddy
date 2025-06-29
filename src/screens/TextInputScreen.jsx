@@ -6,8 +6,7 @@ import PastelBlobs from '../components/PastelBlobs'
 const TextInputScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, transform: initialTransform, imageTransforms, inputText: initialText, textPosition: initialPosition } = location.state || {}
-  const { stripCount } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, transform: initialTransform, imageTransforms, inputText: initialText, textPosition: initialPosition, stripCount } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 }) // percentage from top-left
@@ -20,7 +19,9 @@ const TextInputScreen = () => {
           model,
           color,
           template,
-          stripCount
+          stripCount,
+          uploadedImages,
+          imageTransforms
         }
       })
     } else if (template?.imageCount && template.imageCount > 1) {
@@ -119,7 +120,7 @@ const TextInputScreen = () => {
         {/* Phone Case Preview */}
         <div className="relative mb-6">
           {template?.id?.startsWith('film-strip') ? (
-            <div className="relative w-[525px] h-[525px] overflow-hidden">
+            <div className="relative w-[525px] h-[525px] overflow-hidden pointer-events-none">
               <div
                 className="absolute inset-0 flex flex-col justify-center items-center z-10"
                 style={{ paddingTop:'0px', paddingBottom:'0px', paddingLeft:'180px', paddingRight:'179px'}}
@@ -127,18 +128,16 @@ const TextInputScreen = () => {
                 {uploadedImages && uploadedImages.map((img, idx) => (
                   <div
                     key={idx}
-                    className="w-full overflow-hidden border-t-[8px] border-b-[8px] border-black"
+                    className="w-full overflow-hidden rounded-sm transition-all duration-300 border-t-[8px] border-b-[8px] border-black"
                     style={{ height: `${100 / (stripCount || 3) - 2}%` }}
                   >
                     <img 
                       src={img} 
-                      alt={`design ${idx+1}`} 
+                      alt={`Photo ${idx + 1}`} 
                       className="w-full h-full object-cover"
                       style={{
-                        transform: imageTransforms && imageTransforms[idx] 
-                          ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
-                          : 'translate(0%, 0%) scale(1)',
-                        transformOrigin: 'center center'
+                        objectPosition: `${imageTransforms?.[idx]?.x || 50}% ${imageTransforms?.[idx]?.y || 50}%`,
+                        transform: `scale(${imageTransforms?.[idx]?.scale || 1})`
                       }}
                     />
                   </div>
@@ -147,6 +146,22 @@ const TextInputScreen = () => {
               <div className="absolute inset-0 z-20 pointer-events-none">
                 <img src="/filmstrip-case.png" alt="Film strip case" className="w-full h-full object-contain" />
               </div>
+              
+              {/* Text overlay for film strip - positioned above everything */}
+              {inputText && (
+                <div 
+                  className="absolute z-30 pointer-events-none"
+                  style={{
+                    left: `${textPosition?.x || 50}%`,
+                    top: `${textPosition?.y || 50}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                    <p className="text-lg font-medium">{inputText}</p>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="relative w-72 h-[480px]">

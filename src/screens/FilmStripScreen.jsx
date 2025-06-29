@@ -17,14 +17,38 @@ const FilmStripScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   //  brand / model / colour / template passed from previous screens if needed
-  const { brand, model, color, template } = location.state || {}
+  const { brand, model, color, template, uploadedImages, imageTransforms, imageOrientations, stripCount: incomingStripCount } = location.state || {}
 
   // keep track of user flow
-  const [stripCount, setStripCount] = useState(null) // 3 or 4
+  const [stripCount, setStripCount] = useState(incomingStripCount || null) // 3 or 4
 
   const handleChooseStrip = (count) => {
     setStripCount(count)
-    // Uploading will be done in next screen
+    
+    // If we have uploaded images and the new count is less than current images,
+    // we need to clear the excess images
+    if (uploadedImages && uploadedImages.length > 0) {
+      const currentImageCount = uploadedImages.filter(img => img).length
+      if (count < currentImageCount) {
+        // Clear excess images by navigating with reduced data
+        const reducedImages = uploadedImages.slice(0, count)
+        const reducedTransforms = imageTransforms ? imageTransforms.slice(0, count) : []
+        const reducedOrientations = imageOrientations ? imageOrientations.slice(0, count) : []
+        
+        navigate('/film-strip', {
+          state: {
+            brand,
+            model,
+            color,
+            template,
+            stripCount: count,
+            uploadedImages: reducedImages,
+            imageTransforms: reducedTransforms,
+            imageOrientations: reducedOrientations
+          }
+        })
+      }
+    }
   }
 
   const handleBack = () => {
@@ -41,13 +65,20 @@ const FilmStripScreen = () => {
         model,
         color,
         template,
-        stripCount
+        stripCount,
+        uploadedImages,
+        imageTransforms,
+        imageOrientations
       }
     })
   }
 
   const resetInputs = () => {
     setStripCount(null)
+    // Clear uploaded images when resetting
+    navigate('/film-strip', {
+      state: { brand, model, color, template }
+    })
   }
 
   const canSubmit = !!stripCount
@@ -89,9 +120,21 @@ const FilmStripScreen = () => {
                       aspectRatio: '4/3'
                     }}
                   >
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-gray-400 text-xs">Frame {idx + 1}</span>
-                    </div>
+                    {uploadedImages && uploadedImages[idx] ? (
+                      <img
+                        src={uploadedImages[idx]}
+                        alt={`Photo ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                        style={{
+                          objectPosition: `${imageTransforms?.[idx]?.x || 50}% ${imageTransforms?.[idx]?.y || 50}%`,
+                          transform: `scale(${imageTransforms?.[idx]?.scale || 1})`
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-gray-400 text-xs">Frame {idx + 1}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -104,6 +147,21 @@ const FilmStripScreen = () => {
             </div>
           </div>
         </div>
+
+        {/* Upload Status Indicator */}
+        {uploadedImages && uploadedImages.length > 0 && (
+          <div className="text-center mb-4">
+            <div className="text-sm text-gray-600 mb-2">
+              Images uploaded: {uploadedImages.filter(img => img).length}/{stripCount || 3}
+            </div>
+            <div className="w-full max-w-xs mx-auto bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-green-400 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(uploadedImages.filter(img => img).length / (stripCount || 3)) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
 
         {/* Control Buttons Row */}
         <div className="flex items-center justify-center space-x-3 mb-6">

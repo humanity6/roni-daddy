@@ -17,24 +17,35 @@ import { enhanceImage } from '../utils/imageEnhancer'
 const FilmStripUploadScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, stripCount } = location.state || {}
+  const { brand, model, color, template, stripCount, uploadedImages: incomingImages, imageTransforms: incomingTransforms, imageOrientations: incomingOrientations } = location.state || {}
   const totalSlots = stripCount || 3
 
-  const [uploadedImages, setUploadedImages] = useState(Array(totalSlots).fill(null))
+  const [uploadedImages, setUploadedImages] = useState(
+    incomingImages || Array(totalSlots).fill(null)
+  )
   const [currentIdx, setCurrentIdx] = useState(0)
   const fileInputRef = useRef(null)
   // Per-image transform: { x: percentage, y: percentage, scale }
   const defaultTransform = { x: 50, y: 50, scale: 1 }
   const [imageTransforms, setImageTransforms] = useState(
-    Array(totalSlots).fill(defaultTransform)
+    incomingTransforms || Array(totalSlots).fill(defaultTransform)
   )
   const [imageOrientations, setImageOrientations] = useState(
-    Array(totalSlots).fill('unknown') // 'portrait' | 'landscape'
+    incomingOrientations || Array(totalSlots).fill('unknown') // 'portrait' | 'landscape'
   )
 
   const handleBack = () => {
     navigate('/film-strip', {
-      state: { brand, model, color, template }
+      state: { 
+        brand, 
+        model, 
+        color, 
+        template,
+        uploadedImages,
+        imageTransforms,
+        imageOrientations,
+        stripCount
+      }
     })
   }
 
@@ -102,7 +113,11 @@ const FilmStripUploadScreen = () => {
     })
   }
 
-  const resetImages = () => setUploadedImages(Array(totalSlots).fill(null))
+  const resetImages = () => {
+    setUploadedImages(Array(totalSlots).fill(null))
+    setImageTransforms(Array(totalSlots).fill(defaultTransform))
+    setImageOrientations(Array(totalSlots).fill('unknown'))
+  }
 
   const filledCount = uploadedImages.filter((img) => img).length
   const canSubmit = filledCount === totalSlots

@@ -7,7 +7,7 @@ import CircleSubmitButton from '../components/CircleSubmitButton'
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount } = location.state || {}
   
   const [selectedFont, setSelectedFont] = useState('Arial')
   const [fontSize, setFontSize] = useState(18)
@@ -42,7 +42,8 @@ const FontSelectionScreen = () => {
         selectedFont,
         fontSize,
         textPosition,
-        transform: initialTransform
+        transform: initialTransform,
+        stripCount
       } 
     })
   }
@@ -61,7 +62,8 @@ const FontSelectionScreen = () => {
         selectedFont,
         fontSize,
         textPosition,
-        transform: initialTransform
+        transform: initialTransform,
+        stripCount
       } 
     })
   }
@@ -108,95 +110,141 @@ const FontSelectionScreen = () => {
       <div className="relative z-50 flex-1 flex flex-col items-center justify-center px-6">
         {/* Phone Case Preview */}
         <div className="relative mb-8">
-          <div className="relative w-72 h-[480px]">
-            {/* Separate border element - positioned independently */}
-            <div className="phone-case-border"></div>
-            
-            {/* User's uploaded image */}
-            <div className="phone-case-content">
-              {uploadedImages && uploadedImages.length > 0 ? (
-                // Multi-image layouts
-                <div className="w-full h-full overflow-hidden">
-                  {uploadedImages.length === 4 ? (
-                    <div className="w-full h-full flex flex-wrap">
-                      {uploadedImages.map((img, idx) => (
-                        <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
-                          <img 
-                            src={img} 
-                            alt={`design ${idx+1}`} 
-                            className="w-full h-full object-cover"
-                            style={{
-                              transform: imageTransforms && imageTransforms[idx] 
-                                ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
-                                : 'translate(0%, 0%) scale(1)',
-                              transformOrigin: 'center center'
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex flex-col">
-                      {uploadedImages.map((img, idx) => (
-                        <div key={idx} className="flex-1 overflow-hidden">
-                          <img 
-                            src={img} 
-                            alt={`design ${idx+1}`} 
-                            className="w-full h-full object-cover"
-                            style={{
-                              transform: imageTransforms && imageTransforms[idx] 
-                                ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
-                                : 'translate(0%, 0%) scale(1)',
-                              transformOrigin: 'center center'
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : uploadedImage ? (
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded design" 
-                  className="phone-case-image-contain"
-                  style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                  <div className="text-center text-gray-400">
-                    <Type size={48} className="mx-auto mb-3" />
-                    <p className="text-sm">Your design here</p>
+          {template?.id?.startsWith('film-strip') ? (
+            <div className="relative w-[525px] h-[525px] overflow-hidden pointer-events-none">
+              <div
+                className="absolute inset-0 flex flex-col justify-center items-center z-10"
+                style={{ paddingTop:'0px', paddingBottom:'0px', paddingLeft:'180px', paddingRight:'179px'}}
+              >
+                {uploadedImages && uploadedImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="w-full overflow-hidden rounded-sm transition-all duration-300 border-t-[8px] border-b-[8px] border-black"
+                    style={{ height: `${100 / (stripCount || 3) - 2}%` }}
+                  >
+                    <img 
+                      src={img} 
+                      alt={`Photo ${idx + 1}`} 
+                      className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: `${imageTransforms?.[idx]?.x || 50}% ${imageTransforms?.[idx]?.y || 50}%`,
+                        transform: `scale(${imageTransforms?.[idx]?.scale || 1})`
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-0 z-20 pointer-events-none">
+                <img src="/filmstrip-case.png" alt="Film strip case" className="w-full h-full object-contain" />
+              </div>
+              
+              {/* Text overlay for film strip - positioned above everything */}
+              {inputText && (
+                <div 
+                  className="absolute z-30 pointer-events-none"
+                  style={{
+                    left: `${textPosition?.x || 50}%`,
+                    top: `${textPosition?.y || 50}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                    <p style={getPreviewStyle()}>{inputText}</p>
                   </div>
                 </div>
               )}
             </div>
-
-            {/* Text overlay preview */}
-            {inputText && (
-              <div 
-                className="absolute pointer-events-none"
-                style={{
-                  left: `${textPosition?.x || 50}%`,
-                  top: `${textPosition?.y || 50}%`,
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                  <p style={getPreviewStyle()}>{inputText}</p>
-                </div>
+          ) : (
+            <div className="relative w-72 h-[480px]">
+              {/* Separate border element - positioned independently */}
+              <div className="phone-case-border"></div>
+              
+              {/* User's uploaded image */}
+              <div className="phone-case-content">
+                {uploadedImages && uploadedImages.length > 0 ? (
+                  // Multi-image layouts
+                  <div className="w-full h-full overflow-hidden">
+                    {uploadedImages.length === 4 ? (
+                      <div className="w-full h-full flex flex-wrap">
+                        {uploadedImages.map((img, idx) => (
+                          <div key={idx} className="w-1/2 h-1/2 overflow-hidden">
+                            <img 
+                              src={img} 
+                              alt={`design ${idx+1}`} 
+                              className="w-full h-full object-cover"
+                              style={{
+                                transform: imageTransforms && imageTransforms[idx] 
+                                  ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                  : 'translate(0%, 0%) scale(1)',
+                                transformOrigin: 'center center'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col">
+                        {uploadedImages.map((img, idx) => (
+                          <div key={idx} className="flex-1 overflow-hidden">
+                            <img 
+                              src={img} 
+                              alt={`design ${idx+1}`} 
+                              className="w-full h-full object-cover"
+                              style={{
+                                transform: imageTransforms && imageTransforms[idx] 
+                                  ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
+                                  : 'translate(0%, 0%) scale(1)',
+                                transformOrigin: 'center center'
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : uploadedImage ? (
+                  <img 
+                    src={uploadedImage} 
+                    alt="Uploaded design" 
+                    className="phone-case-image-contain"
+                    style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                    <div className="text-center text-gray-400">
+                      <Type size={48} className="mx-auto mb-3" />
+                      <p className="text-sm">Your design here</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            
-            {/* Phone Template Overlay */}
-            <div className="absolute inset-0">
-              <img 
-                src="/phone-template.png" 
-                alt="Phone template overlay" 
-                className="w-full h-full object-contain pointer-events-none"
-              />
+
+              {/* Text overlay preview */}
+              {inputText && (
+                <div 
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: `${textPosition?.x || 50}%`,
+                    top: `${textPosition?.y || 50}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                    <p style={getPreviewStyle()}>{inputText}</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Phone Template Overlay */}
+              <div className="absolute inset-0">
+                <img 
+                  src="/phone-template.png" 
+                  alt="Phone template overlay" 
+                  className="w-full h-full object-contain pointer-events-none"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Font Size Controls */}
