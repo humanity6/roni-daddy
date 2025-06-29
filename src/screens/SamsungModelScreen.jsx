@@ -275,7 +275,7 @@ const SamsungModelScreen = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '12px',
+              fontSize: '10px',
               fontWeight: 'bold',
               color: '#2c3e50',
               fontFamily: 'PoppinsLight, sans-serif',

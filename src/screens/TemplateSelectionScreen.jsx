@@ -255,11 +255,12 @@ const TemplateSelectionScreen = () => {
                   onClick={() => handleTemplateSelect(template.id)}
                   className={`flex flex-col items-center transition-transform duration-200 relative ${selectedTemplate === template.id ? 'scale-105' : ''} active:scale-95`}
                 >
-                  <div className="mb-0.5 w-full">
+                  <div className="mb-2 w-full">
                     {renderTemplatePreview(template)}
                   </div>
-                  <div className="text-center text-sm md:text-base text-gray-900 whitespace-nowrap">
-                    {template.name} <span className="font-cubano text-[13px] md:text-[15px]">
+                  <div className="flex flex-col items-center text-center">
+                    <span className="text-base md:text-lg font-semibold text-gray-900 leading-tight">{template.name}</span>
+                    <span className="font-cubano text-[15px] md:text-[17px] text-black mt-0.5">
                       <span className="inline-block transform scale-110 origin-left">£</span>{template.price.replace('£', '')}
                     </span>
                   </div>

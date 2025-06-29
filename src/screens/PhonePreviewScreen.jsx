@@ -29,6 +29,27 @@ const PhonePreviewScreen = () => {
       try {
         const processed = await enhanceImage(file)
         setUploadedImage(processed)
+        
+        // Calculate auto-fit scale based on image dimensions
+        const img = new Image()
+        img.onload = () => {
+          // Phone cover template dimensions: 695x1271
+          const containerWidth = 695 * 0.84 // 8% margins on each side
+          const containerHeight = 1271 * 0.98 // 1px margins top/bottom
+          
+          const scaleX = containerWidth / img.width
+          const scaleY = containerHeight / img.height
+          
+          // For object-fit: cover, we need to use the larger scale to ensure no white borders
+          const autoScale = Math.max(scaleX, scaleY)
+          
+          // For tall images (like 2268x4032), we need more aggressive scaling
+          // Ensure the scale is high enough to fill the container completely
+          const finalScale = Math.max(autoScale * 1.2, 1.5) // Increase base scale and minimum
+          
+          setTransform({ x: 0, y: 0, scale: finalScale })
+        }
+        img.src = processed
       } catch (err) {
         console.error('Image processing failed', err)
       }
@@ -136,7 +157,7 @@ const PhonePreviewScreen = () => {
   const moveDown = () => setTransform((p) => ({ ...p, y: Math.min(p.y + 5, 50) }))
   const zoomIn = () => setTransform((p) => ({ ...p, scale: Math.min(p.scale + 0.1, 5) }))
   const zoomOut = () => setTransform((p) => ({ ...p, scale: Math.max(p.scale - 0.1, 0.5) }))
-  const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
+  const resetTransform = () => setTransform({ x: 0, y: 0, scale: 1 })
 
   return (
     <div className="screen-container">
@@ -169,7 +190,7 @@ const PhonePreviewScreen = () => {
                 <img 
                   src={uploadedImage} 
                   alt="Uploaded design" 
-                  className="phone-case-image"
+                  className="phone-case-image-contain"
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
