@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppStateProvider } from './contexts/AppStateContext'
-import WelcomeScreen from './screens/WelcomeScreen'
 import PhoneBrandScreen from './screens/PhoneBrandScreen'
 import IPhoneModelScreen from './screens/IPhoneModelScreen'
 import GoogleModelScreen from './screens/GoogleModelScreen'
@@ -32,8 +31,7 @@ function App() {
     <AppStateProvider>
       <div className="App">
         <Routes>
-          <Route path="/" element={<Navigate to="/welcome" replace />} />
-          <Route path="/welcome" element={<WelcomeScreen />} />
+          <Route path="/" element={<PhoneBrandScreen />} />
           <Route path="/qr" element={<QRScreen />} />
           <Route path="/phone-brand" element={<PhoneBrandScreen />} />
           <Route path="/iphone-model" element={<IPhoneModelScreen />} />
