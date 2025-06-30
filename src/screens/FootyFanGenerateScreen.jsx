@@ -110,7 +110,7 @@ const FootyFanGenerateScreen = () => {
             
             <div className="phone-case-content">
               {uploadedImage ? (
-                <img src={uploadedImage} alt="Upload" className="phone-case-image" style={{ transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin:'center center' }} />
+                <img src={uploadedImage} alt="Upload" className="phone-case-image-contain" style={{ transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin:'center center' }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   <Upload size={48} className="text-gray-400" />
@@ -178,9 +178,21 @@ const FootyFanGenerateScreen = () => {
         </button>
       </div>
 
-      {/* Generate button */}
+      {/* Generate button - styled like Submit button */}
       <div className="relative z-10 p-6 flex justify-center">
-        <CircleSubmitButton onClick={handleGenerate} label="Generate" />
+        {/* Outer Pink Ring */}
+        <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+          {/* Minimal gap between circles */}
+          <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+            {/* Inner Pink Circle */}
+            <button 
+              onClick={handleGenerate}
+              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <span className="font-semibold text-[10px]">Generate</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

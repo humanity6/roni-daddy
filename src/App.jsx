@@ -9,6 +9,7 @@ import PhonePreviewScreen from './screens/PhonePreviewScreen'
 import TextInputScreen from './screens/TextInputScreen'
 import FontSelectionScreen from './screens/FontSelectionScreen'
 import TextColorSelectionScreen from './screens/TextColorSelectionScreen'
+import BackgroundColorSelectionScreen from './screens/BackgroundColorSelectionScreen'
 import QRScreen from './screens/QRScreen'
 import ReadyToPayScreen from './screens/ReadyToPayScreen'
 import OrderConfirmedScreen from './screens/OrderConfirmedScreen'
@@ -45,6 +46,7 @@ function App() {
           <Route path="/text-input" element={<TextInputScreen />} />
           <Route path="/font-selection" element={<FontSelectionScreen />} />
           <Route path="/text-color-selection" element={<TextColorSelectionScreen />} />
+          <Route path="/background-color-selection" element={<BackgroundColorSelectionScreen />} />
           <Route path="/ready-to-pay" element={<ReadyToPayScreen />} />
           <Route path="/multi-order-queue" element={<MultiOrderQueueScreen />} />
           <Route path="/order-confirmed" element={<OrderConfirmedScreen />} />

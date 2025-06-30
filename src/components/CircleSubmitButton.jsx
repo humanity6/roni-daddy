@@ -1,24 +1,84 @@
 import React from 'react'
 
-const CircleSubmitButton = ({ label = 'Submit', onClick, disabled = false }) => {
+const CircleSubmitButton = ({ 
+  label = 'Submit', 
+  onClick, 
+  disabled = false,
+  color = '#e277aa',
+  borderColor = '#474746',
+  textColor = '#2c3e50',
+  position = 'relative',
+  style = {},
+  className = ''
+}) => {
+  const buttonStyle = {
+    position: position,
+    width: '80px',
+    height: '80px',
+    borderRadius: '50%',
+    background: disabled ? '#ccc' : color,
+    border: 'none',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+    transition: 'transform 0.2s ease',
+    zIndex: 100,
+    ...style
+  }
+
+  const innerStyle = {
+    width: '60px',
+    height: '60px',
+    borderRadius: '50%',
+    background: disabled ? '#ccc' : color,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '10px',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: disabled ? '#999' : textColor,
+    fontFamily: 'PoppinsLight, sans-serif',
+    border: `7px solid ${disabled ? '#999' : borderColor}`
+  }
+
+  const handleMouseDown = (e) => {
+    if (!disabled) {
+      e.currentTarget.style.transform = position === 'absolute' 
+        ? 'translateX(-50%) scale(0.95)' 
+        : 'scale(0.95)'
+    }
+  }
+
+  const handleMouseUp = (e) => {
+    if (!disabled) {
+      e.currentTarget.style.transform = position === 'absolute' 
+        ? 'translateX(-50%) scale(1)' 
+        : 'scale(1)'
+    }
+  }
+
+  const handleMouseLeave = (e) => {
+    if (!disabled) {
+      e.currentTarget.style.transform = position === 'absolute' 
+        ? 'translateX(-50%) scale(1)' 
+        : 'scale(1)'
+    }
+  }
+
   return (
     <div
-      className={`rounded-full ${disabled ? 'bg-gray-300' : 'bg-pink-400'} p-[6px] shadow-xl ${
-        disabled ? '' : 'active:scale-95 transition-transform'
-      }`}
+      onClick={disabled ? undefined : onClick}
+      style={buttonStyle}
+      className={className}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
     >
-      <div className="rounded-full bg-white p-[6px]">
-        <button
-          onClick={onClick}
-          disabled={disabled}
-          className={`w-16 h-16 rounded-full flex items-center justify-center font-semibold text-[10px] ${
-            disabled
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-pink-400 text-white'
-          }`}
-        >
-          {label}
-        </button>
+      <div style={innerStyle}>
+        {label}
       </div>
     </div>
   )

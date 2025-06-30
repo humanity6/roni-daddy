@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppState } from '../contexts/AppStateContext'
 import PastelBlobs from '../components/PastelBlobs'
+import CircleSubmitButton from '../components/CircleSubmitButton'
 
 const IPhoneModelScreen = () => {
   const navigate = useNavigate()
@@ -25,7 +26,11 @@ const IPhoneModelScreen = () => {
     'IPHONE 13 PRO MAX',
     'IPHONE 13 PRO',
     'IPHONE 13 MINI',
-    'IPHONE 13'
+    'IPHONE 13',
+    'IPHONE 12 PRO MAX',
+    'IPHONE 12 PRO',
+    'IPHONE 12 MINI',
+    'IPHONE 12',
   ]
 
   const handleSubmit = () => {
@@ -240,51 +245,17 @@ const IPhoneModelScreen = () => {
           )}
         </div>
 
-        {/* Submit Button - Thinner border, consistent color */}
-        <div
+        {/* Submit Button */}
+        <CircleSubmitButton
           onClick={handleSubmit}
+          label="Submit"
+          position="absolute"
           style={{
-            position: 'absolute',
             bottom: '60px',
             left: '50%',
             transform: 'translateX(-50%)',
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            background: '#e277aa',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            transition: 'transform 0.2s ease',
-            zIndex: 100
           }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(0.95)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(1)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(1)'}
-        >
-          {/* Inner Circle - Thinner border */}
-          <div
-            style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              background: '#e277aa',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              color: '#2c3e50',
-              fontFamily: 'PoppinsLight, sans-serif',
-              border: '7px solid #474746'
-            }}
-          >
-            Submit
-          </div>
-        </div>
+        />
       </div>
     </div>
   )

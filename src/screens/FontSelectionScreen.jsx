@@ -342,7 +342,19 @@ const FontSelectionScreen = () => {
 
       {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
-        <CircleSubmitButton onClick={handleNext} label="Submit" />
+        {/* Outer Pink Ring */}
+        <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+          {/* Updated: minimal gap between circles */}
+          <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+            {/* Inner Pink Circle */}
+            <button 
+              onClick={handleNext}
+              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <span className="font-semibold text-xs">Submit</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -205,24 +205,27 @@ const FilmStripScreen = () => {
       {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
         {canSubmit ? (
-          <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
-            <div className="rounded-full bg-white p-[6px]">
-              <button
+          /* Outer Pink Ring - only show when strip count is selected */
+          <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+            {/* Updated: minimal gap between circles */}
+            <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+              {/* Inner Pink Circle */}
+              <button 
                 onClick={handleNext}
-                className="w-16 h-16 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold"
+                className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
               >
-                <span className="text-sm">Submit</span>
+                <span className="font-semibold text-xs">Submit</span>
               </button>
             </div>
           </div>
         ) : (
-          <div className="rounded-full bg-pink-400/50 p-[6px] shadow-xl">
-            <div className="rounded-full bg-white p-[6px]">
-              <button disabled className="w-16 h-16 rounded-full flex items-center justify-center bg-pink-300 text-white font-semibold cursor-not-allowed">
-                <span className="text-sm">Submit</span>
-              </button>
-            </div>
-          </div>
+          /* Simple grey button when no strip count selected */
+          <button 
+            disabled={true}
+            className="w-16 h-16 rounded-full bg-gray-300 text-white cursor-not-allowed flex items-center justify-center shadow-xl"
+          >
+            <span className="font-semibold text-xs">Submit</span>
+          </button>
         )}
       </div>
     </div>

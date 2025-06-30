@@ -139,8 +139,22 @@ const CoverShootGenerateScreen = () => {
         </div>
       </div>
 
-      {/* generate button */}
-      <div className="relative z-10 p-6 flex justify-center"><div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95"><div className="rounded-full bg-white p-[6px]"><button onClick={handleGenerate} className="w-16 h-16 rounded-full bg-pink-400 text-white font-semibold flex items-center justify-center"><span className="text-sm">Generate</span></button></div></div></div>
+      {/* Generate button - styled like Submit button */}
+      <div className="relative z-10 p-6 flex justify-center">
+        {/* Outer Pink Ring */}
+        <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+          {/* Minimal gap between circles */}
+          <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+            {/* Inner Pink Circle */}
+            <button 
+              onClick={handleGenerate}
+              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <span className="font-semibold text-[10px]">Generate</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

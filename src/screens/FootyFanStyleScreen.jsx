@@ -180,16 +180,19 @@ const FootyFanStyleScreen = () => {
         )}
       </div>
 
-      {/* Generate / Submit Button */}
+      {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
         {chosenStyle ? (
-          <div className="rounded-full bg-pink-400 p-[6px] shadow-xl active:scale-95 transition-transform">
-            <div className="rounded-full bg-white p-[6px]">
-              <button
+          /* Outer Pink Ring */
+          <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+            {/* Updated: minimal gap between circles */}
+            <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+              {/* Inner Pink Circle */}
+              <button 
                 onClick={handleNext}
-                className="w-16 h-16 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold"
+                className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
               >
-                <span className="text-sm">Generate</span>
+                <span className="font-semibold text-xs">Submit</span>
               </button>
             </div>
           </div>
@@ -198,7 +201,7 @@ const FootyFanStyleScreen = () => {
             disabled
             className="w-16 h-16 rounded-full flex items-center justify-center bg-gray-300 text-gray-500 shadow-xl cursor-not-allowed"
           >
-            <span className="text-sm">Generate</span>
+            <span className="text-sm">Submit</span>
           </button>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppState } from '../contexts/AppStateContext'
 import PastelBlobs from '../components/PastelBlobs'
+import CircleSubmitButton from '../components/CircleSubmitButton'
 
 const SamsungModelScreen = () => {
   const navigate = useNavigate()
@@ -240,51 +241,18 @@ const SamsungModelScreen = () => {
           )}
         </div>
 
-        {/* Submit Button - Thinner border */}
-        <div
+        {/* Submit Button */}
+        <CircleSubmitButton
           onClick={handleSubmit}
+          label="Submit"
+          color="#deecd0"
+          position="absolute"
           style={{
-            position: 'absolute',
             bottom: '60px',
             left: '50%',
-            transform: 'translateX(-50%)',
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            background: '#deecd0',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            transition: 'transform 0.2s ease',
-            zIndex: 100
+            transform: 'translateX(-50%)'
           }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(0.95)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(1)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'translateX(-50%) scale(1)'}
-        >
-          {/* Inner Circle - Thinner border */}
-          <div
-            style={{
-              width: '60px',
-              height: '60px',
-              borderRadius: '50%',
-              background: '#deecd0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              color: '#2c3e50',
-              fontFamily: 'PoppinsLight, sans-serif',
-              border: '7px solid #474746'
-            }}
-          >
-            Submit
-          </div>
-        </div>
+        />
       </div>
     </div>
   )

@@ -214,10 +214,9 @@ const MultiImageUploadScreen = () => {
               {requiredCount === 4 ? (
                 <div className="w-full h-full flex flex-wrap">
                   {images.map((img, idx) => (
-                    <button
+                    <div
                       key={idx}
-                      onClick={() => setCurrentIdx(idx)}
-                      className={`w-1/2 h-1/2 overflow-hidden border-gray-900 ${
+                      className={`w-1/2 h-1/2 overflow-hidden border-gray-900 relative ${
                         idx === 0 ? 'border-t-4 border-l-4 border-r-2 border-b-2' :
                         idx === 1 ? 'border-t-4 border-r-4 border-l-2 border-b-2' :
                         idx === 2 ? 'border-b-4 border-l-4 border-r-2 border-t-2' :
@@ -242,16 +241,33 @@ const MultiImageUploadScreen = () => {
                           <Upload size={24} className="text-gray-400" />
                         </div>
                       )}
-                    </button>
+                      
+                      {/* Individual slot clickable overlay for 4in1 */}
+                      {!img.src && (
+                        <div className="absolute inset-0 z-10">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFilesSelected}
+                            className="hidden"
+                            id={`multi-upload-input-${idx}`}
+                          />
+                          <label 
+                            htmlFor={`multi-upload-input-${idx}`}
+                            className="w-full h-full block cursor-pointer"
+                            onClick={() => setCurrentIdx(idx)}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
                 <div className="w-full h-full flex flex-col">
                   {images.map((img, idx) => (
-                    <button
+                    <div
                       key={idx}
-                      onClick={() => setCurrentIdx(idx)}
-                      className={`flex-1 overflow-hidden border-gray-900 ${
+                      className={`flex-1 overflow-hidden border-gray-900 relative ${
                         idx === 0 ? 'border-t-4 border-l-4 border-r-4 border-b-2' :
                         idx === requiredCount - 1 ? 'border-b-4 border-l-4 border-r-4 border-t-2' :
                         'border-l-4 border-r-4 border-t-2 border-b-2'
@@ -275,7 +291,25 @@ const MultiImageUploadScreen = () => {
                           <Upload size={24} className="text-gray-400" />
                         </div>
                       )}
-                    </button>
+                      
+                      {/* Individual slot clickable overlay for 2in1 and 3in1 */}
+                      {!img.src && (
+                        <div className="absolute inset-0 z-10">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFilesSelected}
+                            className="hidden"
+                            id={`multi-upload-input-${idx}`}
+                          />
+                          <label 
+                            htmlFor={`multi-upload-input-${idx}`}
+                            className="w-full h-full block cursor-pointer"
+                            onClick={() => setCurrentIdx(idx)}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -394,13 +428,29 @@ const MultiImageUploadScreen = () => {
 
       {/* Submit */}
       <div className="relative z-10 p-6 flex justify-center">
-        <button
-          disabled={!canSubmit}
-          onClick={handleNext}
-          className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-transform active:scale-95 ${canSubmit ? 'bg-pink-400 text-white' : 'bg-gray-300 text-white cursor-not-allowed'}`}
-        >
-          <span className="text-sm">Submit</span>
-        </button>
+        {canSubmit ? (
+          /* Outer Pink Ring - only show when all images uploaded */
+          <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+            {/* Updated: minimal gap between circles */}
+            <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+              {/* Inner Pink Circle */}
+              <button 
+                onClick={handleNext}
+                className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <span className="font-semibold text-xs">Submit</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Simple grey button when not all images uploaded */
+          <button 
+            disabled={true}
+            className="w-16 h-16 rounded-full bg-gray-300 text-white cursor-not-allowed flex items-center justify-center shadow-xl"
+          >
+            <span className="font-semibold text-xs">Submit</span>
+          </button>
+        )}
       </div>
     </div>
   )

@@ -204,10 +204,10 @@ const PhonePreviewScreen = () => {
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
                   <div className="text-center text-gray-400">
                     <Upload size={48} className="mx-auto mb-3" />
-                    <p className="text-sm">Your design here</p>
+                    <p className="text-sm">Click to upload image</p>
                   </div>
                 </div>
               )}
@@ -221,6 +221,23 @@ const PhonePreviewScreen = () => {
                 className="w-full h-full object-contain pointer-events-none"
               />
             </div>
+            
+            {/* Hidden file input and clickable overlay for upload */}
+            {!uploadedImage && (
+              <div className="absolute inset-0 z-10">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  id="phone-upload-input"
+                />
+                <label 
+                  htmlFor="phone-upload-input"
+                  className="w-full h-full block cursor-pointer"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -285,25 +302,29 @@ const PhonePreviewScreen = () => {
         )}
       </div>
 
-      {/* Submit Button – pink outer ring, white inner ring, pink core */}
+      {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
-        {template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1) || uploadedImage ? (
-          <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
-            <div className="rounded-full bg-white p-[6px]">
-              <button
+        {(template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1) || uploadedImage) ? (
+          /* Outer Pink Ring - only show when ready to submit */
+          <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+            {/* Updated: minimal gap between circles */}
+            <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+              {/* Inner Pink Circle */}
+              <button 
                 onClick={handleNext}
-                className="w-16 h-16 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold"
+                className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
               >
-                <span className="text-sm">Submit</span>
+                <span className="font-semibold text-xs">Submit</span>
               </button>
             </div>
           </div>
         ) : (
-          <button
-            disabled
-            className="w-16 h-16 rounded-full flex items-center justify-center bg-gray-300 text-gray-500 shadow-xl cursor-not-allowed"
+          /* Simple grey button when not ready to submit */
+          <button 
+            disabled={true}
+            className="w-16 h-16 rounded-full bg-gray-300 text-white cursor-not-allowed flex items-center justify-center shadow-xl"
           >
-            <span className="text-sm">Submit</span>
+            <span className="font-semibold text-xs">Submit</span>
           </button>
         )}
       </div>

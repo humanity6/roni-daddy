@@ -30,6 +30,7 @@ const PaymentScreen = () => {
     selectedFont = 'Arial',
     fontSize = 18,
     selectedTextColor = '#ffffff',
+    selectedBackgroundColor = '#ffffff',
     textPosition,
     transform: initialTransform,
     template,
@@ -132,6 +133,19 @@ const PaymentScreen = () => {
         <div className="flex-1 flex flex-col items-center justify-start pt-2">
           {template?.id?.startsWith('film-strip') ? (
             <div className="relative w-[525px] h-[525px] overflow-hidden pointer-events-none">
+              {/* Background color layer for film strip */}
+              <div
+                className="absolute z-5"
+                style={{ 
+                  backgroundColor: selectedBackgroundColor,
+                  top: '2%',
+                  bottom: '2%',
+                  left: '28%',
+                  right: '28%',
+                  borderRadius: '16px'
+                }}
+              ></div>
+              
               <div
                 className="absolute inset-0 flex flex-col justify-center items-center z-10"
                 style={{ paddingTop:'0px', paddingBottom:'0px', paddingLeft:'180px', paddingRight:'179px'}}
@@ -176,11 +190,37 @@ const PaymentScreen = () => {
             </div>
           ) : (
             <div className="relative w-64 h-[420px] mx-auto">
-              {/* Separate border element - positioned independently */}
-              <div className="phone-case-border"></div>
+              {/* Background color layer - positioned to match phone case content area */}
+              <div 
+                className="absolute z-5"
+                style={{
+                  backgroundColor: selectedBackgroundColor,
+                  position: 'absolute',
+                  top: '1px',
+                  left: '8%',
+                  right: '8%',
+                  bottom: '1px',
+                  borderRadius: '42px',
+                  overflow: 'hidden'
+                }}
+              ></div>
               
-              {/* Dynamic design image */}
-              <div className="phone-case-content">
+              {/* Phone case border - separate decorative element */}
+              <div className="phone-case-border absolute z-8"></div>
+              
+              {/* User's uploaded image content - above background but below text */}
+              <div 
+                className="relative z-10"
+                style={{
+                  position: 'absolute',
+                  top: '1px',
+                  left: '8%',
+                  right: '8%',
+                  bottom: '1px',
+                  borderRadius: '42px',
+                  overflow: 'hidden'
+                }}
+              >
                 {uploadedImages && uploadedImages.length > 0 ? (
                   // Multi-image layouts
                   <div className="w-full h-full overflow-hidden">
@@ -232,22 +272,25 @@ const PaymentScreen = () => {
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">No design</div>
                 )}
-
-                {/* Text overlay preview */}
-                {inputText && (
-                  <div style={getTextStyle()}>
-                    <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                      <p style={getPreviewStyle()}>{inputText}</p>
-                    </div>
-                  </div>
-                )}
               </div>
-              {/* Template overlay */}
-              <img
-                src="/phone-template.png"
-                alt="Phone template"
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-              />
+
+              {/* Text overlay preview - highest layer for user content */}
+              {inputText && (
+                <div className="absolute z-15" style={getTextStyle()}>
+                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                    <p style={getPreviewStyle()}>{inputText}</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Phone Template Overlay - decorative elements above everything */}
+              <div className="absolute inset-0 z-20">
+                <img 
+                  src="/phone-template.png" 
+                  alt="Phone template overlay" 
+                  className="w-full h-full object-contain pointer-events-none"
+                />
+              </div>
             </div>
           )}
 

@@ -1,4 +1,13 @@
+import { ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+
 const OrderConfirmedScreen = () => {
+  const navigate = useNavigate()
+
+  const handleBack = () => {
+    navigate(-1)
+  }
+
   return (
     <div className="screen-container" style={{ background: '#FFFFFF' }}>
       {/* Bottom left small blue blob */}
@@ -7,6 +16,16 @@ const OrderConfirmedScreen = () => {
       <div className="absolute bottom-[-140px] right-[-100px] w-[220px] h-[320px] bg-[#F8D9DE] rounded-[35%_65%_40%_60%/60%_40%_55%_45%] opacity-70"></div>
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-between px-6 py-12">
+        {/* Back Arrow */}
+        <div className="w-full flex justify-start mb-4">
+          <button
+            onClick={handleBack}
+            className="w-12 h-12 rounded-full bg-white border-4 border-blue-300 flex items-center justify-center active:scale-95 transition-transform shadow-lg"
+          >
+            <ArrowLeft size={20} className="text-blue-500" />
+          </button>
+        </div>
+
         {/* MOBILE LAYOUT (below 768px) */}
         <div className="md:hidden w-full flex flex-col items-center pt-8 space-y-8">
           {/* Blue cloud with confirmation text */}

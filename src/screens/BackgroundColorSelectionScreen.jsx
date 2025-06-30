@@ -1,15 +1,30 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Type } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 
-const TextColorSelectionScreen = () => {
+const BackgroundColorSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, selectedFont, fontSize, textPosition, transform: initialTransform, stripCount } = location.state || {}
+  const { 
+    brand, 
+    model, 
+    color, 
+    template, 
+    uploadedImage, 
+    uploadedImages, 
+    imageTransforms, 
+    inputText, 
+    selectedFont, 
+    fontSize, 
+    textPosition, 
+    transform: initialTransform, 
+    stripCount,
+    selectedTextColor 
+  } = location.state || {}
   
-  const [selectedTextColor, setSelectedTextColor] = useState('#ffffff')
+  const [selectedBackgroundColor, setSelectedBackgroundColor] = useState('#ffffff')
 
   const colors = [
     { name: 'White', value: '#ffffff', bg: 'bg-white', border: 'border-gray-300' },
@@ -39,7 +54,7 @@ const TextColorSelectionScreen = () => {
   ]
 
   const handleBack = () => {
-    navigate('/font-selection', { 
+    navigate('/text-color-selection', { 
       state: { 
         brand, 
         model, 
@@ -52,28 +67,29 @@ const TextColorSelectionScreen = () => {
         selectedFont,
         fontSize,
         textPosition,
-        transform: initialTransform
+        transform: initialTransform,
+        stripCount,
+        selectedTextColor
       } 
     })
   }
 
   const handleNext = () => {
-    navigate('/background-color-selection', {
+    navigate('/payment', {
       state: {
-        brand,
-        model,
-        color,
-        template,
-        uploadedImage,
+        designImage: uploadedImage,
         uploadedImages,
         imageTransforms,
         inputText,
         selectedFont,
         fontSize,
         selectedTextColor,
+        selectedBackgroundColor,
         textPosition,
         transform: initialTransform,
-        stripCount
+        template,
+        stripCount,
+        price: 16.99
       }
     })
   }
@@ -97,12 +113,12 @@ const TextColorSelectionScreen = () => {
     return {
       fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
       fontSize: `${fontSize}px`,
-      color: selectedTextColor
+      color: selectedTextColor || '#ffffff'
     }
   }
 
   const getSelectedColorInfo = () => {
-    return colors.find(c => c.value === selectedTextColor) || colors[0]
+    return colors.find(c => c.value === selectedBackgroundColor) || colors[0]
   }
 
   const getTextStyle = () => ({
@@ -125,7 +141,7 @@ const TextColorSelectionScreen = () => {
         >
           <ArrowLeft size={20} className="text-white" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-800">Text Color</h1>
+        <h1 className="text-lg font-semibold text-gray-800">Background Color</h1>
         <div className="w-12 h-12"></div>
       </div>
 
@@ -135,9 +151,28 @@ const TextColorSelectionScreen = () => {
         <div className="relative mb-8">
           {template?.id?.startsWith('film-strip') ? (
             <div className="relative w-[525px] h-[525px] overflow-hidden pointer-events-none">
+              {/* Background color layer for film strip - using proper film strip constraints */}
+              <div
+                className="absolute z-5"
+                style={{ 
+                  backgroundColor: selectedBackgroundColor,
+                  top: '2%',
+                  bottom: '2%',
+                  left: '28%',
+                  right: '28%',
+                  borderRadius: '16px'
+                }}
+              ></div>
+              
+              {/* Images container */}
               <div
                 className="absolute inset-0 flex flex-col justify-center items-center z-10"
-                style={{ paddingTop:'0px', paddingBottom:'0px', paddingLeft:'180px', paddingRight:'179px'}}
+                style={{ 
+                  paddingTop:'0px', 
+                  paddingBottom:'0px', 
+                  paddingLeft:'180px', 
+                  paddingRight:'180px'
+                }}
               >
                 {uploadedImages && uploadedImages.map((img, idx) => (
                   <div
@@ -157,6 +192,8 @@ const TextColorSelectionScreen = () => {
                   </div>
                 ))}
               </div>
+              
+              {/* Film strip case overlay */}
               <div className="absolute inset-0 z-20 pointer-events-none">
                 <img src="/filmstrip-case.png" alt="Film strip case" className="w-full h-full object-contain" />
               </div>
@@ -179,11 +216,37 @@ const TextColorSelectionScreen = () => {
             </div>
           ) : (
             <div className="relative w-72 h-[480px]">
-              {/* Separate border element - positioned independently */}
-              <div className="phone-case-border"></div>
+              {/* Background color layer - positioned to match phone case content area */}
+              <div 
+                className="absolute z-5"
+                style={{
+                  backgroundColor: selectedBackgroundColor,
+                  position: 'absolute',
+                  top: '1px',
+                  left: '8%',
+                  right: '8%',
+                  bottom: '1px',
+                  borderRadius: '42px',
+                  overflow: 'hidden'
+                }}
+              ></div>
               
-              {/* User's uploaded image */}
-              <div className="phone-case-content">
+              {/* Phone case border - separate decorative element */}
+              <div className="phone-case-border absolute z-8"></div>
+              
+              {/* User's uploaded image content - above background but below text */}
+              <div 
+                className="relative z-10"
+                style={{
+                  position: 'absolute',
+                  top: '1px',
+                  left: '8%',
+                  right: '8%',
+                  bottom: '1px',
+                  borderRadius: '42px',
+                  overflow: 'hidden'
+                }}
+              >
                 {uploadedImages && uploadedImages.length > 0 ? (
                   // Multi-image layouts
                   <div className="w-full h-full overflow-hidden">
@@ -242,17 +305,17 @@ const TextColorSelectionScreen = () => {
                 )}
               </div>
 
-              {/* Text overlay preview */}
+              {/* Text overlay preview - highest layer for user content */}
               {inputText && (
-                <div style={getTextStyle()}>
+                <div className="absolute z-15" style={getTextStyle()}>
                   <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
                     <p style={getPreviewStyle()}>{inputText}</p>
                   </div>
                 </div>
               )}
               
-              {/* Phone Template Overlay */}
-              <div className="absolute inset-0">
+              {/* Phone Template Overlay - decorative elements above everything */}
+              <div className="absolute inset-0 z-20">
                 <img 
                   src="/phone-template.png" 
                   alt="Phone template overlay" 
@@ -270,7 +333,7 @@ const TextColorSelectionScreen = () => {
               <div className={`w-8 h-8 rounded-full ${getSelectedColorInfo().bg} border-2 ${getSelectedColorInfo().border} shadow-md`}></div>
               <div className="text-center">
                 <p className="text-lg font-medium text-gray-800">{getSelectedColorInfo().name}</p>
-                <p className="text-xs text-gray-500">{selectedTextColor.toUpperCase()}</p>
+                <p className="text-xs text-gray-500">{selectedBackgroundColor.toUpperCase()}</p>
               </div>
             </div>
           </div>
@@ -279,28 +342,28 @@ const TextColorSelectionScreen = () => {
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
           <div className="relative">
-                         <div 
-               className="color-slider flex space-x-4 px-4 pb-4 overflow-x-auto"
-             >
+            <div 
+              className="color-slider flex space-x-4 px-4 pb-4 overflow-x-auto"
+            >
               {colors.map((colorOption, index) => (
                 <button
                   key={colorOption.value}
-                  onClick={() => setSelectedTextColor(colorOption.value)}
-                                     className={`
-                     color-option w-12 h-12 rounded-full border-3 transition-all duration-300 shadow-lg
-                     ${colorOption.bg}
-                     ${selectedTextColor === colorOption.value 
-                       ? 'border-pink-400 scale-125 shadow-xl' 
-                       : `${colorOption.border} hover:scale-110 active:scale-95`
-                     }
-                   `}
+                  onClick={() => setSelectedBackgroundColor(colorOption.value)}
+                  className={`
+                    color-option w-12 h-12 rounded-full border-3 transition-all duration-300 shadow-lg
+                    ${colorOption.bg}
+                    ${selectedBackgroundColor === colorOption.value 
+                      ? 'border-pink-400 scale-125 shadow-xl' 
+                      : `${colorOption.border} hover:scale-110 active:scale-95`
+                    }
+                  `}
                   title={colorOption.name}
                   style={{
                     minWidth: '3rem',
                     marginRight: index === colors.length - 1 ? '1rem' : '0'
                   }}
                 >
-                  {selectedTextColor === colorOption.value && (
+                  {selectedBackgroundColor === colorOption.value && (
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse shadow-sm"></div>
                     </div>
@@ -318,21 +381,6 @@ const TextColorSelectionScreen = () => {
           <p className="text-center text-xs text-gray-500 mt-2">
             Slide to see more colors →
           </p>
-        </div>
-
-        {/* Sample Text Preview */}
-        <div className="w-full max-w-xs mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
-            <p className="text-center text-gray-600 text-sm mb-2">Preview:</p>
-            <div className="bg-gray-100 rounded-lg p-3">
-              <p 
-                className="text-center"
-                style={getPreviewStyle()}
-              >
-                {inputText || 'Sample Text'}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -352,10 +400,8 @@ const TextColorSelectionScreen = () => {
           </div>
         </div>
       </div>
-
-
     </div>
   )
 }
 
-export default TextColorSelectionScreen 
+export default BackgroundColorSelectionScreen 
