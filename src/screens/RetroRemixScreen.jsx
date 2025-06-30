@@ -43,9 +43,19 @@ const RetroRemixScreen = () => {
   }
 
   const handleSubmit = () => {
-    // For now just console log – further flow TBD
-    /* eslint-disable no-console */
-    console.log('SUBMIT RETRO REMIX', { brand, model, color, keyword, optionalText, transform })
+    navigate('/retro-remix-generate', {
+      state: {
+        brand,
+        model,
+        color,
+        template,
+        uploadedImage,
+        keyword,
+        optionalText,
+        transform,
+        aiCredits: 4
+      }
+    })
   }
 
   /* --------------------------------------------------------------------

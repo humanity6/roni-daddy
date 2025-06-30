@@ -47,120 +47,6 @@ TECHNICAL SPECIFICATIONS:
 
 Transform the reference image to match this semi-realistic illustrated aesthetic while preserving natural human proportions and adding dimensional depth to facial features.
 
-Glitch pro
-Transform the reference image into a retro analog glitch aesthetic reminiscent of 1980s VHS and vintage TV broadcasts. Apply the following style elements while PRESERVING FACIAL CLARITY:
-
-COMPOSITION & POSITIONING:
-- Subject positioned directly center in the frame
-- Face and body oriented straight toward the camera/viewer
-- Front-facing pose with direct eye contact
-- Centered, symmetrical composition
-- Head and shoulders prominently featured in center of image
-
-FACIAL PRESERVATION (CRITICAL - HIGHEST PRIORITY):
-- COMPLETELY preserve facial features - face must be crystal clear
-- NO scan lines or glitch effects on the face area
-- Maintain completely natural skin tones on the face
-- Preserve eye details and facial expressions perfectly
-- Apply ZERO distortion to facial area
-- Face should look like a normal, clear photograph
-- Subject must remain 100% easily identifiable
-- Treat the face as a protected zone from all effects
-
-GLITCH & ANALOG EFFECTS (BACKGROUND ONLY):
-- Apply horizontal scan lines ONLY to background areas
-- NO scan lines crossing the face or head area
-- Subtle VHS tape distortion effects on background only
-- Gentle color channel separation ONLY in background
-- Light digital noise and pixelation artifacts in background only
-- Retro CRT monitor aesthetic with slight curvature
-- ALL glitch effects confined to background and edges only
-- Leave a clear, clean circular area around the subject's face
-
-COLOR TREATMENT:
-- Moderately saturated color palette with deep reds, oranges, and electric greens
-- High contrast with warm highlights
-- Warm color temperature with subtle analog color bleeding
-- Neon-like intensity in background areas
-- Gentle color shifts and analog color distortion
-- Preserve natural skin tones on face
-
-VISUAL STYLE:
-- Nostalgic 1980s aesthetic
-- Lo-fi, deliberately degraded image quality (background focused)
-- Vintage broadcast television look
-- Retro-futuristic vibe
-- Slightly overexposed and high-contrast appearance
-
-TECHNICAL EFFECTS (BALANCED):
-- Light horizontal line interference patterns
-- Subtle color fringing and separation
-- Gentle analog video compression artifacts
-- Minimal image warping and distortion
-- Vintage electronic media deterioration effects (background focused)
-
-MOOD & ATMOSPHERE:
-- Fun, energetic, and nostalgic
-- Retro party/celebration vibe
-- 80s synthwave aesthetic influence
-- Warm, inviting despite the processing
-
-IMPORTANT: Transform the reference image to match this exact glitch pro/analog TV aesthetic while PRIORITIZING facial clarity and recognition. The subject should remain clearly visible and identifiable with retro effects applied more heavily to the background and edges rather than the face itself.
-
-Funny toon
-Transform the reference image into a vibrant cartoon caricature in the style of professional digital caricature art. Apply the following artistic elements:
-
-COMPOSITION & POSITIONING:
-- Subject positioned directly center in the frame
-- Face and body oriented straight toward the camera/viewer
-- Front-facing pose with direct eye contact
-- Centered, symmetrical composition
-- Head and shoulders prominently featured in center of image
-
-CARTOON STYLE & TECHNIQUE:
-- Smooth, professional digital caricature illustration style
-- Clean, polished artwork with bold black outlines
-- Airbrush-like smooth coloring technique
-- High-end digital illustration quality
-- Exaggerated but appealing caricature proportions
-
-FACIAL EXAGGERATION:
-- Extremely large, round eyes with bright white highlights and dark pupils
-- Massive, ear-to-ear grin with oversized, prominent white teeth
-- Slightly enlarged nose with smooth, rounded features
-- Fuller, more prominent cheeks
-- Animated, joyful expression with raised eyebrows
-- Warm, inviting and mischievous smile
-
-HAIR & FEATURES:
-- Rich brown hair with smooth, flowing texture
-- Hair framing the face naturally
-- Clean, cartoon-style hair rendering
-- Smooth skin tones with subtle highlighting
-
-COLOR PALETTE:
-- Warm orange gradient background (orange to yellow tones)
-- Natural but slightly exaggerated skin tones
-- Rich brown hair color
-- Bright white teeth
-- Warm, inviting color scheme throughout
-- Clean color blocking with smooth transitions
-
-TECHNICAL SPECIFICATIONS:
-- Bold, consistent black outlines throughout
-- Smooth gradients and professional digital polish
-- No photorealistic textures - pure cartoon style
-- High-quality digital illustration finish
-- Professional caricature artist quality
-
-MOOD & CHARACTER:
-- Extremely joyful and enthusiastic expression
-- Playful and friendly personality
-- Warm, approachable cartoon charm
-- Universally appealing caricature aesthetic
-- Pure happiness and positive energy
-
-Transform the reference image into this exact funny toon/cartoon caricature style while maintaining the subject's key identifying features but with deliberately exaggerated proportions for maximum appeal and cartoon charm.
 
 cover shoot
 Transform the reference image into a high-end professional magazine cover shoot aesthetic. Apply the following photography and styling elements:
@@ -213,7 +99,7 @@ COMPOSITION & MOOD:
 
 Transform the reference image to match this exact cover shoot/professional photography style while maintaining natural beauty with the polished perfection of high-end commercial photography.
 
----
+Funny toon
 Front-facing, perfectly centered and symmetrical caricature portrait of the person in the reference photo.  
 • Expression & Features: gigantic toothy grin, evenly balanced wide sparkling eyes, playfully arched eyebrows, gently exaggerated but symmetrical nose & ears, cheerful energy  
 • Style: hand-painted digital illustration, warm gouache textures, subtle painterly outlines, crisp magazine-cover lighting  
@@ -223,11 +109,11 @@ Front-facing, perfectly centered and symmetrical caricature portrait of the pers
 • Mood: fun, playful, slightly retro Mad-magazine vibe
 
 
-----
 
+glitch pro 
 Transform this selfie into a retro glitch pop aesthetic with vintage VHS distortion effects. Apply horizontal scan lines and TV static noise throughout the image. Use a warm color palette dominated by red, orange, and yellow tones with contrasting green and blue glitch accents. Add film grain and analog video artifacts like chromatic aberration and color bleeding. Create a nostalgic 80s/90s vibe with oversaturated colors and slight image degradation. The overall mood should be energetic and vibrant with that classic retro-futuristic glitch art style. Include subtle double exposure effects and digital noise patterns.
 
-----
+footy fan
 Create a warm, heartwarming portrait photo of the people from the reference image, transforming them to wearfc barcelona merchandise and fan gear. 
 
 Transform the subjects to be:

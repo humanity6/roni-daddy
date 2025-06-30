@@ -99,6 +99,17 @@ const PhonePreviewScreen = () => {
           transform
         }
       })
+    } else if (template?.id === 'cover-shoot') {
+      navigate('/cover-shoot', {
+        state: {
+          brand,
+          model,
+          color,
+          template,
+          uploadedImage,
+          transform
+        }
+      })
     } else if (template?.id?.startsWith('film-strip')) {
       navigate('/film-strip', {
         state: {

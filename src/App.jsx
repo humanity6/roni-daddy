@@ -25,6 +25,9 @@ import GlitchScreen from './screens/GlitchScreen'
 import FootyFanScreen from './screens/FootyFanScreen'
 import FootyFanStyleScreen from './screens/FootyFanStyleScreen'
 import FootyFanGenerateScreen from './screens/FootyFanGenerateScreen'
+import GlitchProGenerateScreen from './screens/GlitchProGenerateScreen'
+import CoverShootGenerateScreen from './screens/CoverShootGenerateScreen'
+import RetroRemixGenerateScreen from './screens/RetroRemixGenerateScreen'
 
 function App() {
   return (
@@ -59,6 +62,9 @@ function App() {
           <Route path="/footy-fan" element={<FootyFanScreen />} />
           <Route path="/footy-fan-style" element={<FootyFanStyleScreen />} />
           <Route path="/footy-fan-generate" element={<FootyFanGenerateScreen />} />
+          <Route path="/glitch-pro-generate" element={<GlitchProGenerateScreen />} />
+          <Route path="/cover-shoot-generate" element={<CoverShootGenerateScreen />} />
+          <Route path="/retro-remix-generate" element={<RetroRemixGenerateScreen />} />
         </Routes>
       </div>
     </AppStateProvider>

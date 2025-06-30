@@ -25,7 +25,7 @@ const GlitchScreen = () => {
   const reset = () => setTransform({ x: 0, y: 0, scale: 2 })
 
   const handleGenerate = () => {
-    navigate('/ai-regenerate', {
+    navigate('/glitch-pro-generate', {
       state: { brand, model, color, template, uploadedImage: image, transform, mode }
     })
   }

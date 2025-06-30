@@ -14,9 +14,10 @@ import PastelBlobs from '../components/PastelBlobs'
 const CoverShootScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage } = location.state || {}
+  const { brand, model, color, template, uploadedImage, transform: initialTransform } = location.state || {}
 
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
+  // Start with incoming transform (if any) so that alignment from previous screen persists
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
   const [image, setImage] = useState(uploadedImage || null)
 
   // Transform helpers
@@ -29,7 +30,7 @@ const CoverShootScreen = () => {
   const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
 
   const handleGenerate = () => {
-    navigate('/ai-regenerate', {
+    navigate('/cover-shoot-generate', {
       state: {
         brand,
         model,
