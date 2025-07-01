@@ -190,23 +190,29 @@ const TemplateSelectionScreen = () => {
     return gradients[templateId] || 'from-gray-400 to-gray-600'
   }
 
+  // Helper to render template preview with fixed size
   const renderTemplatePreview = (template) => {
+    /*
+      Enlarged preview wrapper to better match the dimensions shown
+      in the UI mock-up (roughly 700×1350 → aspect ≈ 1 : 1.93).
+      We keep a fixed width so four cases fit a single row on most
+      mobile screens and calculate the height accordingly.
+    */
     return (
-      <div className="w-full aspect-[2/3] relative rounded-2xl overflow-hidden">
+      <div className="aspect-[7/13.5] w-full max-w-[90px] mx-auto rounded-xl flex items-center justify-center bg-white">
         {/* Template preview image */}
         <img 
           src={template.imagePath} 
           alt={`${template.name} template preview`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain rounded-xl shadow-md"
           onError={(e) => {
-            // Fallback to gradient if image fails to load
             e.target.style.display = 'none'
-            e.target.nextSibling.style.display = 'block'
+            e.target.nextSibling.style.display = 'flex'
           }}
         />
         {/* Fallback gradient background */}
         <div 
-          className={`w-full h-full bg-gradient-to-br ${getPreviewGradient(template.id)}`}
+          className={`w-full h-full bg-gradient-to-br ${getPreviewGradient(template.id)} rounded-xl`}
           style={{ display: 'none' }}
         >
           <div className="w-full h-full flex items-center justify-center">
@@ -229,40 +235,38 @@ const TemplateSelectionScreen = () => {
       <PastelBlobs />
       
       {/* Header */}
-      <div className="relative z-10 flex items-center justify-between p-4">
+      <div className="relative z-10 flex items-center p-4">
         <button 
           onClick={handleBack}
-          className="w-10 h-10 rounded-full bg-white border-2 border-pink-500 flex items-center justify-center active:scale-95 transition-transform"
+          className="w-10 h-10 rounded-full bg-white border-2 border-pink-500 flex items-center justify-center active:scale-95 transition-transform absolute left-4"
         >
           <ArrowLeft size={20} className="text-pink-500" />
         </button>
-        <h1 className="text-2xl md:text-3xl font-cubano text-gray-800 tracking-normal">PICK A DESIGN MODE</h1>
-        <div className="w-12 h-12"></div>
+        <h1 className="text-2xl md:text-4xl font-cubano text-[#424242] tracking-normal text-center w-full px-16 whitespace-nowrap">PICK A DESIGN MODE</h1>
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex-1 px-1 py-2 overflow-y-auto">
-        {/* Templates Rows */}
-        <div className="space-y-3">
+      <div className="relative z-10 flex-1 pt-2 pb-2 px-2 overflow-visible flex justify-center">
+        {/* Centered grid container with fixed width */}
+        <div className="max-w-[420px] w-full mx-auto space-y-4">
           {groupedTemplates.map((row, idx) => (
             <div
               key={idx}
-              className={`grid ${idx === 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-x-2 gap-y-3`}
+              className={`grid ${idx === 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-x-2 gap-y-4`}
+              style={{ alignItems: 'start' }}
             >
               {row.map((template) => (
                 <button
                   key={template.id}
                   onClick={() => handleTemplateSelect(template.id)}
-                  className={`flex flex-col items-center transition-transform duration-200 relative ${selectedTemplate === template.id ? 'scale-105' : ''} active:scale-95`}
+                  className={`flex flex-col items-center transition-transform duration-200 relative ${selectedTemplate === template.id ? 'scale-105' : ''} active:scale-95 w-full`}
+                  style={{ minWidth: 0 }}
                 >
-                  <div className="mb-2 w-full">
+                  <div className="mb-1 w-full">
                     {renderTemplatePreview(template)}
                   </div>
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-base md:text-lg font-semibold text-gray-900 leading-tight">{template.name}</span>
-                    <span className="font-cubano text-[15px] md:text-[17px] text-black mt-0.5">
-                      <span className="inline-block transform scale-110 origin-left">£</span>{template.price.replace('£', '')}
-                    </span>
+                  <div className="flex flex-col items-center justify-center text-center w-full px-0 mt-0">
+                    <span className="text-[13px] font-normal text-gray-900 font-poppins-light leading-tight w-full" style={{ wordSpacing: '-2px', maxWidth: '100%' }}>{template.name} <span className="font-bold">{template.price}</span></span>
                   </div>
                 </button>
               ))}
