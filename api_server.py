@@ -27,7 +27,9 @@ app.add_middleware(
         "http://localhost:5173", 
         "http://localhost:3000",
         "http://192.168.100.4:5173",  # Your IP address
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+        "https://pimp-my-case.vercel.app",  # Production frontend
+        "https://pimp-my-case.vercel.app/"  # With trailing slash
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -105,19 +107,21 @@ Transform the reference image to match this semi-realistic illustrated aesthetic
         }
     },
     "funny-toon": {
-        "base": """Front-facing, perfectly centered and symmetrical caricature portrait of the person in the reference photo.  
+        "styles": {
+            "Wild and Wacky": """Front-facing, perfectly centered and symmetrical caricature portrait of the person in the reference photo.  
 • Expression & Features: gigantic toothy grin, evenly balanced wide sparkling eyes, playfully arched eyebrows, gently exaggerated but symmetrical nose & ears, cheerful energy  
 • Style: hand-painted digital illustration, warm gouache textures, subtle painterly outlines, crisp magazine-cover lighting  
 • Composition: tight head-and-shoulders crop (same framing as the sample image), straight-on pose, flawlessly balanced left/right proportions, bright golden-orange vignette background for pop  
 • Colors: rich oranges, terracottas, warm browns, soft highlights and shading for believable depth  
 • Rendering: ultra-detailed 8 k quality, smooth brush-stroke blends, clean edges, no photo artifacts, no phone case or borders  
 • Mood: fun, playful, slightly retro Mad-magazine vibe""",
-        "styles": {
-            "Classic Cartoon": "smooth Disney-style 2D animation with exaggerated facial features, bright colors, clean lines, and a cheerful expression",
-            "Anime Style": "smooth anime character with large expressive eyes, stylized hair, soft shading, and cute cartoon proportions", 
-            "3D Cartoon": "smooth Pixar-style 3D cartoon character with rounded features, warm lighting, and friendly expression",
-            "Comic Book": "smooth comic book character with bold outlines, vibrant colors, dynamic shading, and heroic proportions",
-            "Wild and Wacky": "extremely funny and exaggerated cartoon character with oversized features, wild expressions, bright crazy colors, smooth animation style, and comedic proportions"
+            "Smooth and Funny": """Front-facing, centered cartoon portrait of the person from the reference photo with friendly, natural proportions and a big warm smile.  
+• Expression & Features: wide joyful smile with visible teeth, large sparkling eyes, softly arched eyebrows, gently simplified nose & ears, approachable energy  
+• Style: clean 2D digital illustration with smooth vector-style line art, subtle cel shading, soft gradients, professional animation finish  
+• Composition: tight head-and-shoulders crop on golden-orange vignette backdrop (similar to sample), straight-on pose, perfectly balanced left/right proportions  
+• Colors: bright oranges and warm neutrals with gentle highlights and shadows for depth  
+• Rendering: high-resolution, crisp edges, smooth color transitions, no photo artifacts, ready for phone-case print  
+• Mood: cheerful, friendly, modern animated portrait"""
         }
     },
     "cover-shoot": {
@@ -263,24 +267,17 @@ def generate_style_prompt(template_id: str, style_params: dict) -> str:
     
     # Special handling for funny-toon with optimized cartoon prompts
     if template_id == "funny-toon":
-        style = style_params.get('style', 'Classic Cartoon')
+        style = style_params.get('style', 'Wild and Wacky')
         
-        # Get the detailed style description
+        # Get the detailed style prompt
         if style in template_config.get("styles", {}):
-            style_desc = template_config["styles"][style]
-            
-            # Create highly optimized cartoon prompt
-            cartoon_prompt = f"""Transform this person into a {style_desc}. 
-            Keep the person's basic facial structure and pose recognizable but make it cartoon-like. 
-            Ensure smooth, clean rendering with professional cartoon quality. 
-            Make it funny and appealing with cartoon proportions. 
-            The result should look like professional animation artwork."""
+            style_prompt = template_config["styles"][style]
             
             # Clean up the prompt (remove extra whitespace)
-            cartoon_prompt = " ".join(cartoon_prompt.split())
+            style_prompt = " ".join(style_prompt.split())
             
-            print(f"🎨 Optimized cartoon prompt: {cartoon_prompt}")
-            return cartoon_prompt
+            print(f"🎨 Funny-toon style prompt: {style_prompt}")
+            return style_prompt
         else:
             return f"Transform this person into a smooth, funny cartoon character with {style} style"
     

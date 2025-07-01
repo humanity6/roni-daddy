@@ -154,6 +154,15 @@ const TemplateSelectionScreen = () => {
           template
         }
       })
+    } else if (template.id === 'glitch-pro') {
+      navigate('/glitch', {
+        state: {
+          brand,
+          model,
+          color,
+          template
+        }
+      })
     } else {
       navigate('/phone-preview', {
         state: {

@@ -128,7 +128,7 @@ const FunnyToonGenerateScreen = () => {
       
       // Generate new image using AI service
       const result = await aiImageService.generateFunnyToon(
-        toonStyle || 'Classic Cartoon',
+        toonStyle || 'Wild and Wacky',
         originalImageFile,
         'medium' // quality
       )

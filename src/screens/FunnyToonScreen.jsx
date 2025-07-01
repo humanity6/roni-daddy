@@ -180,8 +180,8 @@ const FunnyToonScreen = () => {
           {/* Style buttons */}
           <div className="flex flex-col flex-grow mx-2 space-y-2">
             {[
-              { id: 'wild-wacky', label: 'Wild & Wacky' },
-              { id: 'smooth-funny', label: 'Smooth & Funny' }
+              { id: 'Wild and Wacky', label: 'Wild & Wacky' },
+              { id: 'Smooth and Funny', label: 'Smooth & Funny' }
             ].map((option) => (
               <button
                 key={option.id}
