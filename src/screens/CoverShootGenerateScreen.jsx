@@ -24,7 +24,6 @@ const CoverShootGenerateScreen = () => {
     color,
     template,
     uploadedImage,
-    coverShootStyle = 'Magazine Cover',
     aiCredits: initialCredits = 4,
     transform: initialTransform
   } = location.state || {}
@@ -34,7 +33,6 @@ const CoverShootGenerateScreen = () => {
   const [generatedImage, setGeneratedImage] = useState(null)
   const [originalImageFile, setOriginalImageFile] = useState(null)
   const [error, setError] = useState(null)
-  const [firstGenerateTriggered, setFirstGenerateTriggered] = useState(false)
   const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
 
   /* -------- transform helpers ---------- */
@@ -56,18 +54,10 @@ const CoverShootGenerateScreen = () => {
     }
   },[uploadedImage])
 
-  /* auto first generate */
-  useEffect(()=>{
-    if(originalImageFile && !firstGenerateTriggered && aiCredits>0 && !generatedImage && !isGenerating){
-      handleRegenerate()
-      setFirstGenerateTriggered(true)
-    }
-  },[originalImageFile,firstGenerateTriggered,aiCredits,generatedImage,isGenerating])
-
   /* navigation */
   const handleBack = () => {
-    navigate('/cover-shoot',{
-      state:{brand,model,color,template,uploadedImage,coverShootStyle,aiCredits,transform}
+    navigate('/phone-preview',{
+      state:{brand,model,color,template,uploadedImage,transform}
     })
   }
 
@@ -77,16 +67,33 @@ const CoverShootGenerateScreen = () => {
     setIsGenerating(true)
     setError(null)
     try{
+      console.log('🔄 Starting health check...')
       await aiImageService.checkHealth()
-      const result = await aiImageService.generateCoverShoot(coverShootStyle, originalImageFile, 'medium')
+      console.log('✅ Health check passed, generating image...')
+      const result = await aiImageService.generateCoverShoot(originalImageFile, 'medium')
       if(result.success){
         setGeneratedImage(aiImageService.getImageUrl(result.filename))
         setAiCredits(prev=>Math.max(0,prev-1))
+        console.log('✅ Image generated successfully')
       } else {
         throw new Error('Generation failed')
       }
     }catch(err){
-      setError(err.message||'Failed to generate image')
+      console.error('❌ Generation error:', err)
+      let errorMessage = 'Failed to generate image'
+      
+      // Provide specific error messages based on error type
+      if (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_TIMED_OUT')) {
+        errorMessage = 'Cannot connect to AI server. Please make sure the API server is running on port 8000.'
+      } else if (err.message.includes('CORS')) {
+        errorMessage = 'Connection blocked by browser. Please check CORS configuration.'
+      } else if (err.message.includes('API key')) {
+        errorMessage = 'OpenAI API key error. Please check your API key configuration.'
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
     }finally{
       setIsGenerating(false)
     }
@@ -94,13 +101,14 @@ const CoverShootGenerateScreen = () => {
 
   const handleGenerate = () => {
     navigate('/text-input',{
-      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,coverShootStyle,transform}
+      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,transform}
     })
   }
 
   return (
     <div className="screen-container">
       <PastelBlobs />
+      
       {/* header */}
       <div className="relative z-10 flex items-center justify-between p-4">
         <button onClick={handleBack} className="w-12 h-12 rounded-full bg-white/90 border-4 border-pink-300 flex items-center justify-center active:scale-95 transition-transform shadow-lg"><ArrowLeft size={20} className="text-pink-400" /></button>
@@ -138,7 +146,7 @@ const CoverShootGenerateScreen = () => {
           </button>
           <div className="flex flex-col flex-grow mx-2 space-y-2">
             <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center">AI CREDITS REMAINING: {aiCredits}</div>
-            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'RE-GENERATE IMAGE'}</button>
+            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
           </div>
           <button 
             onClick={handleGenerate}
@@ -160,10 +168,11 @@ const CoverShootGenerateScreen = () => {
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
             {/* Inner Pink Circle */}
             <button 
-              onClick={handleGenerate}
-              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+              onClick={handleRegenerate}
+              disabled={aiCredits===0||isGenerating}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0||isGenerating?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">Generate</span>
+              <span className="font-semibold text-[10px]">{isGenerating?'Generating...':'Generate'}</span>
             </button>
           </div>
         </div>

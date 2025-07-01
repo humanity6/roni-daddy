@@ -1,7 +1,7 @@
 // AI Image Generation Service
 // Handles communication with the FastAPI backend
 
-const API_BASE_URL = 'http://192.168.100.4:8000'
+const API_BASE_URL = 'http://localhost:8000'
 
 class AIImageService {
   /**
@@ -13,7 +13,7 @@ class AIImageService {
    * @param {string} size - Image size ('1024x1024', '1024x1536', '1536x1024')
    * @returns {Promise<Object>} Generation result
    */
-  async generateImage(templateId, styleParams, imageFile = null, quality = 'medium', size = '1024x1024') {
+  async generateImage(templateId, styleParams, imageFile = null, quality = 'medium', size = '1024x1536') {
     try {
       console.log('🔍 Service - generateImage called')
       console.log('🔍 Service - templateId:', templateId)
@@ -152,14 +152,13 @@ class AIImageService {
 
   /**
    * Generate Cover Shoot image
-   * @param {string} style - Photography style
    * @param {File} imageFile - Reference image
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateCoverShoot(style, imageFile, quality = 'medium') {
-    const styleParams = { style }
-    
+  async generateCoverShoot(imageFile, quality = 'medium') {
+    // No style parameters are needed for cover-shoot – the backend will always use the full base prompt.
+    const styleParams = {}
     return this.generateImage('cover-shoot', styleParams, imageFile, quality)
   }
 
@@ -197,7 +196,7 @@ class AIImageService {
    * @param {boolean} hasReference - Whether reference image is used
    * @returns {Object} Cost estimation
    */
-  estimateCost(quality = 'medium', size = '1024x1024', hasReference = false) {
+  estimateCost(quality = 'medium', size = '1024x1536', hasReference = false) {
     const tokenMap = {
       'low': { '1024x1024': 272, '1024x1536': 408, '1536x1024': 400 },
       'medium': { '1024x1024': 1056, '1024x1536': 1584, '1536x1024': 1568 },

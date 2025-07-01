@@ -1,39 +1,44 @@
 const CACHE_NAME = 'pimp-my-case-v1';
 const urlsToCache = [
   '/',
-  '/welcome',
-  '/phone-brand',
-  '/phone-model',
-  '/template-selection',
-  '/phone-preview',
-  '/text-input',
-  '/font-selection',
-  '/text-color-selection',
-  '/phone-back-preview',
-  '/retry',
-  '/payment',
-  '/queue',
-  '/completion',
   '/manifest.json',
-  '/ui-mockups/logo.png',
-  '/phone-template.png',
-  '/phone-template-dark-edges.png',
-  '/phone-template-white-edges.png'
+  '/phone-template.png'
+  // Removed routes that might not exist to prevent caching errors
 ];
 
-// Install event - cache resources
+// Install event - cache resources with error handling
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Cache resources individually to handle failures gracefully
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            fetch(url).then(response => {
+              if (response.ok) {
+                return cache.put(url, response);
+              }
+              console.warn(`Failed to cache ${url}: ${response.status}`);
+            }).catch(error => {
+              console.warn(`Failed to fetch ${url}:`, error);
+            })
+          )
+        );
+      })
+      .catch(error => {
+        console.error('Cache installation failed:', error);
       })
   );
 });
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+  // Skip caching for API requests
+  if (event.request.url.includes(':8000') || event.request.url.includes('api')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -41,9 +46,13 @@ self.addEventListener('fetch', (event) => {
         if (response) {
           return response;
         }
-        return fetch(event.request);
-      }
-    )
+        return fetch(event.request).catch(() => {
+          // Return a fallback response for offline scenarios
+          if (event.request.destination === 'document') {
+            return caches.match('/');
+          }
+        });
+      })
   );
 });
 

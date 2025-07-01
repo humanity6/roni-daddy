@@ -100,7 +100,7 @@ const PhonePreviewScreen = () => {
         }
       })
     } else if (template?.id === 'cover-shoot') {
-      navigate('/cover-shoot', {
+      navigate('/cover-shoot-generate', {
         state: {
           brand,
           model,

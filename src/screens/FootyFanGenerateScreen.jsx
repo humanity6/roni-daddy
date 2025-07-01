@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
+import aiImageService from '../services/aiImageService'
 
 const FootyFanGenerateScreen = () => {
   const navigate = useNavigate()
@@ -32,6 +33,10 @@ const FootyFanGenerateScreen = () => {
 
   const [aiCredits, setAiCredits] = useState(initialCredits)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generatedImage, setGeneratedImage] = useState(null)
+  const [originalImageFile, setOriginalImageFile] = useState(null)
+  const [error, setError] = useState(null)
+  const [firstGenerateTriggered, setFirstGenerateTriggered] = useState(false)
   const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
 
   /* transform controls */
@@ -42,6 +47,24 @@ const FootyFanGenerateScreen = () => {
   const zoomIn = () => setTransform((p)=>({...p,scale:Math.min(p.scale+0.1,5)}))
   const zoomOut = () => setTransform((p)=>({...p,scale:Math.max(p.scale-0.1,0.5)}))
   const resetTransform = () => setTransform({x:0,y:0,scale:2})
+
+  /* Convert uploaded dataUrl to File once */
+  useEffect(() => {
+    if (uploadedImage && uploadedImage.startsWith('data:')) {
+      fetch(uploadedImage)
+        .then((res) => res.blob())
+        .then((blob) => setOriginalImageFile(new File([blob], 'uploaded-image.png', { type: 'image/png' })))
+        .catch(() => setError('Failed to process image'))
+    }
+  }, [uploadedImage])
+
+  /* Auto first generation */
+  useEffect(() => {
+    if (originalImageFile && !firstGenerateTriggered && aiCredits > 0 && !generatedImage && !isGenerating) {
+      handleRegenerate()
+      setFirstGenerateTriggered(true)
+    }
+  }, [originalImageFile, firstGenerateTriggered, aiCredits, generatedImage, isGenerating])
 
   const handleBack = () => {
     navigate('/footy-fan-style', {
@@ -59,14 +82,24 @@ const FootyFanGenerateScreen = () => {
     })
   }
 
-  const handleRegenerate = () => {
-    if (aiCredits <= 0) return
+  const handleRegenerate = async () => {
+    if (aiCredits <= 0 || !originalImageFile) return
     setIsGenerating(true)
-    setTimeout(() => {
+    setError(null)
+    try {
+      await aiImageService.checkHealth()
+      const result = await aiImageService.generateFootyFan(team, style, originalImageFile, 'medium')
+      if (result.success) {
+        setGeneratedImage(aiImageService.getImageUrl(result.filename))
+        setAiCredits(prev => Math.max(0, prev - 1))
+      } else {
+        throw new Error('Generation failed')
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to generate image')
+    } finally {
       setIsGenerating(false)
-      setAiCredits(prev => Math.max(0, prev - 1))
-      // no image changing for demo
-    }, 1500)
+    }
   }
 
   const handleGenerate = () => {
@@ -76,7 +109,7 @@ const FootyFanGenerateScreen = () => {
         model,
         color,
         template,
-        uploadedImage,
+        uploadedImage: generatedImage || uploadedImage,
         team,
         style,
         transform
@@ -102,39 +135,74 @@ const FootyFanGenerateScreen = () => {
 
       {/* Main Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm text-center max-w-xs">
+            {error}
+          </div>
+        )}
+
         {/* Phone preview */}
         <div className="relative mb-6">
           <div className="relative w-72 h-[480px]">
-            {/* Separate border element - positioned independently */}
             <div className="phone-case-border"></div>
-            
             <div className="phone-case-content">
-              {uploadedImage ? (
-                <img src={uploadedImage} alt="Upload" className="phone-case-image-contain" style={{ transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin:'center center' }} />
+              {generatedImage ? (
+                <img
+                  src={generatedImage}
+                  alt="AI Generated"
+                  className="phone-case-image-contain"
+                  style={{
+                    transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
+                    transformOrigin: 'center center'
+                  }}
+                />
+              ) : uploadedImage ? (
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded"
+                  className="phone-case-image-contain"
+                  style={{
+                    transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
+                    transformOrigin: 'center center'
+                  }}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                   <Upload size={48} className="text-gray-400" />
                 </div>
               )}
+              {isGenerating && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                  <div className="text-white text-sm">Generating…</div>
+                </div>
+              )}
             </div>
             <div className="absolute inset-0 pointer-events-none">
-              <img src="/phone-template.png" className="w-full h-full object-contain" />
+              <img src="/phone-template.png" alt="template" className="w-full h-full object-contain" />
             </div>
           </div>
         </div>
 
-        {/* Control buttons row */}
+        {/* Transform controls */}
         <div className="flex items-center justify-center space-x-3 mb-6">
           {[
-            {Icon:ZoomOut, action:zoomOut},
-            {Icon:ZoomIn, action:zoomIn},
-            {Icon:RefreshCw, action:resetTransform},
-            {Icon:ArrowRight, action:moveRight},
-            {Icon:ArrowLeft, action:moveLeft},
-            {Icon:ArrowDown, action:moveDown},
-            {Icon:ArrowUp, action:moveUp},
-          ].map(({Icon,action},idx)=>(
-            <button key={idx} onClick={action} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95">
+            { Icon: ZoomOut, action: zoomOut },
+            { Icon: ZoomIn, action: zoomIn },
+            { Icon: RefreshCw, action: resetTransform },
+            { Icon: ArrowRight, action: moveRight },
+            { Icon: ArrowLeft, action: moveLeft },
+            { Icon: ArrowDown, action: moveDown },
+            { Icon: ArrowUp, action: moveUp }
+          ].map(({ Icon, action }, idx) => (
+            <button
+              key={idx}
+              onClick={action}
+              disabled={isGenerating || (!generatedImage && !uploadedImage)}
+              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-transform ${
+                isGenerating ? 'bg-gray-100' : 'bg-green-100 hover:bg-green-200'
+              }`}
+            >
               <Icon size={20} className="text-gray-700" />
             </button>
           ))}
@@ -152,6 +220,9 @@ const FootyFanGenerateScreen = () => {
 
           {/* Info & regenerate buttons */}
           <div className="flex flex-col flex-grow mx-2 space-y-2">
+            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center">
+              AI CREDITS REMAINING: {aiCredits}
+            </div>
             <button
               onClick={handleRegenerate}
               disabled={aiCredits === 0 || isGenerating}
@@ -161,17 +232,17 @@ const FootyFanGenerateScreen = () => {
             >
               {isGenerating ? 'Generating...' : 'RE-GENERATE IMAGE'}
             </button>
-            <div className="w-full py-2 rounded-full text-xs font-semibold bg-white border border-gray-300 text-gray-800 text-center">
-              AI CREDITS REMAINING: {aiCredits}
-            </div>
           </div>
 
           {/* Right Arrow */}
           <button 
             onClick={handleGenerate}
-            className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+            disabled={!generatedImage}
+            className={`w-12 h-12 rounded-md border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform ${
+              generatedImage ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
           >
-            <ChevronRight size={24} className="text-gray-600" />
+            <ChevronRight size={24} className={`${generatedImage ? 'text-gray-600' : 'text-gray-400'}`} />
           </button>
         </div>
 
@@ -193,7 +264,10 @@ const FootyFanGenerateScreen = () => {
             {/* Inner Pink Circle */}
             <button 
               onClick={handleGenerate}
-              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+              disabled={!generatedImage}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${
+                generatedImage ? 'bg-pink-400' : 'bg-gray-400 cursor-not-allowed'
+              }`}
             >
               <span className="font-semibold text-[10px]">Generate</span>
             </button>

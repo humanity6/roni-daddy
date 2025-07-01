@@ -293,7 +293,13 @@ def generate_style_prompt(template_id: str, style_params: dict) -> str:
         else:
             return template_config["base"].format(keyword=keyword)
     
-    elif template_id in ["cover-shoot", "glitch-pro"]:
+    # --- Always return full base prompt for cover-shoot (ignore style variations) ---
+    elif template_id == "cover-shoot":
+        # Ignore any style parameters and return the complete base prompt so the AI gets full guidance.
+        return template_config["base"]
+    
+    # Glitch-pro keeps mode-based styles
+    elif template_id == "glitch-pro":
         style = style_params.get('style', list(template_config.get('styles', {}).keys())[0])
         if style in template_config.get("styles", {}):
             style_desc = template_config["styles"][style]
@@ -362,36 +368,8 @@ async def generate_image_gpt_image_1(prompt: str, reference_image: Optional[str]
         error_msg = str(e)
         print(f"❌ GPT-image-1 generation failed: {error_msg}")
         
-        # Fallback to DALL-E if GPT-image-1 is not available
-        if "model" in error_msg.lower() and ("not found" in error_msg.lower() or "does not exist" in error_msg.lower()):
-            print(f"🔄 GPT-image-1 not available, falling back to DALL-E...")
-            
-            if reference_image:
-                # Use DALL-E 2 for variations
-                image_buffer = io.BytesIO(base64.b64decode(reference_image.split(',', 1)[1]))
-                image_buffer.name = "reference.png"
-                image_buffer.seek(0)
-                
-                response = client.images.create_variation(
-                    image=image_buffer,
-                    n=1,
-                    size="1024x1024"
-                )
-                print(f"✅ DALL-E 2 variation fallback successful")
-            else:
-                # Use DALL-E 3 for generation
-                response = client.images.generate(
-                    model="dall-e-3",
-                    prompt=prompt,
-                    size=size,
-                    quality="standard" if quality == "low" else "hd" if quality == "high" else "standard",
-                    n=1
-                )
-                print(f"✅ DALL-E 3 fallback successful")
-            
-            return response
-        else:
-            raise HTTPException(status_code=500, detail=f"AI generation failed: {error_msg}")
+        # No fallback - just raise the error
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {error_msg}")
 
 def save_generated_image(base64_data: str, template_id: str) -> tuple:
     """Save generated image and return path and filename"""
@@ -456,7 +434,7 @@ async def generate_image(
     style_params: str = Form(...),  # JSON string
     image: Optional[UploadFile] = File(None),
     quality: str = Form("medium"),
-    size: str = Form("1024x1024")
+    size: str = Form("1024x1536")  # Default to portrait orientation
 ):
     """Generate AI image based on template and style parameters"""
     
