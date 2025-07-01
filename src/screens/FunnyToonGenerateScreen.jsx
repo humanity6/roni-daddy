@@ -281,7 +281,10 @@ const FunnyToonGenerateScreen = () => {
         {/* Arrow row with credits & regenerate */}
         <div className="flex items-center w-full max-w-xs mb-6 px-2">
           {/* Left Arrow */}
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+          <button 
+            onClick={handleBack}
+            className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
             <ChevronLeft size={24} className="text-gray-600" />
           </button>
 
@@ -302,8 +305,14 @@ const FunnyToonGenerateScreen = () => {
           </div>
 
           {/* Right Arrow */}
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ChevronRight size={24} className="text-gray-600" />
+          <button 
+            onClick={handleGenerate}
+            disabled={!generatedImage}
+            className={`w-12 h-12 rounded-md border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform ${
+              generatedImage ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ChevronRight size={24} className={`${generatedImage ? 'text-gray-600' : 'text-gray-400'}`} />
           </button>
         </div>
 

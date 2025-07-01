@@ -101,7 +101,10 @@ const CoverShootScreen = () => {
 
         {/* Generate Cover Shot row */}
         <div className="flex items-center w-full max-w-xs mb-3">
-          <button className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform">
+          <button 
+            onClick={handleBack}
+            className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform"
+          >
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           <button
@@ -111,8 +114,14 @@ const CoverShootScreen = () => {
           >
             Generate Cover Shot
           </button>
-          <button className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform">
-            <ArrowRight size={20} className="text-gray-600" />
+          <button 
+            onClick={handleGenerate}
+            disabled={!image}
+            className={`flex-shrink-0 w-10 h-10 rounded-md border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform ${
+              image ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ArrowRight size={20} className={`${image ? 'text-gray-600' : 'text-gray-400'}`} />
           </button>
         </div>
 

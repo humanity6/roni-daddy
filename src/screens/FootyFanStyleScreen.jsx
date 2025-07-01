@@ -138,7 +138,10 @@ const FootyFanStyleScreen = () => {
         {/* Dropdown & optional custom text */}
         <div className="flex items-center w-full max-w-xs mb-6 px-2">
           {/* Left arrow placeholder */}
-          <button className="w-12 h-12 rounded-md bg-white border-2 border-black flex-shrink-0 flex items-center justify-center shadow-md">
+          <button 
+            onClick={handleBack}
+            className="w-12 h-12 rounded-md bg-white border-2 border-black flex-shrink-0 flex items-center justify-center shadow-md"
+          >
             <ChevronLeft size={24} className="text-gray-600" />
           </button>
 
@@ -164,8 +167,14 @@ const FootyFanStyleScreen = () => {
           </div>
 
           {/* Right arrow placeholder */}
-          <button className="w-12 h-12 rounded-md bg-white border-2 border-black flex-shrink-0 flex items-center justify-center shadow-md">
-            <ChevronRight size={24} className="text-gray-600" />
+          <button 
+            onClick={handleNext}
+            disabled={!chosenStyle.trim()}
+            className={`w-12 h-12 rounded-md border-2 border-black flex-shrink-0 flex items-center justify-center shadow-md ${
+              chosenStyle.trim() ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ChevronRight size={24} className={`${chosenStyle.trim() ? 'text-gray-600' : 'text-gray-400'}`} />
           </button>
         </div>
 

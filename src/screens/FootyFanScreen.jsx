@@ -118,7 +118,12 @@ const FootyFanScreen = () => {
 
         {/* Selection bar */}
         <div className="flex items-center w-full max-w-xs mb-6 px-2">
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md"><ChevronLeft size={24} className="text-gray-600"/></button>
+          <button 
+            onClick={handleBack}
+            className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md"
+          >
+            <ChevronLeft size={24} className="text-gray-600"/>
+          </button>
 
           <div className="flex flex-col flex-grow mx-2 space-y-2 items-center">
             {/* Heading */}
@@ -137,7 +142,15 @@ const FootyFanScreen = () => {
             </datalist>
           </div>
 
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md"><ChevronRight size={24} className="text-gray-600"/></button>
+          <button 
+            onClick={handleNext}
+            disabled={!team.trim()}
+            className={`w-12 h-12 rounded-md border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md ${
+              team.trim() ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ChevronRight size={24} className={`${team.trim() ? 'text-gray-600' : 'text-gray-400'}`}/>
+          </button>
         </div>
 
         {/* Reset */}

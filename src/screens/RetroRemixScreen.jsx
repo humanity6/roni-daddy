@@ -126,7 +126,10 @@ const RetroRemixScreen = () => {
         {/* KEYWORD INPUT */}
         <div className="w-full flex flex-col items-center mb-3">
           <div className="flex items-center w-72 justify-center mx-auto">
-            <button className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform mr-2">
+            <button 
+              onClick={handleBack}
+              className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform mr-2"
+            >
               <ArrowLeft size={20} className="text-gray-600" />
             </button>
             <input
@@ -136,8 +139,14 @@ const RetroRemixScreen = () => {
               placeholder="Enter a keyword"
               className="flex-1 bg-gray-100 backdrop-blur-sm border-2 border-gray-400 rounded-full px-4 py-3 text-center text-base font-semibold text-black shadow-lg focus:outline-none focus:border-pink-500 transition-colors"
             />
-            <button className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform ml-2">
-              <ArrowRight size={20} className="text-gray-600" />
+            <button 
+              onClick={handleSubmit}
+              disabled={!keyword.trim()}
+              className={`flex-shrink-0 w-10 h-10 rounded-md border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform ml-2 ${
+                keyword.trim() ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+              }`}
+            >
+              <ArrowRight size={20} className={`${keyword.trim() ? 'text-gray-600' : 'text-gray-400'}`} />
             </button>
           </div>
           <p className="text-center text-[11px] text-gray-500 mt-1 w-72">e.g. 'Y2K Chrome', '80s Neon', '90s Grunge'</p>

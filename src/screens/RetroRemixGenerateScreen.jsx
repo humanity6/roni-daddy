@@ -93,7 +93,27 @@ const RetroRemixGenerateScreen = () => {
         {/* controls */}
         <div className="flex items-center justify-center space-x-3 mb-6">{[{Icon:ZoomOut,action:zoomOut},{Icon:ZoomIn,action:zoomIn},{Icon:RefreshCw,action:resetTransform},{Icon:ArrowRight,action:moveRight},{Icon:ArrowL,action:moveLeft},{Icon:ArrowDown,action:moveDown},{Icon:ArrowUp,action:moveUp}].map(({Icon,action},idx)=> (<button key={idx} onClick={action} disabled={isGenerating||(!generatedImage&&!uploadedImage)} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-transform ${isGenerating?'bg-gray-100':'bg-green-100 hover:bg-green-200'}`}><Icon size={20} className="text-gray-700"/></button>))}</div>
         {/* credits row */}
-        <div className="flex items-center w-full max-w-xs mb-6 px-2"><button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md"><ChevronLeft size={24} className="text-gray-600"/></button><div className="flex flex-col flex-grow mx-2 space-y-2"><div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center">AI CREDITS REMAINING: {aiCredits}</div><button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'RE-GENERATE IMAGE'}</button></div><button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md"><ChevronRight size={24} className="text-gray-600"/></button></div>
+        <div className="flex items-center w-full max-w-xs mb-6 px-2">
+          <button 
+            onClick={handleBack}
+            className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md"
+          >
+            <ChevronLeft size={24} className="text-gray-600"/>
+          </button>
+          <div className="flex flex-col flex-grow mx-2 space-y-2">
+            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center">AI CREDITS REMAINING: {aiCredits}</div>
+            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'RE-GENERATE IMAGE'}</button>
+          </div>
+          <button 
+            onClick={handleGenerate}
+            disabled={!generatedImage}
+            className={`w-12 h-12 rounded-md border border-gray-300 flex items-center justify-center shadow-md ${
+              generatedImage ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ChevronRight size={24} className={`${generatedImage ? 'text-gray-600' : 'text-gray-400'}`}/>
+          </button>
+        </div>
       </div>
       {/* Generate button - styled like Submit button */}
       <div className="relative z-10 p-6 flex justify-center">

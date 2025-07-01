@@ -166,34 +166,33 @@ const SamsungModelScreen = () => {
           <div
             onClick={() => setDropdownOpen(!dropdownOpen)}
             style={{
-              background: 'white',
-              borderRadius: '25px',
-              padding: '12px 20px',
+              background: '#474746',
+              borderRadius: '30px',
+              padding: '10px 0px 10px 22px',
               cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              border: '8px solid #ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               fontFamily: 'PoppinsLight, sans-serif',
               fontSize: '14px',
-              fontWeight: '500',
-              color: '#333'
+              fontWeight: '600',
+              color: '#ffffff'
             }}
           >
-            <span>{selectedModel}</span>
+            <span style={{ whiteSpace: 'nowrap' }}>{selectedModel}</span>
             <div
               style={{
-                width: '20px',
-                height: '20px',
-                background: '#666',
-                borderRadius: '3px',
+                width: '40px',
+                height: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                borderLeft: '2px solid #ffffff'
               }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 9L12 15L18 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9L12 15L18 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
           </div>

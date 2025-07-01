@@ -265,11 +265,26 @@ const PhonePreviewScreen = () => {
 
         {/* Navigation Arrows below – square white buttons */}
         <div className="flex items-center justify-between w-full max-w-xs mb-6 px-2">
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform">
+          <button 
+            onClick={handleBack}
+            className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
             <ChevronLeft size={24} className="text-gray-600" />
           </button>
-          <button className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ChevronRight size={24} className="text-gray-600" />
+          <button 
+            onClick={handleNext}
+            disabled={!uploadedImage && !template?.id?.startsWith('film-strip') && !(template?.imageCount && template.imageCount > 1)}
+            className={`w-12 h-12 rounded-md border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform ${
+              uploadedImage || template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1)
+                ? 'bg-white cursor-pointer'
+                : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ChevronRight size={24} className={`${
+              uploadedImage || template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1)
+                ? 'text-gray-600'
+                : 'text-gray-400'
+            }`} />
           </button>
         </div>
 

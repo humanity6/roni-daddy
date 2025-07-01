@@ -66,12 +66,21 @@ const GlitchScreen = () => {
 
         {/* Mode selector */}
         <div className="flex items-center w-full max-w-xs mb-1">
-          <button className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow">
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow"
+          >
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           <button onClick={() => setMode('retro')} className={`flex-1 mx-2 rounded-full py-2 text-sm font-bold shadow border-2 ${mode==='retro' ? 'bg-blue-100 border-black text-black' : 'bg-white border-gray-300 text-gray-700'}`}>Retro Mode</button>
-          <button className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow">
-            <ArrowRight size={20} className="text-gray-600" />
+          <button 
+            onClick={handleGenerate}
+            disabled={!image}
+            className={`flex-shrink-0 w-10 h-10 rounded-md border border-gray-300 flex items-center justify-center shadow ${
+              image ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            }`}
+          >
+            <ArrowRight size={20} className={`${image ? 'text-gray-600' : 'text-gray-400'}`} />
           </button>
         </div>
         <button onClick={() => setMode('chaos')} className={`w-full max-w-xs mb-4 rounded-full py-2 text-sm font-bold shadow border-2 ${mode==='chaos' ? 'bg-blue-100 border-black text-black' : 'bg-white border-gray-300 text-gray-700'}`}>Chaos Mode</button>
