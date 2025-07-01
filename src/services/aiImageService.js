@@ -1,8 +1,8 @@
 // AI Image Generation Service
 // Handles communication with the FastAPI backend
 
-// Use environment variable for API URL, fallback to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+// Use environment variable for API URL, fallback to Render production URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://pimpmycase.onrender.com'
 
 class AIImageService {
   /**

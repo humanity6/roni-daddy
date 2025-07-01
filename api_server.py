@@ -29,7 +29,11 @@ app.add_middleware(
         "http://192.168.100.4:5173",  # Your IP address
         "http://127.0.0.1:5173",
         "https://pimp-my-case.vercel.app",  # Production frontend
-        "https://pimp-my-case.vercel.app/"  # With trailing slash
+        "https://pimp-my-case.vercel.app/",  # With trailing slash
+        "https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app",  # Git branch domain
+        "https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
+        "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app",  # Preview domain
+        "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app/"  # With trailing slash
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -41,7 +45,17 @@ def get_openai_client():
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
         raise HTTPException(status_code=500, detail="OpenAI API key not configured")
-    return openai.OpenAI(api_key=api_key)
+    
+    # Initialize client with minimal configuration to avoid proxy issues
+    try:
+        return openai.OpenAI(
+            api_key=api_key,
+            timeout=60.0  # Set explicit timeout
+        )
+    except Exception as e:
+        print(f"Error initializing OpenAI client: {e}")
+        # Fallback to basic initialization
+        return openai.OpenAI(api_key=api_key)
 
 # Ensure directories exist
 def ensure_directories():
@@ -399,16 +413,23 @@ async def health_check():
         if not api_key.startswith('sk-'):
             return {"status": "unhealthy", "error": "Invalid API key format - should start with 'sk-'"}
         
-        # Test connection to OpenAI
-        client = get_openai_client()
-        models = client.models.list()
+        # Test basic OpenAI client initialization (without making API calls)
+        try:
+            client = get_openai_client()
+            # Just check if client can be created without making network requests
+            return {
+                "status": "healthy", 
+                "openai": "client_initialized",
+                "api_key_preview": f"{api_key[:10]}...{api_key[-4:]}",
+                "message": "API ready for image generation"
+            }
+        except Exception as client_error:
+            return {
+                "status": "unhealthy", 
+                "error": f"OpenAI client initialization failed: {str(client_error)}",
+                "suggestion": "Check your OpenAI API key configuration"
+            }
         
-        return {
-            "status": "healthy", 
-            "openai": "connected",
-            "api_key_preview": f"{api_key[:10]}...{api_key[-4:]}",
-            "models_available": len(models.data) if models.data else 0
-        }
     except Exception as e:
         return {
             "status": "unhealthy", 

@@ -67,7 +67,9 @@ Your OpenAI API key will be set in Render's dashboard:
 
 ### CORS Configuration
 Your API is already configured to accept requests from:
-- `https://pimp-my-case.vercel.app`
+- `https://pimp-my-case.vercel.app` (Production)
+- `https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app` (Git branch)
+- `https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app` (Preview)
 - Local development ports
 
 ### Generated Images Storage
@@ -78,11 +80,11 @@ Your API is already configured to accept requests from:
 ## Testing Your Deployment
 
 1. **Get your API URL:**
-   - After deployment, Render will provide a URL like: `https://pimp-my-case-api.onrender.com`
+   - ✅ **Your deployed API URL:** `https://pimpmycase.onrender.com`
 
 2. **Test the health endpoint:**
    ```bash
-   curl https://your-api-url.onrender.com/health
+   curl https://pimpmycase.onrender.com/health
    ```
 
 3. **Update your frontend:**
@@ -102,9 +104,9 @@ Your frontend is already configured to use environment variables for the API URL
 2. **Add the production API URL:**
    ```
    Variable Name: VITE_API_BASE_URL
-   Value: https://your-render-api-url.onrender.com
+   Value: https://pimpmycase.onrender.com
    ```
-   Replace `your-render-api-url` with your actual Render service URL
+   ✅ **Your actual Render API URL:** `https://pimpmycase.onrender.com`
 
 3. **Redeploy your frontend:**
    - Go to Deployments tab
