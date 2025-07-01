@@ -1,8 +1,8 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-openai
-Pillow==10.1.0
-python-dotenv==1.0.0
+fastapi==0.115.8
+uvicorn[standard]==0.34.0
+python-multipart==0.0.9
+openai==1.64.0
+Pillow==10.4.0
+python-dotenv==1.0.1
 aiofiles==23.2.1
-requests==2.31.0 
+requests==2.32.3
