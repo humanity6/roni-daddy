@@ -52,58 +52,24 @@ def ensure_directories():
 # Style mapping for different templates
 STYLE_PROMPTS = {
     "retro-remix": {
-        "base": """Create a semi-realistic illustration with retro-inspired aesthetics. Transform the reference image into a dimensional portrait featuring:
+        "base": """Create a semi-realistic illustrated portrait that fuses modern polish with a nostalgic retro vibe.
 
-COMPOSITION & POSITIONING:
-- Subject positioned directly center in the frame
-- Face and body oriented straight toward the camera/viewer
-- Front-facing pose with direct eye contact
-- Centered, symmetrical composition
-- Head and shoulders prominently featured in center of image
+COMPOSITION  ▸  Keep the subject centred and symmetrical in a tight head-and-shoulders crop, facing the camera with direct eye contact. Leave subtle margins for the phone-case camera cut-out.
 
-STYLE & AESTHETIC:
-- Semi-realistic illustration with dimensional depth and shading
-- Retro-inspired color palette while maintaining realistic proportions
-- Soft, painterly quality with detailed facial features
-- Natural skin textures with subtle highlight and shadow work
-- Warm, earthy color palette dominated by burnt orange, olive green, cream, and brown tones
+ART STYLE  ▸  Painterly illustration with smooth dimensional shading and gentle vintage grain. Preserve natural human proportions while adding stylised depth and colour harmony.
 
-VISUAL ELEMENTS:
-- Subject wearing iconic round vintage sunglasses with cream/beige frames
-- Horizontal striped clothing in harmonious retro colors (green, orange, cream stripes)
-- Natural, warm smile with realistic teeth and lip details
-- Wavy, shoulder-length hair in rich brown tones with realistic texture and movement
-- Realistic skin tones with natural shading, highlights, and subtle imperfections
-- Dimensional facial features with proper proportions and realistic depth
+LIGHT & COLOUR  ▸  Soft diffused lighting with balanced contrast. Apply a colour palette that complements the SELECTED RETRO STYLE keyword.
 
-FACIAL REALISM:
-- Natural eye shape and expression with realistic eyelashes
-- Realistic nose with proper shadowing and highlights
-- Natural lip texture and color
-- Subtle facial structure with cheekbones and jawline definition
-- Realistic skin texture with natural pores and subtle variations
-- Maintain human proportions and facial geometry
+BACKGROUND & GRAPHICS  ▸  Minimal abstract shapes, geometric forms or texture motifs informed by the style keyword. Background must enhance—not overpower—the subject.
 
-COMPOSITION & BACKGROUND:
-- Soft, organic background with subtle geometric elements
-- Muted color blocks in complementary warm tones
-- Gentle, flowing shapes that complement the subject
-- Overall composition balanced and centered
-- Background elements that don't compete with subject detail
+TECH SPECS  ▸  1024×1536 portrait, high resolution, crisp edges, no watermarks, no unintended text. Only include explicit text if an "OPTIONAL TEXT" string is provided.
 
-TECHNICAL SPECIFICATIONS:
-- Realistic color relationships with natural lighting
-- Smooth gradients mixed with textural details
-- Professional illustration quality with dimensional depth
-- Optimized for phone case design format
-- Maintain a warm, approachable mood while preserving realistic human features
-
-Transform the reference image to match this semi-realistic illustrated aesthetic while preserving natural human proportions and adding dimensional depth to facial features.""",
+After following the guidelines above, adapt the illustration using the style details described below.""",
         "keywords": {
-            "Y2K Chrome": "Y2K chrome metallic aesthetic with holographic effects and futuristic elements",
-            "80s Neon": "1980s neon synthwave style with bright pink and blue colors, geometric patterns",
-            "90s Grunge": "1990s grunge style with distorted textures, dark aesthetic, and alternative vibes",
-            "Vaporwave": "vaporwave aesthetic with pastel colors, geometric shapes, and dreamy atmosphere"
+            "Y2K Chrome": "iridescent chrome gradients, holographic metallic reflections, soft pastel cyber hues, subtle lens flares and glossy highlights inspired by early-2000s tech adverts",
+            "80s Neon": "electric synth-wave palette of hot pink, cyan and deep violet, glowing gridlines, sunset gradients, chrome logo accents and neon geometric shapes",
+            "90s Grunge": "distressed paper and gritty collage textures, muted earth tones mixed with deep burgundy and olive, splatter overlays and raw street-art vibe",
+            "Vaporwave": "dreamy pastel magenta and teal, Japanese text snippets, 3-D wireframe shapes, nostalgic computer icons and gradient sunsets"
         }
     },
     "funny-toon": {
@@ -283,12 +249,37 @@ def generate_style_prompt(template_id: str, style_params: dict) -> str:
     
     # Handle other template types
     elif template_id == "retro-remix":
-        keyword = style_params.get('keyword', 'retro')
-        if keyword in template_config.get("keywords", {}):
-            style_desc = template_config["keywords"][keyword]
-            return f"Transform this image into a {style_desc} aesthetic with vintage vibes"
+        # Build the Retro Remix prompt by combining the shared base instructions with an optional style keyword.
+        keyword = style_params.get("keyword", "Retro")
+
+        # If the keyword matches one of our predefined style keywords, fetch its detailed description – otherwise fall back
+        # to using the raw keyword directly in a generalized sentence.  The important change here is that we no longer
+        # replace the entire base prompt with the keyword description; instead, we APPEND the keyword description so the
+        # AI always receives the full guidance from the base prompt first, followed by the specific style variation.
+
+        # Perform a case-insensitive lookup for the keyword inside our predefined keywords map.
+        keyword_map = {k.lower(): v for k, v in template_config.get("keywords", {}).items()}
+
+        if keyword.lower() in keyword_map:
+            style_desc = keyword_map[keyword.lower()]
+            prompt = (
+                f"{template_config['base']}\n\n"
+                f"STYLE VARIATION - {keyword}: {style_desc}."
+            )
         else:
-            return template_config["base"].format(keyword=keyword)
+            # Unknown keyword – provide a generic instruction referencing the user-supplied keyword so the model still
+            # attempts to incorporate it.
+            prompt = (
+                f"{template_config['base']}\n\n"
+                f"STYLE VARIATION - {keyword}: apply retro-inspired elements that embody '{keyword}'."
+            )
+
+        # Append optional text if provided (e.g., custom slogan on the case)
+        optional_text = style_params.get("optional_text", "").strip()
+        if optional_text:
+            prompt += f"\n\nInclude the text: '{optional_text}'."
+
+        return prompt
     
     # --- Always return full base prompt for cover-shoot (ignore style variations) ---
     elif template_id == "cover-shoot":

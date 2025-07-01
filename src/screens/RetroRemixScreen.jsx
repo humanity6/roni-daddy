@@ -149,7 +149,7 @@ const RetroRemixScreen = () => {
               <ArrowRight size={20} className={`${keyword.trim() ? 'text-gray-600' : 'text-gray-400'}`} />
             </button>
           </div>
-          <p className="text-center text-[11px] text-gray-500 mt-1 w-72">e.g. 'Y2K Chrome', '80s Neon', '90s Grunge'</p>
+          <p className="text-center text-[11px] text-gray-500 mt-1 w-72">e.g. 'Y2K Chrome', '80s Neon', '90s Grunge', 'Vaporwave'</p>
         </div>
 
         {/* OPTIONAL TEXT INPUT */}
