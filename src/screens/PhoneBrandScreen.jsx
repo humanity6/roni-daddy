@@ -1,12 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PastelBlobs from '../components/PastelBlobs'
+import aiImageService from '../services/aiImageService'
 
 const PhoneBrandScreen = () => {
   const navigate = useNavigate()
   const [selectedBrand, setSelectedBrand] = useState('')
+  const [brands, setBrands] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [apiModels, setApiModels] = useState({})
 
-  const brands = [
+  // Default brands with exact UI styling from previous version
+  const defaultBrands = [
     { 
       id: 'iphone', 
       name: 'IPHONE', 
@@ -26,30 +31,127 @@ const PhoneBrandScreen = () => {
       name: 'GOOGLE', 
       frameColor: '#d4eafb',
       buttonColor: '#b9ddf7',
-      available: true
+      available: false, // Google is coming soon
+      subtitle: 'Coming Soon'
     }
   ]
 
+  // Load brands and models on component mount
+  useEffect(() => {
+    loadBrandsAndModels()
+  }, [])
+
+  const loadBrandsAndModels = async () => {
+    try {
+      setLoading(true)
+      console.log('🔄 PhoneBrandScreen - Loading brands and models from Chinese API...')
+      
+      // Always use the default brands for UI
+      setBrands(defaultBrands)
+      
+      // Try to fetch models from Chinese API for each brand
+      const modelsData = {}
+      
+      for (const brand of defaultBrands) {
+        if (brand.available) {
+          try {
+            const response = await aiImageService.getPhoneModels(brand.id)
+            if (response.success && response.models) {
+              modelsData[brand.id] = response.models
+              console.log(`✅ PhoneBrandScreen - Models loaded for ${brand.name}:`, response.models.length)
+            }
+          } catch (error) {
+            console.error(`❌ PhoneBrandScreen - Failed to load models for ${brand.name}:`, error)
+            // Will fall back to hardcoded models in individual screens
+          }
+        }
+      }
+      
+      setApiModels(modelsData)
+      console.log('✅ PhoneBrandScreen - All models loaded')
+    } catch (error) {
+      console.error('❌ PhoneBrandScreen - Failed to load brands:', error)
+      // Use default brands anyway
+      setBrands(defaultBrands)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBrandSelect = (brandId) => {
-    if (brands.find(b => b.id === brandId)?.available) {
+    const selectedBrandData = brands.find(b => b.id === brandId)
+    if (selectedBrandData?.available) {
       setSelectedBrand(brandId)
       setTimeout(() => {
         // Navigate to specific model screen based on brand
         switch(brandId) {
           case 'iphone':
-            navigate('/iphone-model')
+            navigate('/iphone-model', {
+              state: { apiModels: apiModels.iphone }
+            })
             break
           case 'samsung':
-            navigate('/samsung-model')
+            navigate('/samsung-model', {
+              state: { apiModels: apiModels.samsung }
+            })
             break
           case 'google':
-            navigate('/google-model')
+            navigate('/google-model', {
+              state: { apiModels: apiModels.google }
+            })
             break
           default:
             navigate('/iphone-model')
         }
       }, 300)
     }
+  }
+
+  // Loading state - simplified version without API indicators
+  if (loading) {
+    return (
+      <div 
+        style={{ 
+          minHeight: '100vh',
+          background: '#f8f8f8',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 20px',
+          position: 'relative',
+          overflow: 'hidden',
+          fontFamily: 'Cubano, sans-serif'
+        }}
+      >
+        <PastelBlobs />
+        
+        <div style={{ 
+          position: 'relative', 
+          zIndex: 10,
+          textAlign: 'center',
+          color: '#474746'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #e3e3e3',
+            borderTop: '4px solid #474746',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }}></div>
+          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading...</h2>
+        </div>
+        
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
   }
 
   return (
@@ -256,4 +358,4 @@ const PhoneBrandScreen = () => {
   )
 }
 
-export default PhoneBrandScreen 
+export default PhoneBrandScreen

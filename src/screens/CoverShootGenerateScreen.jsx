@@ -137,7 +137,7 @@ const CoverShootGenerateScreen = () => {
         </div>
 
         {/* credits row */}
-        <div className="flex items-center w-full max-w-xs mb-6 px-2">
+        <div className="flex items-center w-full max-w-sm mb-6 px-2">
           <button 
             onClick={handleBack}
             className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md"
@@ -145,8 +145,8 @@ const CoverShootGenerateScreen = () => {
             <ChevronLeft size={24} className="text-gray-600"/>
           </button>
           <div className="flex flex-col flex-grow mx-2 space-y-2">
-            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center">AI CREDITS REMAINING: {aiCredits}</div>
-            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
+            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center whitespace-nowrap">AI CREDITS REMAINING: {aiCredits}</div>
+            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0||isGenerating?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
           </div>
           <button 
             onClick={handleGenerate}
@@ -170,9 +170,9 @@ const CoverShootGenerateScreen = () => {
             <button 
               onClick={handleRegenerate}
               disabled={aiCredits===0||isGenerating}
-              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0||isGenerating?'bg-gray-400':'bg-pink-400'}`}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">{isGenerating?'Generating...':'Generate'}</span>
+              <span className="font-semibold text-[10px]">Generate</span>
             </button>
           </div>
         </div>

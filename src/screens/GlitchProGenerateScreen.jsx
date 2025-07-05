@@ -34,7 +34,6 @@ const GlitchProGenerateScreen = () => {
   const [generatedImage, setGeneratedImage] = useState(null)
   const [originalImageFile, setOriginalImageFile] = useState(null)
   const [error, setError] = useState(null)
-  const [firstGenerateTriggered, setFirstGenerateTriggered] = useState(false)
   const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
 
   /* ---------------- helpers ---------------- */
@@ -55,14 +54,6 @@ const GlitchProGenerateScreen = () => {
         .catch(() => setError('Failed to process image'))
     }
   }, [uploadedImage])
-
-  /* Auto first generation */
-  useEffect(() => {
-    if (originalImageFile && !firstGenerateTriggered && aiCredits > 0 && !generatedImage && !isGenerating) {
-      handleRegenerate()
-      setFirstGenerateTriggered(true)
-    }
-  }, [originalImageFile, firstGenerateTriggered, aiCredits, generatedImage, isGenerating])
 
   /* navigation */
   const handleBack = () => {
@@ -141,8 +132,8 @@ const GlitchProGenerateScreen = () => {
           {[{Icon:ZoomOut,action:zoomOut},{Icon:ZoomIn,action:zoomIn},{Icon:RefreshCw,action:resetTransform},{Icon:ArrowRight,action:moveRight},{Icon:ArrowLeft,action:moveLeft},{Icon:ArrowDown,action:moveDown},{Icon:ArrowUp,action:moveUp}].map(({Icon,action},idx)=>(<button key={idx} onClick={action} disabled={isGenerating||(!generatedImage&&!uploadedImage)} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-transform ${isGenerating?'bg-gray-100':'bg-green-100 hover:bg-green-200'}`}><Icon size={20} className="text-gray-700"/></button>))}
         </div>
 
-        {/* credits */}
-        <div className="flex items-center w-full max-w-xs mb-6 px-2">
+        {/* credits row */}
+        <div className="flex items-center w-full max-w-sm mb-6 px-2">
           <button 
             onClick={handleBack}
             className="w-12 h-12 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md"
@@ -150,8 +141,8 @@ const GlitchProGenerateScreen = () => {
             <ChevronLeft size={24} className="text-gray-600"/>
           </button>
           <div className="flex flex-col flex-grow mx-2 space-y-2">
-            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center">AI CREDITS REMAINING: {aiCredits}</div>
-            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'RE-GENERATE IMAGE'}</button>
+            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center whitespace-nowrap">AI CREDITS REMAINING: {aiCredits}</div>
+            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0||isGenerating?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
           </div>
           <button 
             onClick={handleGenerate}
@@ -173,8 +164,9 @@ const GlitchProGenerateScreen = () => {
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
             {/* Inner Pink Circle */}
             <button 
-              onClick={handleGenerate}
-              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+              onClick={handleRegenerate}
+              disabled={aiCredits===0||isGenerating}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
               <span className="font-semibold text-[10px]">Generate</span>
             </button>

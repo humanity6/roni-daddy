@@ -1,16 +1,20 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppState } from '../contexts/AppStateContext'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 
 const GoogleModelScreen = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { actions } = useAppState()
-  const [selectedModel, setSelectedModel] = useState('PIXEL 8 PRO')
+  const [selectedModel, setSelectedModel] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [googleModels, setGoogleModels] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const googleModels = [
+  // Fallback Google models (hardcoded)
+  const fallbackModels = [
     'PIXEL 8 PRO',
     'PIXEL 8',
     'PIXEL 7A',
@@ -27,13 +31,106 @@ const GoogleModelScreen = () => {
     'PIXEL 4'
   ]
 
+  useEffect(() => {
+    loadModels()
+  }, [])
+
+  const loadModels = async () => {
+    try {
+      setLoading(true)
+      
+      // Check if we have API models from the previous screen
+      const apiModels = location.state?.apiModels
+      
+      if (apiModels && apiModels.length > 0) {
+        console.log('✅ GoogleModelScreen - Using API models:', apiModels.length)
+        
+        // Map API models to our format
+        const mappedModels = apiModels.map(model => 
+          model.display_name || model.name || model.e_name || `Google ${model.id}`
+        )
+        
+        setGoogleModels(mappedModels)
+        setSelectedModel(mappedModels[0])
+      } else {
+        console.log('🔄 GoogleModelScreen - Using fallback models')
+        setGoogleModels(fallbackModels)
+        setSelectedModel(fallbackModels[0])
+      }
+    } catch (error) {
+      console.error('❌ GoogleModelScreen - Error loading models:', error)
+      setGoogleModels(fallbackModels)
+      setSelectedModel(fallbackModels[0])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSubmit = () => {
-    actions.setPhoneSelection('google', selectedModel.toLowerCase().replace(/\s+/g, '-'), null)
+    // Find the corresponding API model data if available
+    const apiModels = location.state?.apiModels
+    let chineseApiModelId = null
+    
+    if (apiModels && apiModels.length > 0) {
+      const selectedIndex = googleModels.indexOf(selectedModel)
+      if (selectedIndex >= 0 && selectedIndex < apiModels.length) {
+        chineseApiModelId = apiModels[selectedIndex].id
+      }
+    }
+    
+    actions.setPhoneSelection('google', selectedModel.toLowerCase().replace(/\s+/g, '-'), chineseApiModelId)
     navigate('/template-selection')
   }
 
   const handleBack = () => {
     navigate('/phone-brand')
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div 
+        style={{ 
+          height: '100vh',
+          background: '#f8f8f8',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          position: 'relative',
+          overflow: 'hidden',
+          fontFamily: 'PoppinsLight, sans-serif',
+        }}
+      >
+        <PastelBlobs />
+        
+        <div style={{ 
+          position: 'relative', 
+          zIndex: 10,
+          textAlign: 'center',
+          color: '#474746'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #e3e3e3',
+            borderTop: '4px solid #474746',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 20px'
+          }}></div>
+          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading Models...</h2>
+        </div>
+        
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
   }
 
   return (
@@ -91,7 +188,7 @@ const GoogleModelScreen = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: '20px',
+          marginBottom: '0px',
           marginTop: '60px',
           zIndex: 10
         }}

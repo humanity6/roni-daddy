@@ -12,6 +12,8 @@ import uuid
 import time
 from typing import Optional, List
 import json
+import requests
+from chinese_api_client import ChineseAPIClient, ChineseAPIConfig
 
 # Load environment variables - check multiple locations
 load_dotenv()  # Current directory
@@ -39,6 +41,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Chinese API Configuration
+def get_chinese_api_config():
+    """Get Chinese API configuration from environment variables"""
+    return ChineseAPIConfig(
+        base_url=os.getenv('CHINESE_API_BASE_URL', 'http://app-dev.deligp.com:8500/mobileShell/en'),
+        account=os.getenv('CHINESE_API_ACCOUNT', 'taharizvi.ai@gmail.com'),
+        password=os.getenv('CHINESE_API_PASSWORD', 'EN112233'),
+        device_id=os.getenv('CHINESE_API_DEVICE_ID', 'TEST_DEVICE_001'),
+        timeout=int(os.getenv('CHINESE_API_TIMEOUT', '30'))
+    )
+
+# Initialize Chinese API client
+chinese_api_client = None
+
+def get_chinese_api_client():
+    """Get or create Chinese API client"""
+    global chinese_api_client
+    if chinese_api_client is None:
+        config = get_chinese_api_config()
+        chinese_api_client = ChineseAPIClient(config)
+    return chinese_api_client
 
 # Initialize OpenAI client
 def get_openai_client():
@@ -397,44 +421,179 @@ def save_generated_image(base64_data: str, template_id: str) -> tuple:
 async def root():
     return {"message": "Roni AI Image Generator API", "status": "active"}
 
+# Chinese API Integration Endpoints
+
+@app.get("/chinese-api/health")
+async def chinese_api_health():
+    """Check Chinese API health"""
+    try:
+        client = get_chinese_api_client()
+        is_healthy = client.health_check()
+        return {
+            "chinese_api_available": is_healthy,
+            "fallback_available": True,
+            "message": "Chinese API available" if is_healthy else "Using fallback to OpenAI"
+        }
+    except Exception as e:
+        return {
+            "chinese_api_available": False,
+            "fallback_available": True,
+            "message": f"Chinese API unavailable: {str(e)}, using fallback to OpenAI"
+        }
+
+@app.get("/chinese-api/brands")
+async def get_phone_brands():
+    """Get available phone brands from Chinese API with fallback"""
+    try:
+        client = get_chinese_api_client()
+        brands = client.get_brands()
+        
+        # Format brands for frontend compatibility
+        formatted_brands = []
+        for brand in brands:
+            formatted_brands.append({
+                "id": brand.get("id"),
+                "name": brand.get("name"),
+                "e_name": brand.get("e_name"),
+                "display_name": brand.get("e_name", brand.get("name", "")).upper()
+            })
+        
+        return {
+            "success": True,
+            "brands": formatted_brands,
+            "source": "chinese_api"
+        }
+    except Exception as e:
+        # Fallback to hardcoded brands if Chinese API fails
+        print(f"Chinese API brands failed: {e}, using fallback")
+        fallback_brands = [
+            {"id": "iphone", "name": "iPhone", "e_name": "IPHONE", "display_name": "IPHONE"},
+            {"id": "samsung", "name": "Samsung", "e_name": "SAMSUNG", "display_name": "SAMSUNG"},
+            {"id": "google", "name": "Google", "e_name": "GOOGLE", "display_name": "GOOGLE"}
+        ]
+        return {
+            "success": True,
+            "brands": fallback_brands,
+            "source": "fallback"
+        }
+
+@app.get("/chinese-api/brands/{brand_id}/models")
+async def get_phone_models(brand_id: str):
+    """Get available phone models for a brand from Chinese API with fallback"""
+    try:
+        client = get_chinese_api_client()
+        models = client.get_stock_list(brand_id)
+        
+        # Format models for frontend compatibility
+        formatted_models = []
+        for model in models:
+            formatted_models.append({
+                "id": model.get("mobile_model_id"),
+                "name": model.get("mobile_model_name"),
+                "price": model.get("price"),
+                "stock": model.get("stock"),
+                "available": model.get("stock", 0) > 0
+            })
+        
+        return {
+            "success": True,
+            "models": formatted_models,
+            "source": "chinese_api"
+        }
+    except Exception as e:
+        # Fallback to hardcoded models if Chinese API fails
+        print(f"Chinese API models failed: {e}, using fallback")
+        fallback_models = []
+        
+        # Simple fallback based on brand_id
+        if brand_id.lower() == "iphone":
+            fallback_models = [
+                {"id": "iphone-16", "name": "iPhone 16", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-15", "name": "iPhone 15", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-14", "name": "iPhone 14", "price": 17.99, "stock": 10, "available": True}
+            ]
+        elif brand_id.lower() == "samsung":
+            fallback_models = [
+                {"id": "galaxy-s24", "name": "Galaxy S24", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s23", "name": "Galaxy S23", "price": 17.99, "stock": 10, "available": True}
+            ]
+        elif brand_id.lower() == "google":
+            fallback_models = [
+                {"id": "pixel-8", "name": "Pixel 8", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-7", "name": "Pixel 7", "price": 17.99, "stock": 10, "available": True}
+            ]
+        
+        return {
+            "success": True,
+            "models": fallback_models,
+            "source": "fallback"
+        }
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     try:
         # Check if API key exists
         api_key = os.getenv('OPENAI_API_KEY')
+        openai_status = "healthy"
+        openai_error = None
+        
         if not api_key:
-            return {"status": "unhealthy", "error": "OpenAI API key not found in environment variables"}
-        
-        if api_key == "your-api-key-here" or api_key == "sk-your-actual-key-here":
-            return {"status": "unhealthy", "error": "Please replace the placeholder API key with your actual OpenAI API key"}
-        
-        # Check API key format
-        if not api_key.startswith('sk-'):
-            return {"status": "unhealthy", "error": "Invalid API key format - should start with 'sk-'"}
+            openai_status = "unhealthy"
+            openai_error = "OpenAI API key not found in environment variables"
+        elif api_key == "your-api-key-here" or api_key == "sk-your-actual-key-here":
+            openai_status = "unhealthy"
+            openai_error = "Please replace the placeholder API key with your actual OpenAI API key"
+        elif not api_key.startswith('sk-'):
+            openai_status = "unhealthy"
+            openai_error = "Invalid API key format - should start with 'sk-'"
         
         # Test basic OpenAI client initialization (without making API calls)
         try:
-            client = get_openai_client()
-            # Just check if client can be created without making network requests
-            return {
-                "status": "healthy", 
-                "openai": "client_initialized",
-                "api_key_preview": f"{api_key[:10]}...{api_key[-4:]}",
-                "message": "API ready for image generation"
-            }
+            if openai_status == "healthy":
+                client = get_openai_client()
+                # Just check if client can be created without making network requests
         except Exception as client_error:
-            return {
-                "status": "unhealthy", 
-                "error": f"OpenAI client initialization failed: {str(client_error)}",
-                "suggestion": "Check your OpenAI API key configuration"
-            }
+            openai_status = "unhealthy"
+            openai_error = f"OpenAI client initialization failed: {str(client_error)}"
+        
+        # Check Chinese API status
+        chinese_api_status = "healthy"
+        chinese_api_error = None
+        
+        try:
+            client = get_chinese_api_client()
+            chinese_api_available = client.health_check()
+            if not chinese_api_available:
+                chinese_api_status = "unhealthy"
+                chinese_api_error = "Chinese API authentication failed"
+        except Exception as chinese_error:
+            chinese_api_status = "unhealthy"
+            chinese_api_error = f"Chinese API error: {str(chinese_error)}"
+        
+        # Overall status
+        overall_status = "healthy" if (openai_status == "healthy" or chinese_api_status == "healthy") else "unhealthy"
+        
+        return {
+            "status": overall_status,
+            "openai": {
+                "status": openai_status,
+                "error": openai_error,
+                "api_key_preview": f"{api_key[:10]}...{api_key[-4:]}" if api_key else None
+            },
+            "chinese_api": {
+                "status": chinese_api_status,
+                "error": chinese_api_error,
+                "available": chinese_api_status == "healthy"
+            },
+            "message": "API ready for image generation with Chinese API integration and fallback support"
+        }
         
     except Exception as e:
         return {
             "status": "unhealthy", 
             "error": str(e),
-            "suggestion": "Check your OpenAI API key in the .env file"
+            "suggestion": "Check your API configurations in the .env file"
         }
 
 @app.post("/generate")
@@ -522,6 +681,203 @@ async def generate_image(
         raise HTTPException(status_code=400, detail="Invalid style_params JSON")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chinese-api/generate-and-order")
+async def generate_and_order(
+    template_id: str = Form(...),
+    style_params: str = Form(...),  # JSON string
+    mobile_model_id: str = Form(...),  # Chinese API model ID
+    image: Optional[UploadFile] = File(None),
+    quality: str = Form("medium"),
+    size: str = Form("1024x1536")
+):
+    """Generate AI image and create order using Chinese API with fallback"""
+    
+    try:
+        print(f"🔄 Chinese API - Generate and Order request received")
+        print(f"🔄 Chinese API - template_id: {template_id}")
+        print(f"🔄 Chinese API - mobile_model_id: {mobile_model_id}")
+        
+        # Parse style parameters
+        style_data = json.loads(style_params)
+        print(f"🔄 Chinese API - style_data: {style_data}")
+        
+        # Step 1: Generate image with OpenAI (always use AI generation)
+        reference_image = None
+        if image:
+            print(f"🔄 Chinese API - Converting uploaded image...")
+            reference_image = convert_image_for_api(image.file)
+            print(f"🔄 Chinese API - Image converted successfully")
+        
+        # Generate appropriate prompt
+        prompt = generate_style_prompt(template_id, style_data)
+        print(f"🔄 Chinese API - Generated prompt: {prompt}")
+        
+        # Generate image with GPT-image-1
+        print(f"🔄 Chinese API - Starting AI generation...")
+        response = await generate_image_gpt_image_1(
+            prompt=prompt,
+            reference_image=reference_image,
+            quality=quality,
+            size=size
+        )
+        print(f"🔄 Chinese API - AI generation completed")
+        
+        if not response or not response.data:
+            raise HTTPException(status_code=500, detail="No image generated")
+        
+        # Save image locally first
+        if hasattr(response.data[0], 'b64_json') and response.data[0].b64_json:
+            file_path, filename = save_generated_image(response.data[0].b64_json, template_id)
+            image_bytes = base64.b64decode(response.data[0].b64_json)
+        elif hasattr(response.data[0], 'url') and response.data[0].url:
+            img_response = requests.get(response.data[0].url)
+            img_response.raise_for_status()
+            
+            timestamp = int(time.time())
+            random_id = str(uuid.uuid4())[:8]
+            filename = f"{template_id}-{timestamp}-{random_id}.png"
+            
+            generated_dir = ensure_directories()
+            file_path = generated_dir / filename
+            
+            with open(file_path, 'wb') as f:
+                f.write(img_response.content)
+                
+            file_path = str(file_path)
+            image_bytes = img_response.content
+        else:
+            raise HTTPException(status_code=500, detail="Invalid response format - no image data")
+        
+        # Step 2: Try Chinese API workflow
+        try:
+            client = get_chinese_api_client()
+            
+            # Upload image to Chinese API
+            print(f"🔄 Chinese API - Uploading image to Chinese API...")
+            pic_url = client.upload_file(filename, image_bytes)
+            print(f"🔄 Chinese API - Image uploaded: {pic_url}")
+            
+            # Report payment (simulate payment for now)
+            print(f"🔄 Chinese API - Reporting payment...")
+            payment_info = client.report_payment(mobile_model_id, 17.99)
+            print(f"🔄 Chinese API - Payment reported: {payment_info['third_id']}")
+            
+            # Create order
+            print(f"🔄 Chinese API - Creating order...")
+            order_info = client.create_order(
+                payment_info['third_id'],
+                mobile_model_id,
+                pic_url
+            )
+            print(f"🔄 Chinese API - Order created: {order_info['third_id']}")
+            
+            return {
+                "success": True,
+                "filename": filename,
+                "file_path": file_path,
+                "prompt": prompt,
+                "template_id": template_id,
+                "style_params": style_data,
+                "chinese_api_response": {
+                    "pic_url": pic_url,
+                    "payment_info": payment_info,
+                    "order_info": order_info
+                },
+                "source": "chinese_api"
+            }
+            
+        except Exception as chinese_api_error:
+            print(f"🔄 Chinese API workflow failed: {chinese_api_error}")
+            # Fallback to just returning the generated image
+            return {
+                "success": True,
+                "filename": filename,
+                "file_path": file_path,
+                "prompt": prompt,
+                "template_id": template_id,
+                "style_params": style_data,
+                "chinese_api_response": None,
+                "source": "fallback",
+                "chinese_api_error": str(chinese_api_error)
+            }
+    
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid style_params JSON")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/chinese-api/orders/status")
+async def get_order_status(third_ids: str):
+    """Get order status from Chinese API"""
+    try:
+        # Parse comma-separated third_ids
+        third_id_list = [id.strip() for id in third_ids.split(',')]
+        
+        client = get_chinese_api_client()
+        statuses = client.get_order_status(third_id_list)
+        
+        return {
+            "success": True,
+            "statuses": statuses,
+            "source": "chinese_api"
+        }
+    except Exception as e:
+        print(f"Failed to get order status: {e}")
+        # Return mock status for fallback
+        return {
+            "success": True,
+            "statuses": [{"third_id": tid, "status": 8} for tid in third_ids.split(',')],
+            "source": "fallback",
+            "error": str(e)
+        }
+
+@app.get("/chinese-api/printing-queue")
+async def get_printing_queue():
+    """Get printing queue from Chinese API"""
+    try:
+        client = get_chinese_api_client()
+        queue = client.get_printing_list()
+        
+        return {
+            "success": True,
+            "queue": queue,
+            "source": "chinese_api"
+        }
+    except Exception as e:
+        print(f"Failed to get printing queue: {e}")
+        # Return mock queue for fallback
+        return {
+            "success": True,
+            "queue": [],
+            "source": "fallback",
+            "error": str(e)
+        }
+
+@app.get("/chinese-api/payment/status")
+async def get_payment_status(third_ids: str):
+    """Get payment status from Chinese API"""
+    try:
+        # Parse comma-separated third_ids
+        third_id_list = [id.strip() for id in third_ids.split(',')]
+        
+        client = get_chinese_api_client()
+        statuses = client.get_payment_status(third_id_list)
+        
+        return {
+            "success": True,
+            "statuses": statuses,
+            "source": "chinese_api"
+        }
+    except Exception as e:
+        print(f"Failed to get payment status: {e}")
+        # Return mock status for fallback
+        return {
+            "success": True,
+            "statuses": [{"third_id": tid, "status": 3} for tid in third_ids.split(',')],
+            "source": "fallback",
+            "error": str(e)
+        }
 
 @app.get("/image/{filename}")
 async def get_image(filename: str):
