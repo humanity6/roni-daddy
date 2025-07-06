@@ -61,12 +61,12 @@ const IPhoneModelScreen = () => {
       } else {
         console.log('🔄 IPhoneModelScreen - Using fallback models')
         setIPhoneModels(fallbackModels)
-        setSelectedModel(fallbackModels[0])
+        setSelectedModel('IPHONE 16')
       }
     } catch (error) {
       console.error('❌ IPhoneModelScreen - Error loading models:', error)
       setIPhoneModels(fallbackModels)
-      setSelectedModel(fallbackModels[0])
+      setSelectedModel('IPHONE 16')
     } finally {
       setLoading(false)
     }
@@ -281,7 +281,7 @@ const IPhoneModelScreen = () => {
               color: '#ffffff'
             }}
           >
-            <span style={{ whiteSpace: 'nowrap' }}>{selectedModel}</span>
+            <span style={{ whiteSpace: 'wrap' }}>{selectedModel}</span>
             <div
               style={{
                 width: '40px',
@@ -289,7 +289,11 @@ const IPhoneModelScreen = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderLeft: '2px solid #ffffff'
+                borderLeft: '6px solid #ffffff',
+                marginTop: '-20px',
+                marginBottom: '-20px',
+                paddingTop: '20px',
+                paddingBottom: '20px'
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

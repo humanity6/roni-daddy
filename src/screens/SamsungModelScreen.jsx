@@ -57,12 +57,12 @@ const SamsungModelScreen = () => {
       } else {
         console.log('🔄 SamsungModelScreen - Using fallback models')
         setSamsungModels(fallbackModels)
-        setSelectedModel(fallbackModels[0])
+        setSelectedModel('GALAXY S24')
       }
     } catch (error) {
       console.error('❌ SamsungModelScreen - Error loading models:', error)
       setSamsungModels(fallbackModels)
-      setSelectedModel(fallbackModels[0])
+      setSelectedModel('GALAXY S24')
     } finally {
       setLoading(false)
     }
@@ -277,7 +277,7 @@ const SamsungModelScreen = () => {
               color: '#ffffff'
             }}
           >
-            <span style={{ whiteSpace: 'nowrap' }}>{selectedModel}</span>
+            <span style={{ whiteSpace: 'wrap' }}>{selectedModel}</span>
             <div
               style={{
                 width: '40px',
@@ -285,7 +285,11 @@ const SamsungModelScreen = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderLeft: '2px solid #ffffff'
+                borderLeft: '6px solid #ffffff',
+                marginTop: '-20px',
+                marginBottom: '-20px',
+                paddingTop: '20px',
+                paddingBottom: '20px'
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

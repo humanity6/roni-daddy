@@ -89,27 +89,36 @@ def ensure_directories():
 
 # Style mapping for different templates
 STYLE_PROMPTS = {
-    "retro-remix": {
-        "base": """Create a semi-realistic illustrated portrait that fuses modern polish with a nostalgic retro vibe.
+"retro-remix": {
+  "base": """Create a semi-realistic illustrated portrait that fuses modern polish with a nostalgic retro vibe.
 
 COMPOSITION  ▸  Keep the subject centred and symmetrical in a tight head-and-shoulders crop, facing the camera with direct eye contact. Leave subtle margins for the phone-case camera cut-out.
 
-ART STYLE  ▸  Painterly illustration with smooth dimensional shading and gentle vintage grain. Preserve natural human proportions while adding stylised depth and colour harmony.
+ART STYLE  ▸  Painterly illustration with smooth dimensional shading and gentle vintage grain. Preserve natural human proportions while maintaining a stylised, illustrated finish — do not overly photorealize the face.
 
 LIGHT & COLOUR  ▸  Soft diffused lighting with balanced contrast. Apply a colour palette that complements the SELECTED RETRO STYLE keyword.
 
 BACKGROUND & GRAPHICS  ▸  Minimal abstract shapes, geometric forms or texture motifs informed by the style keyword. Background must enhance—not overpower—the subject.
 
-TECH SPECS  ▸  1024×1536 portrait, high resolution, crisp edges, no watermarks, no unintended text. Only include explicit text if an "OPTIONAL TEXT" string is provided.
+TECH SPECS  ▸  1024x1536 portrait, high resolution, crisp edges, no watermarks, no unintended text. Only include explicit text if an "OPTIONAL TEXT" string is provided.
 
 After following the guidelines above, adapt the illustration using the style details described below.""",
-        "keywords": {
-            "Y2K Chrome": "iridescent chrome gradients, holographic metallic reflections, soft pastel cyber hues, subtle lens flares and glossy highlights inspired by early-2000s tech adverts",
-            "80s Neon": "electric synth-wave palette of hot pink, cyan and deep violet, glowing gridlines, sunset gradients, chrome logo accents and neon geometric shapes",
-            "90s Grunge": "distressed paper and gritty collage textures, muted earth tones mixed with deep burgundy and olive, splatter overlays and raw street-art vibe",
-            "Vaporwave": "dreamy pastel magenta and teal, Japanese text snippets, 3-D wireframe shapes, nostalgic computer icons and gradient sunsets"
-        }
-    },
+  "keywords": {
+    "VHS Nostalgia": "Apply a muted 1980s VHS tape effect with scanlines, analog static noise, and desaturated hues.",
+    "80s Neon": "Electric synth-wave palette of hot pink, neon cyan, and deep violet; glowing gridlines, sunset gradients, chrome accents, and retro geometric shapes.",
+    "90s Polaroid Glow": "Warm Polaroid-style filter with soft film grain, pastel light leaks, and faded edges.",
+    "Disposable Snapshot ('97)": "Simulate a late-90s disposable camera look: bright flash, slight motion blur, and film grain.",
+    "MTV Static Cool": "Overlay faint static lines, neon tints, and 90s broadcast textures reminiscent of early MTV footage.",
+    "Y2K Rave Chrome": "Iridescent chrome gradients, pixelated glitches, holographic reflections, and soft pastel cyber hues.",
+    "Retro Rewind": "Blend tones from 70s film, 80s neon, and 90s grunge into one cohesive aesthetic; swirling colour gradients and vintage textures.",
+    "Bubblegum Mallcore": "Pastel overlays, sticker-style accents, high-flash highlights, and playful typography.",
+    "Neo-Tokyo Dreamcore": "Synthwave lighting, urban haze, neon kanji signage, and subtle glitch overlays inspired by 80s anime cities.",
+    "Classic Film Noir": "High-contrast monochrome portrait with dramatic chiaroscuro lighting and deep shadows.",
+    "Psychedelic 70s Glow": "Kaleidoscopic swirl gradients, liquid-like textures, and soft bloom overlays inspired by  psychedelia."
+  }
+}
+
+,
     "funny-toon": {
         "styles": {
             "Wild and Wacky": """Front-facing, perfectly centered and symmetrical caricature portrait of the person in the reference photo.  
@@ -129,7 +138,7 @@ After following the guidelines above, adapt the illustration using the style det
         }
     },
     "cover-shoot": {
-        "base": """Transform the reference image into a high-end professional magazine cover shoot aesthetic. Apply the following photography and styling elements:
+    "base": """Transform the reference image into a high-end professional magazine cover shoot aesthetic. Apply the following photography and styling elements:
 
 COMPOSITION & POSITIONING:
 - Subject positioned directly center in the frame
@@ -177,14 +186,18 @@ COMPOSITION & MOOD:
 - Aspirational, high-end aesthetic
 - Timeless, classic beauty photography
 
-Transform the reference image to match this exact cover shoot/professional photography style while maintaining natural beauty with the polished perfection of high-end commercial photography.""",
-        "styles": {
-            "Fashion": "high-fashion magazine cover with professional lighting and styling",
-            "Glamour": "glamour photography style with soft lighting and elegant poses",
-            "Editorial": "editorial fashion photography with artistic composition",
-            "Portrait": "professional portrait photography with studio lighting"
-        }
-    },
+maintain natural beauty. After following the guidelines above, adapt the image using the style details described below.""",
+    "styles": {
+      "Vogue Vibe": "Style this portrait as a high-fashion magazine cover: bold studio lighting, elegant contrast, and a clean background. Focus on modern fashion polish with timeless editorial grace.",
+      "Streetwear Heat": "Apply gritty, urban-inspired lighting with moody shadows and bold contrast. Infuse the portrait with a streetwear edge, attitude, and raw realism.",
+      "Studio Flash": "Use strong studio flash with dramatic lighting and sharp highlights — like a fashion campaign. High clarity, high contrast, bold and clean setup.",
+      "Cinematic Glow": "Add soft lens blur, warm cinematic color grading, and high subject focus — as if from a modern film poster. Stylish and immersive.",
+      "Rockstar Raw": "Introduce a grainy texture and bold composition with rockstar confidence. Raw skin tones, real vibe, minimal polish — authentic and energetic.",
+      "Mono Mood": "Convert to a striking black-and-white editorial look. Soft gradients, strong midtones, and timeless monochrome mood.",
+      "i-D Edge": "Minimal, playful styling with creative asymmetry and bold shadows. Channel the unconventional charm of i-D magazine shoots.",
+      "Cover Beauty": "Use glowing beauty lighting, elegant tones, and smooth gradients. Focus on softness, natural skin quality, and modern cover appeal."
+    }
+  },
     "glitch-pro": {
         "base": """Transform this selfie into a retro glitch pop aesthetic with vintage VHS distortion effects. Apply horizontal scan lines and TV static noise throughout the image. Use a warm color palette dominated by red, orange, and yellow tones with contrasting green and blue glitch accents. Add film grain and analog video artifacts like chromatic aberration and color bleeding. Create a nostalgic 80s/90s vibe with oversaturated colors and slight image degradation. The overall mood should be energetic and vibrant with that classic retro-futuristic glitch art style. Include subtle double exposure effects and digital noise patterns.""",
         "modes": {

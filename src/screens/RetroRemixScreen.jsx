@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ZoomIn,
@@ -10,11 +10,12 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import aiImageService from '../services/aiImageService'
 
 const RetroRemixScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, transform: initialTransform } = location.state || {}
+  const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 5 } = location.state || {}
 
   /* --------------------------------------------------------------------
    * UI STATE
@@ -26,6 +27,56 @@ const RetroRemixScreen = () => {
    * IMAGE TRANSFORM STATE
    * ------------------------------------------------------------------*/
   const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
+
+  /* --------------------------------------------------------------------
+   * AVAILABLE STYLES (fetched from backend)
+   * ------------------------------------------------------------------*/
+  const [availableKeywords, setAvailableKeywords] = useState([])
+  const [isCustomKeyword, setIsCustomKeyword] = useState(false)
+
+  // AI Credits state (uploads left)
+  const [aiCredits] = useState(initialCredits)
+
+  useEffect(() => {
+    // Fetch the list of predefined style keywords so we can populate the dropdown.
+    const fetchKeywords = async () => {
+      try {
+        const res = await aiImageService.getTemplateStyles('retro-remix')
+        if (res && res.keywords) {
+          setAvailableKeywords(res.keywords)
+        }
+      } catch (err) {
+        console.error('Failed to fetch Retro Remix keywords', err)
+      }
+    }
+
+    fetchKeywords()
+  }, [])
+
+  // Check if current keyword is custom (not in predefined list)
+  useEffect(() => {
+    if (keyword && availableKeywords.length > 0) {
+      setIsCustomKeyword(!availableKeywords.includes(keyword))
+    } else {
+      setIsCustomKeyword(false)
+    }
+  }, [keyword, availableKeywords])
+
+  // Handle keyword input change
+  const handleKeywordChange = (e) => {
+    const newKeyword = e.target.value
+    setKeyword(newKeyword)
+  }
+
+  // Handle dropdown selection
+  const handleDropdownChange = (e) => {
+    const selectedValue = e.target.value
+    if (selectedValue === 'custom') {
+      // Keep current custom keyword, don't change anything
+      return
+    }
+    setKeyword(selectedValue)
+  }
 
   const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
   const moveRight = () => setTransform((p) => ({ ...p, x: Math.min(p.x + 5, 50) }))
@@ -53,7 +104,7 @@ const RetroRemixScreen = () => {
         keyword,
         optionalText,
         transform,
-        aiCredits: 4
+        aiCredits
       }
     })
   }
@@ -135,8 +186,8 @@ const RetroRemixScreen = () => {
             <input
               type="text"
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Enter a keyword"
+              onChange={handleKeywordChange}
+              placeholder="Custom Style"
               className="flex-1 bg-gray-100 backdrop-blur-sm border-2 border-gray-400 rounded-full px-4 py-3 text-center text-base font-semibold text-black shadow-lg focus:outline-none focus:border-pink-500 transition-colors"
             />
             <button 
@@ -150,6 +201,23 @@ const RetroRemixScreen = () => {
             </button>
           </div>
           <p className="text-center text-[11px] text-gray-500 mt-1 w-72">e.g. 'Y2K Chrome', '80s Neon', '90s Grunge', 'Vaporwave'</p>
+
+          {/* DROP-DOWN LIST OF PREDEFINED STYLES */}
+          {availableKeywords.length > 0 && (
+            <select
+              value={isCustomKeyword ? 'custom' : keyword}
+              onChange={handleDropdownChange}
+              className="mt-2 w-72 bg-gray-100 backdrop-blur-sm border-2 border-gray-400 rounded-full px-4 py-3 text-center text-base font-semibold text-black shadow-lg focus:outline-none focus:border-pink-500 transition-colors relative z-50"
+            >
+              <option value="" disabled>Predefined Styles</option>
+              {availableKeywords.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+              {isCustomKeyword && (
+                <option value="custom">Using Custom Style</option>
+              )}
+            </select>
+          )}
         </div>
 
         {/* OPTIONAL TEXT INPUT */}
@@ -177,19 +245,22 @@ const RetroRemixScreen = () => {
           >
             Reset Inputs
           </button>
-          <span className="text-[11px] bg-blue-100 text-blue-800 px-3 py-1 rounded-full shadow whitespace-nowrap">5 AI uploads left</span>
+          <span className="text-[11px] bg-blue-100 text-blue-800 px-3 py-1 rounded-full shadow whitespace-nowrap">{aiCredits} AI uploads left</span>
         </div>
       </div>
 
-      {/* SUBMIT BUTTON AT BOTTOM */}
-      <div className="relative z-10 pb-8 flex justify-center">
-        <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
-          <div className="rounded-full bg-white p-[6px]">
-            <button
+      {/* Submit Button */}
+      <div className="relative z-10 p-6 flex justify-center">
+        {/* Outer Pink Ring */}
+        <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+          {/* Updated: minimal gap between circles */}
+          <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+            {/* Inner Pink Circle */}
+            <button 
               onClick={handleSubmit}
-              className="w-20 h-20 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold"
+              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
             >
-              <span className="text-sm">Submit</span>
+              <span className="font-semibold text-xs">Submit</span>
             </button>
           </div>
         </div>

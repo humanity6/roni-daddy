@@ -29,8 +29,8 @@ const PhoneBrandScreen = () => {
     { 
       id: 'google', 
       name: 'GOOGLE', 
-      frameColor: '#d4eafb',
-      buttonColor: '#b9ddf7',
+      frameColor: '#d8ecf4',
+      buttonColor: '#d8ecf4',
       available: false, // Google is coming soon
       subtitle: 'Coming Soon'
     }
@@ -221,7 +221,7 @@ const PhoneBrandScreen = () => {
         gap: '32px', 
         width: '100%',
         maxWidth: '200px',
-        marginBottom: '-50px',
+        marginBottom: '40px',
         position: 'relative',
         zIndex: 10
       }}>
@@ -238,7 +238,7 @@ const PhoneBrandScreen = () => {
               position: 'relative',
               background: brand.frameColor,
               border: 'none',
-              opacity: brand.available ? 1 : 0.7,
+              opacity: brand.available ? 1 : 1,
               minWidth: '210px'
             }}
             onMouseEnter={(e) => {
@@ -297,31 +297,32 @@ const PhoneBrandScreen = () => {
                 left: '8px',
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: brand.subtitle ? '2px' : '0' 
+                gap: brand.subtitle ? '0px' : '0' 
               }}>
-                <span
-                  style={{
-                    fontSize: '22px',
-                    fontWeight: 'normal',
-                    color: '#2c3e50',
-                    letterSpacing: '0.5px',
-                    fontFamily: 'Cubano, sans-serif'
-                  }}
-                >
-                  {brand.name}
-                </span>
-                {brand.subtitle && (
-                  <span
+                                  <span
                     style={{
-                      fontSize: '11px',
-                      color: '#7f8c8d',
-                      fontWeight: '400',
-                      fontFamily: 'Arial, sans-serif'
+                      fontSize: '22px',
+                      fontWeight: 'normal',
+                      color: '#2c3e50',
+                      letterSpacing: '-1px',
+                      fontFamily: 'Cubano, sans-serif'
                     }}
                   >
-                    {brand.subtitle}
+                    {brand.name}
                   </span>
-                )}
+                  {brand.subtitle && (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: '#7f8c8d',
+                        fontWeight: '400',
+                        fontFamily: 'Cubano, sans-serif',
+                        marginTop: '-2px'
+                      }}
+                    >
+                      {brand.subtitle}
+                    </span>
+                  )}
               </div>
             </div>
           </button>
@@ -339,7 +340,7 @@ const PhoneBrandScreen = () => {
         <img 
           src="/logo.png" 
           alt="Pimp My Case Logo" 
-          style={{ height: '300px', width: 'auto' }} 
+          style={{ height: '125px', width: 'auto' }} 
         />
       </div>
 
