@@ -99,8 +99,19 @@ const PhonePreviewScreen = () => {
           transform
         }
       })
+    } else if (template?.id === 'glitch-pro') {
+      navigate('/glitch', {
+        state: {
+          brand,
+          model,
+          color,
+          template,
+          uploadedImage,
+          transform
+        }
+      })
     } else if (template?.id === 'cover-shoot') {
-      navigate('/cover-shoot-generate', {
+      navigate('/cover-shoot', {
         state: {
           brand,
           model,
@@ -242,7 +253,7 @@ const PhonePreviewScreen = () => {
         </div>
 
         {/* Control Buttons Row – pastel-green squares */}
-        <div className="flex items-center justify-center space-x-3 mb-6">
+        <div className="flex items-center justify-center gap-2.5 mb-6 px-4">
           {[
             { Icon: ZoomOut, action: zoomOut },
             { Icon: ZoomIn, action: zoomIn },

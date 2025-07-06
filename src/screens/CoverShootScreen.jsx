@@ -12,7 +12,7 @@ import {
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
 
-const RetroRemixScreen = () => {
+const CoverShootScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 4 } = location.state || {}
@@ -20,8 +20,7 @@ const RetroRemixScreen = () => {
   /* --------------------------------------------------------------------
    * UI STATE
    * ------------------------------------------------------------------*/
-  const [keyword, setKeyword] = useState('')
-  const [optionalText, setOptionalText] = useState('')
+  const [selectedStyle, setSelectedStyle] = useState('')
 
   /* --------------------------------------------------------------------
    * IMAGE TRANSFORM STATE
@@ -31,51 +30,30 @@ const RetroRemixScreen = () => {
   /* --------------------------------------------------------------------
    * AVAILABLE STYLES (fetched from backend)
    * ------------------------------------------------------------------*/
-  const [availableKeywords, setAvailableKeywords] = useState([])
-  const [isCustomKeyword, setIsCustomKeyword] = useState(false)
+  const [availableStyles, setAvailableStyles] = useState([])
 
   // AI Credits state (uploads left)
   const [aiCredits] = useState(initialCredits)
 
   useEffect(() => {
-    // Fetch the list of predefined style keywords so we can populate the dropdown.
-    const fetchKeywords = async () => {
+    // Fetch the list of predefined cover shoot styles so we can populate the dropdown.
+    const fetchStyles = async () => {
       try {
-        const res = await aiImageService.getTemplateStyles('retro-remix')
-        if (res && res.keywords) {
-          setAvailableKeywords(res.keywords)
+        const res = await aiImageService.getTemplateStyles('cover-shoot')
+        if (res && res.styles) {
+          setAvailableStyles(res.styles)
         }
       } catch (err) {
-        console.error('Failed to fetch Retro Remix keywords', err)
+        console.error('Failed to fetch Cover Shoot styles', err)
       }
     }
 
-    fetchKeywords()
+    fetchStyles()
   }, [])
 
-  // Check if current keyword is custom (not in predefined list)
-  useEffect(() => {
-    if (keyword && availableKeywords.length > 0) {
-      setIsCustomKeyword(!availableKeywords.includes(keyword))
-    } else {
-      setIsCustomKeyword(false)
-    }
-  }, [keyword, availableKeywords])
-
-  // Handle keyword input change
-  const handleKeywordChange = (e) => {
-    const newKeyword = e.target.value
-    setKeyword(newKeyword)
-  }
-
-  // Handle dropdown selection
-  const handleDropdownChange = (e) => {
-    const selectedValue = e.target.value
-    if (selectedValue === 'custom') {
-      // Keep current custom keyword, don't change anything
-      return
-    }
-    setKeyword(selectedValue)
+  // Handle style selection
+  const handleStyleChange = (e) => {
+    setSelectedStyle(e.target.value)
   }
 
   const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
@@ -94,15 +72,14 @@ const RetroRemixScreen = () => {
   }
 
   const handleSubmit = () => {
-    navigate('/retro-remix-generate', {
+    navigate('/cover-shoot-generate', {
       state: {
         brand,
         model,
         color,
         template,
         uploadedImage,
-        keyword,
-        optionalText,
+        selectedStyle,
         transform,
         aiCredits
       }
@@ -174,7 +151,7 @@ const RetroRemixScreen = () => {
           ))}
         </div>
 
-        {/* KEYWORD INPUT */}
+        {/* STYLE SELECTION */}
         <div className="w-full flex flex-col items-center mb-3">
           <div className="flex items-center w-72 justify-center mx-auto">
             <button 
@@ -183,67 +160,38 @@ const RetroRemixScreen = () => {
             >
               <ArrowLeft size={20} className="text-gray-600" />
             </button>
-            <input
-              type="text"
-              value={keyword}
-              onChange={handleKeywordChange}
-              placeholder="Custom Style"
+            <select
+              value={selectedStyle}
+              onChange={handleStyleChange}
               className="flex-1 bg-gray-100 backdrop-blur-sm border-2 border-gray-400 rounded-full px-4 py-3 text-center text-base font-semibold text-black shadow-lg focus:outline-none focus:border-pink-500 transition-colors"
-            />
+            >
+              <option value="" disabled>Select Cover Shoot Style</option>
+              {availableStyles.map((style) => (
+                <option key={style} value={style}>{style}</option>
+              ))}
+            </select>
             <button 
               onClick={handleSubmit}
-              disabled={!keyword.trim()}
+              disabled={!selectedStyle}
               className={`flex-shrink-0 w-10 h-10 rounded-md border border-gray-300 flex items-center justify-center shadow active:scale-95 transition-transform ml-2 ${
-                keyword.trim() ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+                selectedStyle ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
               }`}
             >
-              <ArrowRight size={20} className={`${keyword.trim() ? 'text-gray-600' : 'text-gray-400'}`} />
+              <ArrowRight size={20} className={`${selectedStyle ? 'text-gray-600' : 'text-gray-400'}`} />
             </button>
           </div>
-          <p className="text-center text-[11px] text-gray-500 mt-1 w-72">e.g. 'Y2K Chrome', '80s Neon', '90s Grunge', 'Vaporwave'</p>
-
-          {/* DROP-DOWN LIST OF PREDEFINED STYLES */}
-          {availableKeywords.length > 0 && (
-            <select
-              value={isCustomKeyword ? 'custom' : keyword}
-              onChange={handleDropdownChange}
-              className="mt-2 w-72 bg-gray-100 backdrop-blur-sm border-2 border-gray-400 rounded-full px-4 py-3 text-center text-base font-semibold text-black shadow-lg focus:outline-none focus:border-pink-500 transition-colors relative z-50"
-            >
-              <option value="" disabled>Predefined Styles</option>
-              {availableKeywords.map((k) => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-              {isCustomKeyword && (
-                <option value="custom">Using Custom Style</option>
-              )}
-            </select>
-          )}
-        </div>
-
-        {/* OPTIONAL TEXT INPUT */}
-        <div className="w-full flex flex-col items-center mb-3">
-          <div className="w-72 relative">
-            <input
-              type="text"
-              value={optionalText}
-              onChange={(e) => setOptionalText(e.target.value)}
-              placeholder="Enter Text (Optional)"
-              className="w-full bg-gray-100 backdrop-blur-sm border-2 border-gray-400 rounded-full px-4 py-3 text-center text-base font-semibold text-black shadow-lg focus:outline-none focus:border-pink-500 transition-colors"
-            />
-          </div>
-          <p className="text-center text-[11px] text-gray-500 mt-2">Optional</p>
+          <p className="text-center text-[11px] text-gray-500 mt-1 w-72">Choose a professional photography style for your cover shoot</p>
         </div>
 
         {/* RESET + AI BADGE ROW */}
         <div className="flex items-center justify-center space-x-3 mb-6">
           <button
             onClick={() => {
-              setKeyword('')
-              setOptionalText('')
+              setSelectedStyle('')
             }}
             className="bg-green-200 text-gray-800 font-medium py-2 px-8 rounded-full active:scale-95 transition-transform shadow"
           >
-            Reset Inputs
+            Reset Selection
           </button>
           <span className="text-[11px] bg-blue-100 text-blue-800 px-3 py-1 rounded-full shadow whitespace-nowrap">{aiCredits} AI uploads left</span>
         </div>
@@ -258,7 +206,10 @@ const RetroRemixScreen = () => {
             {/* Inner Pink Circle */}
             <button 
               onClick={handleSubmit}
-              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+              disabled={!selectedStyle}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${
+                selectedStyle ? 'bg-pink-400' : 'bg-gray-400'
+              }`}
             >
               <span className="font-semibold text-xs">Submit</span>
             </button>
@@ -269,4 +220,4 @@ const RetroRemixScreen = () => {
   )
 }
 
-export default RetroRemixScreen 
+export default CoverShootScreen 

@@ -1,98 +1,260 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  Upload,
+  ZoomIn,
+  ZoomOut,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
   ArrowUp,
-  ArrowDown,
-  Plus,
-  Minus,
-  RefreshCw
+  ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import aiImageService from '../services/aiImageService'
 
 const GlitchScreen = () => {
   const navigate = useNavigate()
-  const { brand, model, color, template, uploadedImage } = (useLocation().state || {})
+  const location = useLocation()
+  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform } = location.state || {}
 
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
-  const [image, setImage] = useState(uploadedImage || null)
-  const [mode, setMode] = useState('retro') // 'retro' | 'chaos'
+  const [uploadedImage, setUploadedImage] = useState(initialImage || null)
+  const [glitchMode, setGlitchMode] = useState('') // no mode selected initially
+  const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
+  const [availableModes, setAvailableModes] = useState([])
+  const [loadingModes, setLoadingModes] = useState(true)
+  const fileInputRef = useRef(null)
 
-  // transform helpers
-  const move = (dx, dy) => setTransform((p) => ({ ...p, x: Math.max(Math.min(p.x + dx, 50), -50), y: Math.max(Math.min(p.y + dy, 50), -50) }))
-  const zoom = (dz) => setTransform((p) => ({ ...p, scale: Math.max(1, Math.min(p.scale + dz, 3)) }))
-  const reset = () => setTransform({ x: 0, y: 0, scale: 2 })
+  /* Image transform helpers */
+  const moveLeft = () => setTransform((p) => ({ ...p, x: Math.max(p.x - 5, -50) }))
+  const moveRight = () => setTransform((p) => ({ ...p, x: Math.min(p.x + 5, 50) }))
+  const moveUp = () => setTransform((p) => ({ ...p, y: Math.max(p.y - 5, -50) }))
+  const moveDown = () => setTransform((p) => ({ ...p, y: Math.min(p.y + 5, 50) }))
+  const zoomIn = () => setTransform((p) => ({ ...p, scale: Math.min(p.scale + 0.1, 5) }))
+  const zoomOut = () => setTransform((p) => ({ ...p, scale: Math.max(p.scale - 0.1, 0.5) }))
+  const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
 
-  const handleGenerate = () => {
-    navigate('/glitch-pro-generate', {
-      state: { brand, model, color, template, uploadedImage: image, transform, mode }
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setUploadedImage(e.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const openFilePicker = () => {
+    if (fileInputRef.current) fileInputRef.current.click()
+  }
+
+  const handleBack = () => {
+    navigate('/phone-preview', {
+      state: {
+        brand,
+        model,
+        color,
+        template,
+        uploadedImage,
+        transform
+      }
     })
+  }
+
+  const handleNext = () => {
+    navigate('/glitch-pro-generate', {
+      state: {
+        brand,
+        model,
+        color,
+        template,
+        uploadedImage,
+        glitchMode,
+        transform
+      }
+    })
+  }
+
+  // Fetch available glitch modes from API
+  useEffect(() => {
+    const fetchModes = async () => {
+      try {
+        setLoadingModes(true)
+        const response = await aiImageService.getTemplateStyles('glitch-pro')
+        if (response.styles) {
+          setAvailableModes(response.styles)
+        }
+      } catch (error) {
+        console.error('Failed to fetch glitch modes:', error)
+        // Fallback to default modes if API fails
+        setAvailableModes(['Retro', 'Chaos'])
+      } finally {
+        setLoadingModes(false)
+      }
+    }
+
+    fetchModes()
+  }, [])
+
+  const resetInputs = () => {
+    setUploadedImage(initialImage || null)
+    setGlitchMode('')
+    resetTransform()
   }
 
   return (
     <div className="screen-container">
       <PastelBlobs />
 
-      {/* Back Arrow */}
-      <button onClick={() => navigate(-1)} className="absolute top-4 left-4 w-12 h-12 rounded-full bg-white border-4 border-pink-400 flex items-center justify-center shadow-lg active:scale-95 transition-transform z-20">
-        <ArrowLeft size={20} className="text-pink-400" />
-      </button>
+      {/* Header */}
+      <div className="relative z-10 flex items-center justify-between p-4">
+        <button
+          onClick={handleBack}
+          className="w-12 h-12 rounded-full bg-white/90 border-4 border-pink-300 flex items-center justify-center active:scale-95 transition-transform shadow-lg"
+        >
+          <ArrowLeft size={20} className="text-pink-400" />
+        </button>
+        <h1 className="text-lg font-semibold text-gray-800">Glitch Pro</h1>
+        <div className="w-12 h-12"></div>
+      </div>
 
-      <div className="relative z-10 flex flex-col items-center px-6 mt-2">
-        {/* Phone preview */}
-        <div className="relative w-72 h-[480px] mb-4">
-          {/* Separate border element - positioned independently */}
-          <div className="phone-case-border"></div>
-          
-          <div className="phone-case-content">
-            {image && (
-              <img src={image} alt="Uploaded" className="phone-case-image" style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }} />
-            )}
-          </div>
-          <div className="absolute inset-0 pointer-events-none">
-            <img src="/phone-template.png" alt="template" className="w-full h-full object-contain" />
+      {/* Main Content */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+        {/* Phone Case Preview */}
+        <div className="relative mb-6">
+          <div className="relative w-72 h-[480px]">
+            {/* Separate border element - positioned independently */}
+            <div className="phone-case-border"></div>
+            
+            {/* User's uploaded image */}
+            <div className="phone-case-content">
+              {uploadedImage ? (
+                <img
+                  src={uploadedImage}
+                  alt="Uploaded design"
+                  className="phone-case-image-contain"
+                  style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-50 cursor-pointer" onClick={openFilePicker}>
+                  <div className="text-center text-gray-400">
+                    <Upload size={48} className="mx-auto mb-3" />
+                    <p className="text-sm">Tap to add image</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Phone Template Overlay */}
+            <div className="absolute inset-0">
+              <img
+                src="/phone-template.png"
+                alt="Phone template overlay"
+                className="w-full h-full object-contain pointer-events-none"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Control Buttons Row */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          {[{icon: Minus, act: () => zoom(-0.1)}, {icon: Plus, act: () => zoom(0.1)}, {icon: RefreshCw, act: reset}, {icon: ArrowRight, act: () => move(5,0)}, {icon: ArrowLeft, act: () => move(-5,0)}, {icon: ArrowDown, act: () => move(0,5)}, {icon: ArrowUp, act: () => move(0,-5)}].map(({icon: Icon, act}, idx) => (
-            <button key={idx} onClick={act} disabled={!image} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${image ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
-              <Icon size={20} className={image ? 'text-gray-700' : 'text-gray-400'} />
+          {[
+            { Icon: ZoomOut, action: zoomOut },
+            { Icon: ZoomIn, action: zoomIn },
+            { Icon: RefreshCw, action: resetTransform },
+            { Icon: ArrowRight, action: moveRight },
+            { Icon: ArrowLeft, action: moveLeft },
+            { Icon: ArrowDown, action: moveDown },
+            { Icon: ArrowUp, action: moveUp },
+          ].map(({ Icon, action }, idx) => (
+            <button
+              key={idx}
+              onClick={action}
+              disabled={!uploadedImage}
+              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+            >
+              <Icon size={20} className={uploadedImage ? 'text-gray-700' : 'text-gray-400'} />
             </button>
           ))}
         </div>
 
-        {/* Mode selector */}
-        <div className="flex items-center w-full max-w-xs mb-1">
+        {/* Navigation Arrows with Glitch Mode options between */}
+        <div className="flex items-center w-full max-w-xs mb-6 px-2">
+          {/* Left Arrow */}
           <button 
-            onClick={() => navigate(-1)}
-            className="flex-shrink-0 w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow"
+            onClick={handleBack}
+            className="w-12 h-12 rounded-md bg-white border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform"
           >
-            <ArrowLeft size={20} className="text-gray-600" />
+            <ChevronLeft size={24} className="text-gray-600" />
           </button>
-          <button onClick={() => setMode('retro')} className={`flex-1 mx-2 rounded-full py-2 text-sm font-bold shadow border-2 ${mode==='retro' ? 'bg-blue-100 border-black text-black' : 'bg-white border-gray-300 text-gray-700'}`}>Retro Mode</button>
+
+          {/* Mode buttons */}
+          <div className="flex flex-col flex-grow mx-2 space-y-2">
+            {loadingModes ? (
+              <div className="w-full py-2 text-center text-sm text-gray-500">
+                Loading modes...
+              </div>
+            ) : (
+              availableModes.map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setGlitchMode(mode)}
+                  className={`w-full py-2 rounded-full text-sm font-medium shadow-md transition-transform active:scale-95 ${
+                    glitchMode === mode
+                      ? 'bg-blue-200 text-blue-800 ring-2 ring-blue-400'
+                      : 'bg-white border border-gray-300 text-gray-700'
+                  }`}
+                >
+                  {mode} Mode
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Right Arrow */}
           <button 
-            onClick={handleGenerate}
-            disabled={!image}
-            className={`flex-shrink-0 w-10 h-10 rounded-md border border-gray-300 flex items-center justify-center shadow ${
-              image ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
+            onClick={handleNext}
+            disabled={!glitchMode}
+            className={`w-12 h-12 rounded-md border border-gray-300 flex-shrink-0 flex items-center justify-center shadow-md active:scale-95 transition-transform ${
+              glitchMode ? 'bg-white cursor-pointer' : 'bg-gray-100 cursor-not-allowed'
             }`}
           >
-            <ArrowRight size={20} className={`${image ? 'text-gray-600' : 'text-gray-400'}`} />
+            <ChevronRight size={24} className={`${glitchMode ? 'text-gray-600' : 'text-gray-400'}`} />
           </button>
         </div>
-        <button onClick={() => setMode('chaos')} className={`w-full max-w-xs mb-4 rounded-full py-2 text-sm font-bold shadow border-2 ${mode==='chaos' ? 'bg-blue-100 border-black text-black' : 'bg-white border-gray-300 text-gray-700'}`}>Chaos Mode</button>
 
-        <button onClick={() => { setTransform({ x:0,y:0,scale:2}) }} disabled={!image} className={`mb-6 bg-green-200 text-gray-800 font-medium py-2 px-10 rounded-full active:scale-95 transition-transform shadow ${image?'':'opacity-40 cursor-not-allowed'}`}>Reset Inputs</button>
+        {/* Reset Inputs Button */}
+        {glitchMode && (
+          <button
+            onClick={resetInputs}
+            className="w-full max-w-xs bg-green-200 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 transition-transform shadow-lg mb-4"
+          >
+            Reset Inputs
+          </button>
+        )}
+
+        {/* Hidden file input */}
+        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} style={{ display:'none' }} />
       </div>
 
-      {/* Generate ring */}
-      <div className="relative z-10 pb-8 flex justify-center">
-        <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
-          <div className="rounded-full bg-white p-[6px]">
-            <button onClick={handleGenerate} disabled={!image} className={`w-20 h-20 rounded-full flex items-center justify-center font-semibold transition-all bg-pink-400 text-white ${image?'':'opacity-40 cursor-not-allowed'}`}>Generate</button>
+      {/* Submit Button */}
+      <div className="relative z-10 p-6 flex justify-center">
+        {/* Outer Pink Ring */}
+        <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
+          {/* Updated: minimal gap between circles */}
+          <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
+            {/* Inner Pink Circle */}
+            <button 
+              onClick={handleNext}
+              disabled={!glitchMode}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${
+                glitchMode ? 'bg-pink-400' : 'bg-gray-400'
+              }`}
+            >
+              <span className="font-semibold text-xs">Submit</span>
+            </button>
           </div>
         </div>
       </div>

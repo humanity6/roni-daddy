@@ -1,19 +1,32 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  ArrowLeft, Upload, ZoomIn, ZoomOut, RefreshCw, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowRight
+  ArrowLeft, Upload, ZoomIn, ZoomOut, RefreshCw, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowRight, ChevronDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 
-const LEAGUES = {
-  'Premier League (ENG)': [
-    'Arsenal','Aston Villa','Bournemouth','Brentford','Brighton','Burnley','Chelsea','Crystal Palace','Everton','Fulham','Liverpool','Luton Town','Manchester City','Manchester United','Newcastle United','Nottingham Forest','Sheffield United','Tottenham Hotspur','West Ham','Wolves'
-  ],
-  'La Liga (ESP)': ['Barcelona','Real Madrid','Atlético Madrid','Real Sociedad','Sevilla','Valencia'],
-  'Serie A (ITA)': ['Juventus','Inter Milan','AC Milan','Roma','Napoli','Lazio'],
-  'Bundesliga (GER)': ['Bayern Munich','Borussia Dortmund','RB Leipzig','Bayer Leverkusen','Eintracht Frankfurt'],
-  'Ligue 1 (FRA)': ['Paris Saint-Germain','Marseille','Lyon','Monaco','Lille']
-}
+const FAMOUS_TEAMS = [
+  'Real Madrid',
+  'Barcelona', 
+  'Manchester United',
+  'Liverpool',
+  'Bayern Munich',
+  'Manchester City',
+  'Arsenal',
+  'Chelsea',
+  'Paris Saint-Germain',
+  'Juventus',
+  'AC Milan',
+  'Inter Milan',
+  'Atlético Madrid',
+  'Borussia Dortmund',
+  'Tottenham Hotspur',
+  'Ajax',
+  'Porto',
+  'Benfica',
+  'Celtic',
+  'Rangers'
+]
 
 const FootyFanScreen = () => {
   const navigate = useNavigate()
@@ -24,8 +37,11 @@ const FootyFanScreen = () => {
   const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
   const fileInputRef = useRef(null)
 
-  const TEAMS = Object.values(LEAGUES).flat()
+  const TEAMS = FAMOUS_TEAMS
   const [team, setTeam] = useState('Liverpool')
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const dropdownRef = useRef(null)
 
   const handleBack = () => {
     navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform } })
@@ -50,7 +66,26 @@ const FootyFanScreen = () => {
 
   const resetInputs = () => {
     setTeam('Liverpool')
+    setSearchTerm('')
+    setIsDropdownOpen(false)
     resetTransform()
+  }
+
+  const filteredTeams = TEAMS.filter(teamName => 
+    teamName.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleTeamSelect = (selectedTeam) => {
+    setTeam(selectedTeam)
+    setSearchTerm('')
+    setIsDropdownOpen(false)
+  }
+
+  const handleInputChange = (e) => {
+    const value = e.target.value
+    setTeam(value)
+    setSearchTerm(value)
+    setIsDropdownOpen(true)
   }
 
   /* Transform helpers */
@@ -61,6 +96,20 @@ const FootyFanScreen = () => {
   const zoomIn = () => setTransform((p) => ({ ...p, scale: Math.min(p.scale + 0.1, 5) }))
   const zoomOut = () => setTransform((p) => ({ ...p, scale: Math.max(p.scale - 0.1, 0.5) }))
   const resetTransform = () => setTransform({ x: 0, y: 0, scale: 2 })
+
+  // Click outside handler to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
     <div className="screen-container">
@@ -129,17 +178,51 @@ const FootyFanScreen = () => {
             {/* Heading */}
             <div className="w-full py-2 rounded-full text-sm font-bold text-center font-poppins shadow-md" style={{background:'#D8ECF4', color:'#1F2937'}}>PICK A TEAM</div>
 
-            {/* Searchable team input */}
-            <input
-              list="teams-list"
-              value={team}
-              onChange={(e)=>setTeam(e.target.value)}
-              placeholder="Start typing..."
-              className="w-full py-2 rounded-full text-sm font-medium shadow-md bg-white border border-gray-300 text-gray-700 focus:outline-none px-4 text-center"
-            />
-            <datalist id="teams-list">
-              {TEAMS.map(t=>(<option key={t} value={t} />))}
-            </datalist>
+            {/* Custom Dropdown */}
+            <div className="relative w-full" ref={dropdownRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={team}
+                  onChange={handleInputChange}
+                  onFocus={() => setIsDropdownOpen(true)}
+                  placeholder="Choose from list or type your own team..."
+                  className="w-full py-2 rounded-full text-sm font-medium shadow-md bg-white border border-gray-300 text-gray-700 focus:outline-none px-4 pr-10 text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                >
+                  <ChevronDown size={16} className="text-gray-500" />
+                </button>
+              </div>
+              
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute z-50 w-full bottom-full mb-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredTeams.length > 0 ? (
+                    filteredTeams.slice(0, 20).map((teamName, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleTeamSelect(teamName)}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100 last:border-b-0"
+                      >
+                        {teamName}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      No teams found. You can type your own team name.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="text-xs text-gray-500 text-center mt-1">
+              Click dropdown arrow or type to search teams
+            </div>
           </div>
 
           <button 

@@ -16,12 +16,13 @@ const RetroRemixGenerateScreen = () => {
     keyword = '',
     optionalText = '',
     aiCredits: initialCredits = 4,
-    transform: initialTransform
+    transform: initialTransform,
+    generatedImage: initialGeneratedImage
   } = location.state || {}
 
   const [aiCredits,setAiCredits] = useState(initialCredits)
   const [isGenerating,setIsGenerating] = useState(false)
-  const [generatedImage,setGeneratedImage] = useState(null)
+  const [generatedImage,setGeneratedImage] = useState(initialGeneratedImage || null)
   const [originalImageFile,setOriginalImageFile] = useState(null)
   const [error,setError] = useState(null)
   const [transform,setTransform] = useState(initialTransform||{x:0,y:0,scale:2})
@@ -44,7 +45,7 @@ const RetroRemixGenerateScreen = () => {
 
   const handleBack = () => {
     navigate('/retro-remix',{
-      state:{brand,model,color,template,uploadedImage,keyword,optionalText,aiCredits,transform}
+      state:{brand,model,color,template,uploadedImage,keyword,optionalText,aiCredits,transform,generatedImage}
     })
   }
 
@@ -54,7 +55,7 @@ const RetroRemixGenerateScreen = () => {
     setError(null)
     try{
       await aiImageService.checkHealth()
-      const result = await aiImageService.generateRetroRemix(keyword,optionalText,originalImageFile,'medium')
+      const result = await aiImageService.generateRetroRemix(keyword,optionalText,originalImageFile,'low')
       if(result.success){
         setGeneratedImage(aiImageService.getImageUrl(result.filename))
         setAiCredits(prev=>Math.max(0,prev-1))
@@ -70,7 +71,7 @@ const RetroRemixGenerateScreen = () => {
 
   const handleGenerate = () => {
     navigate('/text-input',{
-      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,keyword,optionalText,transform}
+      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,generatedImage,keyword,optionalText,transform,aiCredits}
     })
   }
 
@@ -80,7 +81,7 @@ const RetroRemixGenerateScreen = () => {
       <div className="relative z-10 flex items-center justify-between p-4"><button onClick={handleBack} className="w-12 h-12 rounded-full bg-white/90 border-4 border-pink-300 flex items-center justify-center active:scale-95 transition-transform shadow-lg"><ArrowL size={20} className="text-pink-400"/></button><h1 className="text-lg font-semibold text-gray-800">Retro Remix</h1><div className="w-12 h-12"/></div>
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
         {error && <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm text-center max-w-xs">{error}</div>}
-        <div className="relative mb-6"><div className="relative w-72 h-[480px]"><div className="phone-case-border"></div><div className="phone-case-content">{generatedImage? <img src={generatedImage} alt="AI" className="phone-case-image-contain" style={{transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,transformOrigin:'center center'}}/> : uploadedImage? <img src={uploadedImage} alt="Upload" className="phone-case-image-contain" style={{transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,transformOrigin:'center center'}}/> : <div className="w-full h-full flex items-center justify-center bg-gray-50"><Upload size={48} className="text-gray-400"/></div>}</div><div className="absolute inset-0 pointer-events-none"><img src="/phone-template.png" className="w-full h-full object-contain"/></div>{isGenerating && <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10"><div className="text-white text-sm">Generating…</div></div>}</div></div>
+        <div className="relative mb-6"><div className="relative w-72 h-[480px]"><div className="phone-case-border"></div><div className="phone-case-content">{generatedImage? <img src={generatedImage} alt="AI" className="phone-case-image-contain" style={{transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,transformOrigin:'center center'}}/> : uploadedImage? <img src={uploadedImage} alt="Upload" className="phone-case-image-contain" style={{transform:`translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,transformOrigin:'center center'}}/> : <div className="w-full h-full flex items-center justify-center bg-gray-50"><Upload size={48} className="text-gray-400"/></div>}{isGenerating && <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10"><div className="text-white text-sm">Generating…</div></div>}</div><div className="absolute inset-0 pointer-events-none"><img src="/phone-template.png" className="w-full h-full object-contain"/></div></div></div>
         {/* controls */}
         <div className="flex items-center justify-center space-x-3 mb-6">{[{Icon:ZoomOut,action:zoomOut},{Icon:ZoomIn,action:zoomIn},{Icon:RefreshCw,action:resetTransform},{Icon:ArrowRight,action:moveRight},{Icon:ArrowL,action:moveLeft},{Icon:ArrowDown,action:moveDown},{Icon:ArrowUp,action:moveUp}].map(({Icon,action},idx)=> (<button key={idx} onClick={action} disabled={isGenerating||(!generatedImage&&!uploadedImage)} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-transform ${isGenerating?'bg-gray-100':'bg-green-100 hover:bg-green-200'}`}><Icon size={20} className="text-gray-700"/></button>))}</div>
         {/* credits row */}
@@ -114,11 +115,11 @@ const RetroRemixGenerateScreen = () => {
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
             {/* Inner Pink Circle */}
             <button 
-              onClick={handleRegenerate}
+              onClick={generatedImage ? handleGenerate : handleRegenerate}
               disabled={aiCredits===0||isGenerating}
               className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">Generate</span>
+              <span className="font-semibold text-[10px]">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>
           </div>
         </div>

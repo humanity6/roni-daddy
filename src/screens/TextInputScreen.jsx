@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
@@ -7,9 +7,14 @@ const TextInputScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { brand, model, color, template, uploadedImage, uploadedImages, transform: initialTransform, imageTransforms, inputText: initialText, textPosition: initialPosition, stripCount } = location.state || {}
+  const { generatedImage, keyword, optionalText, aiCredits } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 }) // percentage from top-left
+  const [textBoxSize, setTextBoxSize] = useState({ width: 0, height: 0 })
+  const [phoneCaseSize, setPhoneCaseSize] = useState({ width: 220, height: 400 }) // Default phone case size (w-72 h-[480px])
+  const textBoxRef = useRef(null)
+  const filmStripTextBoxRef = useRef(null)
 
   const handleBack = () => {
     if (template?.id?.startsWith('film-strip')) {
@@ -33,6 +38,21 @@ const TextInputScreen = () => {
           template,
           imageTransforms,
           stripCount
+        }
+      })
+    } else if (template?.id === 'retro-remix') {
+      navigate('/retro-remix-generate', {
+        state: {
+          brand,
+          model,
+          color,
+          template,
+          uploadedImage,
+          keyword,
+          optionalText,
+          aiCredits,
+          transform: initialTransform
+          // Removed generatedImage to reset it
         }
       })
     } else {
@@ -74,21 +94,88 @@ const TextInputScreen = () => {
     setTextPosition({ x: 50, y: 50 })
   }
 
-  // Text positioning functions
+  // Calculate dynamic boundaries based on text box size
+  const getDynamicBoundaries = () => {
+    if (textBoxSize.width === 0 || textBoxSize.height === 0) {
+      return { minX: 20, maxX: 80, minY: 15, maxY: 85 }
+    }
+    
+    // Calculate boundaries to keep text box fully within phone case
+    const minX = (textBoxSize.width / 2) / phoneCaseSize.width * 100
+    const maxX = 100 - (textBoxSize.width / 2) / phoneCaseSize.width * 100
+    const minY = (textBoxSize.height / 2) / phoneCaseSize.height * 100
+    const maxY = 100 - (textBoxSize.height / 2) / phoneCaseSize.height * 100
+    
+    return { minX, maxX, minY, maxY }
+  }
+
+  // Ensure text position stays within dynamic boundaries
+  useEffect(() => {
+    const boundaries = getDynamicBoundaries()
+    let newPosition = { ...textPosition }
+    let changed = false
+    
+    if (textPosition.x < boundaries.minX) {
+      newPosition.x = boundaries.minX
+      changed = true
+    }
+    if (textPosition.x > boundaries.maxX) {
+      newPosition.x = boundaries.maxX
+      changed = true
+    }
+    if (textPosition.y < boundaries.minY) {
+      newPosition.y = boundaries.minY
+      changed = true
+    }
+    if (textPosition.y > boundaries.maxY) {
+      newPosition.y = boundaries.maxY
+      changed = true
+    }
+    
+    if (changed) {
+      setTextPosition(newPosition)
+    }
+  }, [textPosition, textBoxSize, phoneCaseSize])
+
+  // Measure text box size when text changes
+  useEffect(() => {
+    let rect = null
+    if (template?.id?.startsWith('film-strip')) {
+      if (filmStripTextBoxRef.current && inputText) {
+        rect = filmStripTextBoxRef.current.getBoundingClientRect()
+      }
+    } else {
+      if (textBoxRef.current && inputText) {
+        rect = textBoxRef.current.getBoundingClientRect()
+      }
+    }
+    
+    if (rect) {
+      setTextBoxSize({ width: rect.width, height: rect.height })
+    } else {
+      setTextBoxSize({ width: 0, height: 0 })
+    }
+  }, [inputText, template])
+
+  // Text positioning functions with dynamic boundary constraints
   const moveTextLeft = () => {
-    setTextPosition(prev => ({ ...prev, x: Math.max(0, prev.x - 5) }))
+    const boundaries = getDynamicBoundaries()
+    setTextPosition(prev => ({ ...prev, x: Math.max(boundaries.minX, prev.x - 5) }))
   }
 
   const moveTextRight = () => {
-    setTextPosition(prev => ({ ...prev, x: Math.min(100, prev.x + 5) }))
+    const boundaries = getDynamicBoundaries()
+    setTextPosition(prev => ({ ...prev, x: Math.min(boundaries.maxX, prev.x + 5) }))
   }
 
   const moveTextUp = () => {
-    setTextPosition(prev => ({ ...prev, y: Math.max(0, prev.y - 5) }))
+    const boundaries = getDynamicBoundaries()
+    setTextPosition(prev => ({ ...prev, y: Math.max(boundaries.minY, prev.y - 5) }))
   }
 
   const moveTextDown = () => {
-    setTextPosition(prev => ({ ...prev, y: Math.min(100, prev.y + 5) }))
+    const boundaries = getDynamicBoundaries()
+    setTextPosition(prev => ({ ...prev, y: Math.min(boundaries.maxY, prev.y + 5) }))
   }
 
   const getTextStyle = () => ({
@@ -157,8 +244,11 @@ const TextInputScreen = () => {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p className="text-lg font-medium">{inputText}</p>
+                  <div 
+                    ref={filmStripTextBoxRef}
+                    className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden"
+                  >
+                    <p className="text-lg font-medium break-words leading-tight">{inputText}</p>
                   </div>
                 </div>
               )}
@@ -231,8 +321,11 @@ const TextInputScreen = () => {
               {/* Text overlay preview */}
               {inputText && (
                 <div style={getTextStyle()}>
-                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p className="text-lg font-medium">{inputText}</p>
+                  <div 
+                    ref={textBoxRef}
+                    className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden"
+                  >
+                    <p className="text-lg font-medium break-words leading-tight">{inputText}</p>
                   </div>
                 </div>
               )}

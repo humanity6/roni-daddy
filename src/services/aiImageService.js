@@ -333,7 +333,7 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateRetroRemix(keyword, optionalText = '', imageFile, quality = 'medium') {
+  async generateRetroRemix(keyword, optionalText = '', imageFile, quality = 'low') {
     const styleParams = {
       keyword,
       optional_text: optionalText
@@ -357,13 +357,13 @@ class AIImageService {
 
   /**
    * Generate Cover Shoot image
+   * @param {string} style - Cover shoot style
    * @param {File} imageFile - Reference image
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateCoverShoot(imageFile, quality = 'medium') {
-    // No style parameters are needed for cover-shoot – the backend will always use the full base prompt.
-    const styleParams = {}
+  async generateCoverShoot(style, imageFile, quality = 'medium') {
+    const styleParams = { style }
     return this.generateImage('cover-shoot', styleParams, imageFile, quality)
   }
 

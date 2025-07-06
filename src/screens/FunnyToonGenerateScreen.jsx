@@ -301,7 +301,7 @@ const FunnyToonGenerateScreen = () => {
         </button>
       </div>
 
-      {/* Generate button - styled like Submit button */}
+      {/* Generate/Submit button - styled like Submit button */}
       <div className="relative z-10 p-6 flex justify-center">
         {/* Outer Pink Ring */}
         <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
@@ -309,11 +309,11 @@ const FunnyToonGenerateScreen = () => {
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
             {/* Inner Pink Circle */}
             <button 
-              onClick={handleRegenerate}
+              onClick={generatedImage ? handleGenerate : handleRegenerate}
               disabled={aiCredits===0||isGenerating}
               className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">Generate</span>
+              <span className="font-semibold text-[10px]">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>
           </div>
         </div>

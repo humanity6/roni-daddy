@@ -199,43 +199,19 @@ maintain natural beauty. After following the guidelines above, adapt the image u
     }
   },
     "glitch-pro": {
-        "base": """Transform this selfie into a retro glitch pop aesthetic with vintage VHS distortion effects. Apply horizontal scan lines and TV static noise throughout the image. Use a warm color palette dominated by red, orange, and yellow tones with contrasting green and blue glitch accents. Add film grain and analog video artifacts like chromatic aberration and color bleeding. Create a nostalgic 80s/90s vibe with oversaturated colors and slight image degradation. The overall mood should be energetic and vibrant with that classic retro-futuristic glitch art style. Include subtle double exposure effects and digital noise patterns.""",
-        "modes": {
-            "Retro": "retro digital glitch effects with VHS aesthetics and scan lines",
-            "Chaos": "chaotic digital distortion with pixel sorting and data corruption effects",
-            "Neon": "neon glitch effects with bright colors and electronic aesthetics",
-            "Matrix": "matrix-style digital rain and code effects"
+        "styles": {
+            "Retro": """Using the provided reference photo, generate a vintage Retro Mode glitch-art portrait that leaves the subject's face entirely untouched—no reshaping, warping, or feature modification. Overlay uneven, messy horizontal scanlines of varied thickness and opacity, combined with subtle RGB channel splits, color bleeds, and static flickers. Accent the effect with warm neon glows (reds, oranges, greens) in an organic, unpredictable pattern reminiscent of a degraded VHS tape. Ensure the facial area remains perfectly clear and the overall image is sharp and print-ready.""",
+            "Chaos": "Using the attached reference photo, generate a high-intensity Chaos Mode glitch-art portrait. Keep the subject's overall silhouette and key facial landmarks (eyes, nose, mouth) recognizable but allow heavy abstraction elsewhere. Layer aggressive RGB channel splits, pixel smears, warped geometry, scanline tearing, digital noise bursts, fragmented data overlays, and fast flicker streaks. Introduce corrupted texture motifs and jagged edge artifacts to simulate a total data overload. Accent with neon-infused colors—electric purple, toxic green, hot pink—blended with strobing static. The composition should feel chaotic and explosive, yet balanced enough for print-ready reproduction on a phone case."""
         }
     },
+
     "footy-fan": {
-        "base": """Create a warm, heartwarming portrait photo of the people from the reference image, transforming them to wear FC Barcelona merchandise and fan gear. 
-
-Transform the subjects to be:
-- Wearing authentic FC Barcelona jerseys, scarves, or other official team merchandise (replace their current clothing)
-- Displaying genuine, joyful expressions and smiles showing team pride
-- Positioned in a close, intimate portrait composition
-- Lit with warm, golden lighting that creates a cozy atmosphere
-- Set against a background that complements the FC Barcelona team colors
-- Looking directly at the camera with happiness and team passion
-- Maintaining the same facial features, age, and physical characteristics as the reference image
-
-Style specifications:
-- High-quality, professional portrait photography
-- Warm color temperature with golden hour lighting
-- Slight depth of field with subjects in sharp focus
-- Background softly blurred in team colors
-- Authentic sports merchandise details (logos, sponsors, textures)
-- Natural, candid expressions showing genuine emotion
-- Intimate and personal composition
-
-The AI should automatically detect the number of people and position them appropriately, ensuring close bonding if multiple subjects are present. Transform their clothing to authentic FC Barcelona gear while preserving all their original physical features and the warm, family-portrait aesthetic.
-
-Reference image provides the people to transform - change their attire to FC Barcelona merchandise while keeping everything else authentic to the original photo.""",
+        "base": """Using the supplied reference image, create a tightly-cropped, semi-realistic portrait (head-and-shoulders), centered and facing the camera. Preserve 100% of the subjects facial features—no alterations to identity or proportions. Outfit each person in the official {TEAM_NAME} home kit (accurate colors, logos and details). Render with smooth, dimensional shading and a subtle grain for depth.""",
         "styles": {
-            "Team Colors": "team colors with football graphics and fan atmosphere",
-            "Stadium": "stadium atmosphere with crowd and team elements",
-            "Vintage": "vintage football poster style with retro typography",
-            "Modern": "modern sports graphics with dynamic elements"
+            "firework": "Add a burst of {TEAM_NAME}'s color fireworks behind them",
+            "fire trail": "Add stylized fire-trail effects trailing off the shoulders in {TEAM_NAME}'s fiery color.",
+            "wave": "Render soft, flowing wave patterns in the background colored in {TEAM_NAME}'s gradient palette.",
+            "confetti": "Shower the scene with falling confetti in {TEAM_NAME}'s primary and secondary colors."
         }
     }
 }
@@ -332,24 +308,60 @@ def generate_style_prompt(template_id: str, style_params: dict) -> str:
 
         return prompt
     
-    # --- Always return full base prompt for cover-shoot (ignore style variations) ---
+    # --- Handle cover-shoot with style variations ---
     elif template_id == "cover-shoot":
-        # Ignore any style parameters and return the complete base prompt so the AI gets full guidance.
-        return template_config["base"]
+        # Get the selected style from parameters
+        style = style_params.get("style", "")
+        
+        # If a style is specified and exists in our styles, combine base prompt with style
+        if style and style in template_config.get("styles", {}):
+            style_desc = template_config["styles"][style]
+            prompt = (
+                f"{template_config['base']}\n\n"
+                f"STYLE VARIATION - {style}: {style_desc}"
+            )
+            return prompt
+        else:
+            # No style specified or style not found, return just the base prompt
+            return template_config["base"]
     
     # Glitch-pro keeps mode-based styles
     elif template_id == "glitch-pro":
-        style = style_params.get('style', list(template_config.get('styles', {}).keys())[0])
-        if style in template_config.get("styles", {}):
-            style_desc = template_config["styles"][style]
+        # Retrieve requested style (default to first style if none provided)
+        requested_style = style_params.get('style', list(template_config.get('styles', {}).keys())[0])
+
+        # Normalize style lookup to be case-insensitive
+        styles_dict = template_config.get("styles", {})
+        matched_key = next((k for k in styles_dict.keys() if k.lower() == requested_style.lower()), None)
+
+        if matched_key is not None:
+            style_desc = styles_dict[matched_key]
+            # Prefix with a generic instruction. We purposely do **not** rely on a missing
+            # `base` key so we don't raise KeyError if it isn't present.
             return f"Transform this image into {style_desc}"
-        else:
-            return template_config["base"].format(style=style)
+
+        # No fallback - raise error if style not found
+        raise HTTPException(status_code=400, detail=f"Unknown glitch-pro style: {requested_style}. Available styles: {list(styles_dict.keys())}")
     
     elif template_id == "footy-fan":
+        # Build base prompt, replacing the TEAM_NAME placeholder
         team = style_params.get('team', 'football team')
-        style = style_params.get('style', 'Team Colors')
-        return template_config["base"].format(team=team, style=style)
+        requested_style = style_params.get('style', '').strip() or 'Team Colors'
+
+        # Replace placeholder {TEAM_NAME} in the base prompt while preserving the rest of the text
+        base_prompt = template_config["base"].format(TEAM_NAME=team)
+
+        # Prepare case-insensitive style lookup
+        styles_dict = template_config.get("styles", {})
+        matched_key = next((k for k in styles_dict.keys() if k.lower() == requested_style.lower()), None)
+
+        if matched_key:
+            # Use the predefined style description and inject the team name where applicable
+            style_desc = styles_dict[matched_key].format(TEAM_NAME=team)
+            return f"{base_prompt} {style_desc}"
+        else:
+            # Fallback: just mention the style name if it isn't predefined
+            return f"{base_prompt} Add a '{requested_style}' themed background or effects that showcase {team}."
     
     # Add optional text if provided
     optional_text = style_params.get('optional_text', '')

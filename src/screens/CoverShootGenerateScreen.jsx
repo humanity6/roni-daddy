@@ -24,6 +24,7 @@ const CoverShootGenerateScreen = () => {
     color,
     template,
     uploadedImage,
+    selectedStyle,
     aiCredits: initialCredits = 4,
     transform: initialTransform
   } = location.state || {}
@@ -56,8 +57,8 @@ const CoverShootGenerateScreen = () => {
 
   /* navigation */
   const handleBack = () => {
-    navigate('/phone-preview',{
-      state:{brand,model,color,template,uploadedImage,transform}
+    navigate('/cover-shoot',{
+      state:{brand,model,color,template,uploadedImage,selectedStyle,transform,aiCredits}
     })
   }
 
@@ -70,7 +71,7 @@ const CoverShootGenerateScreen = () => {
       console.log('🔄 Starting health check...')
       await aiImageService.checkHealth()
       console.log('✅ Health check passed, generating image...')
-      const result = await aiImageService.generateCoverShoot(originalImageFile, 'medium')
+      const result = await aiImageService.generateCoverShoot(selectedStyle, originalImageFile, 'medium')
       if(result.success){
         setGeneratedImage(aiImageService.getImageUrl(result.filename))
         setAiCredits(prev=>Math.max(0,prev-1))
@@ -160,7 +161,7 @@ const CoverShootGenerateScreen = () => {
         </div>
       </div>
 
-      {/* Generate button - styled like Submit button */}
+      {/* Generate/Submit button - styled like Submit button */}
       <div className="relative z-10 p-6 flex justify-center">
         {/* Outer Pink Ring */}
         <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
@@ -168,11 +169,11 @@ const CoverShootGenerateScreen = () => {
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
             {/* Inner Pink Circle */}
             <button 
-              onClick={handleRegenerate}
+              onClick={generatedImage ? handleGenerate : handleRegenerate}
               disabled={aiCredits===0||isGenerating}
               className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">Generate</span>
+              <span className="font-semibold text-[10px]">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>
           </div>
         </div>

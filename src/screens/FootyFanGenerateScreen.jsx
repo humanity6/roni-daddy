@@ -239,11 +239,11 @@ const FootyFanGenerateScreen = () => {
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
             {/* Inner Pink Circle */}
             <button 
-              onClick={handleRegenerate}
+              onClick={generatedImage ? handleGenerate : handleRegenerate}
               disabled={aiCredits===0||isGenerating}
               className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">Generate</span>
+              <span className="font-semibold text-[10px]">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>
           </div>
         </div>

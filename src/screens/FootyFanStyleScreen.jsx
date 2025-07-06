@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,14 +13,17 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import aiImageService from '../services/aiImageService'
 
-const PRESET_STYLES = [
-  'In team colours with fireworks',
-  'Retro stadium poster style',
-  'Pop-art comic style',
-  'Minimal outline illustration',
-  'Custom…'
-]
+// Style descriptions for better user understanding
+const STYLE_DESCRIPTIONS = {
+  'Firework': 'Burst of team color fireworks behind you',
+  'Fire trail': 'Fiery trails trailing off your shoulders',
+  'Wave': 'Soft flowing wave patterns in team colors',
+  'Confetti': 'Falling confetti in team colors'
+}
+
+const CUSTOM_OPTION_LABEL = 'Custom…'
 
 const FootyFanStyleScreen = () => {
   const navigate = useNavigate()
@@ -35,14 +38,42 @@ const FootyFanStyleScreen = () => {
     transform: initialTransform
   } = location.state || {}
 
+  // Style options fetched from backend
+  const [styleOptions, setStyleOptions] = useState([])
+  const [stylesLoading, setStylesLoading] = useState(true)
+
   // Selected preset or custom text
-  const [styleChoice, setStyleChoice] = useState(PRESET_STYLES[0])
+  const [styleChoice, setStyleChoice] = useState('')
   const [customText, setCustomText] = useState('')
 
   const [transform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
 
-  const isCustom = styleChoice === 'Custom…'
+  const isCustom = styleChoice === CUSTOM_OPTION_LABEL
   const chosenStyle = isCustom ? customText : styleChoice
+
+  // Fetch styles on mount
+  useEffect(() => {
+    const fetchStyles = async () => {
+      try {
+        const res = await aiImageService.getTemplateStyles('footy-fan')
+        // API returns { styles: ["firework", ...] }
+        let options = res.styles || []
+        // Title-case for nicer display
+        options = options.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+        setStyleOptions(options)
+        // Set default choice to first option
+        if (options.length) {
+          setStyleChoice(options[0])
+        }
+      } catch (err) {
+        console.error('Failed to fetch footy-fan styles', err)
+      } finally {
+        setStylesLoading(false)
+      }
+    }
+
+    fetchStyles()
+  }, [])
 
   const handleBack = () => {
     navigate('/footy-fan', {
@@ -75,7 +106,7 @@ const FootyFanStyleScreen = () => {
   }
 
   const resetInputs = () => {
-    setStyleChoice(PRESET_STYLES[0])
+    setStyleChoice(styleOptions[0] || '')
     setCustomText('')
   }
 
@@ -151,9 +182,20 @@ const FootyFanStyleScreen = () => {
               onChange={(e) => setStyleChoice(e.target.value)}
               className="w-full py-2 rounded-full text-sm font-medium shadow-md bg-white border border-black text-gray-700 focus:outline-none text-center"
             >
-              {PRESET_STYLES.map((opt) => (
-                <option key={opt}>{opt}</option>
-              ))}
+              {stylesLoading && (
+                <option>Loading…</option>
+              )}
+              {!stylesLoading && [...styleOptions, CUSTOM_OPTION_LABEL].map((opt) => {
+                if (opt === CUSTOM_OPTION_LABEL) {
+                  return <option key={opt}>{opt}</option>
+                }
+                const description = STYLE_DESCRIPTIONS[opt] || ''
+                return (
+                  <option key={opt} value={opt}>
+                    {opt} - {description}
+                  </option>
+                )
+              })}
             </select>
             {isCustom && (
               <input

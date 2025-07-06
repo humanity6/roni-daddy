@@ -14,18 +14,18 @@ const FontSelectionScreen = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const fonts = [
-    { name: 'Arial', className: 'font-sans', style: 'Arial, sans-serif' },
-    { name: 'Georgia', className: 'font-serif', style: 'Georgia, serif' },
-    { name: 'Helvetica', className: 'font-sans', style: 'Helvetica, sans-serif' },
-    { name: 'Times New Roman', className: 'font-serif', style: 'Times New Roman, serif' },
-    { name: 'Verdana', className: 'font-sans', style: 'Verdana, sans-serif' },
-    { name: 'Comic Sans', className: 'font-mono', style: 'Comic Sans MS, cursive' },
-    { name: 'Impact', className: 'font-bold', style: 'Impact, sans-serif' },
-    { name: 'Palatino', className: 'font-serif', style: 'Palatino, serif' },
-    { name: 'Roboto', className: 'font-sans', style: 'Roboto, sans-serif' },
-    { name: 'Open Sans', className: 'font-sans', style: 'Open Sans, sans-serif' },
-    { name: 'Montserrat', className: 'font-sans', style: 'Montserrat, sans-serif' },
-    { name: 'Lato', className: 'font-sans', style: 'Lato, sans-serif' }
+    { name: 'Arial', style: 'Arial, Helvetica, sans-serif' },
+    { name: 'Georgia', style: 'Georgia, serif' },
+    { name: 'Helvetica', style: 'Helvetica, Arial, sans-serif' },
+    { name: 'Times New Roman', style: 'Times New Roman, Times, serif' },
+    { name: 'Verdana', style: 'Verdana, Geneva, sans-serif' },
+    { name: 'Comic Sans MS', style: 'Comic Sans MS, cursive, sans-serif' },
+    { name: 'Impact', style: 'Impact, Charcoal, sans-serif' },
+    { name: 'Palatino', style: 'Palatino, Palatino Linotype, serif' },
+    { name: 'Courier New', style: 'Courier New, Courier, monospace' },
+    { name: 'Trebuchet MS', style: 'Trebuchet MS, sans-serif' },
+    { name: 'Lucida Console', style: 'Lucida Console, Monaco, monospace' },
+    { name: 'Tahoma', style: 'Tahoma, Geneva, sans-serif' }
   ]
 
   const handleBack = () => {
@@ -81,7 +81,7 @@ const FontSelectionScreen = () => {
   }
 
   const getPreviewStyle = () => ({
-    fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
+    fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, Helvetica, sans-serif',
     fontSize: `${fontSize}px`
   })
 
@@ -148,8 +148,8 @@ const FontSelectionScreen = () => {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p style={getPreviewStyle()}>{inputText}</p>
+                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden">
+                    <p style={getPreviewStyle()} className="break-words leading-tight">{inputText}</p>
                   </div>
                 </div>
               )}
@@ -229,8 +229,8 @@ const FontSelectionScreen = () => {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p style={getPreviewStyle()}>{inputText}</p>
+                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden">
+                    <p style={getPreviewStyle()} className="break-words leading-tight">{inputText}</p>
                   </div>
                 </div>
               )}
