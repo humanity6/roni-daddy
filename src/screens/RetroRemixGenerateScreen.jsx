@@ -55,7 +55,7 @@ const RetroRemixGenerateScreen = () => {
     setError(null)
     try{
       await aiImageService.checkHealth()
-      const result = await aiImageService.generateRetroRemix(keyword,optionalText,originalImageFile,'low')
+      const result = await aiImageService.generateRetroRemix(keyword,optionalText,originalImageFile,'medium')
       if(result.success){
         setGeneratedImage(aiImageService.getImageUrl(result.filename))
         setAiCredits(prev=>Math.max(0,prev-1))

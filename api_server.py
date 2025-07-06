@@ -371,7 +371,7 @@ def generate_style_prompt(template_id: str, style_params: dict) -> str:
     return template_config["base"]
 
 async def generate_image_gpt_image_1(prompt: str, reference_image: Optional[str] = None, 
-                                   quality: str = "medium", size: str = "1024x1024"):
+                                   quality: str = "medium", size: str = "1024x1536"):
     """Generate image using GPT-image-1 with optimized cartoon prompts"""
     client = get_openai_client()
     

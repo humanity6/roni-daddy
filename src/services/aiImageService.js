@@ -333,7 +333,7 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateRetroRemix(keyword, optionalText = '', imageFile, quality = 'low') {
+  async generateRetroRemix(keyword, optionalText = '', imageFile, quality = 'medium') {
     const styleParams = {
       keyword,
       optional_text: optionalText
