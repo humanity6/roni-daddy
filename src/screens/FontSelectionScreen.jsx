@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Type, Minus, Plus, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Type, Minus, Plus, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { useTextBoundaries, validateFontSize } from '../utils/textBoundaryManager'
@@ -282,9 +282,18 @@ const FontSelectionScreen = () => {
           )}
         </div>
 
-        {/* Font Size Controls */}
-        <div className="w-full max-w-xs mb-6">
-          <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-lg">
+        {/* Navigation Arrows with Font Size Controls */}
+        <div className="w-full max-w-xs mb-6 flex items-center justify-between">
+          {/* Left Arrow */}
+          <button
+            onClick={handleBack}
+            className="w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
+            <ChevronLeft size={20} className="text-gray-600" />
+          </button>
+
+          {/* Font Size Controls */}
+          <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-lg mx-2 flex-1">
             <button 
               onClick={decreaseFontSize}
               className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center active:scale-95 transition-transform"
@@ -292,7 +301,7 @@ const FontSelectionScreen = () => {
             >
               <Minus size={16} className="text-gray-600" />
             </button>
-            <div className="text-center">
+            <div className="text-center px-2 flex-1">
               <span className="text-lg font-medium text-gray-800">{fontSize}px</span>
               <p className="text-xs text-gray-500">Font Size</p>
             </div>
@@ -304,6 +313,14 @@ const FontSelectionScreen = () => {
               <Plus size={16} className="text-gray-600" />
             </button>
           </div>
+
+          {/* Right Arrow */}
+          <button
+            onClick={handleNext}
+            className="w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
+            <ChevronRight size={20} className="text-gray-600" />
+          </button>
         </div>
 
         {/* Font Selection Dropdown */}

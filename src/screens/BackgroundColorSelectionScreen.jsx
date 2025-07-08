@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Type } from 'lucide-react'
+import { ArrowLeft, Type, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { fonts as availableFonts } from '../utils/fontManager'
@@ -307,12 +307,34 @@ const BackgroundColorSelectionScreen = () => {
           )}
         </div>
 
+        {/* Selection Label with Arrows */}
+        <div className="w-full max-w-xs mb-6 flex items-center justify-between">
+          {/* Left Arrow */}
+          <button
+            onClick={handleBack}
+            className="w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
+            <ChevronLeft size={20} className="text-gray-600" />
+          </button>
+
+          {/* Label Pill */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md text-sm font-medium text-gray-800 border-2 border-black">
+            Background Color
+          </div>
+
+          {/* Right Arrow */}
+          <button
+            onClick={handleNext}
+            className="w-10 h-10 rounded-md bg-white border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform"
+          >
+            <ChevronRight size={20} className="text-gray-600" />
+          </button>
+        </div>
+
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
           <div className="relative">
-            <div 
-              className="color-slider flex space-x-3 px-4 py-2 overflow-x-auto"
-            >
+            <div className="color-slider flex space-x-3 px-4 py-2 overflow-x-auto">
               {colors.map((colorOption, index) => (
                 <button
                   key={colorOption.value}
@@ -322,25 +344,22 @@ const BackgroundColorSelectionScreen = () => {
                     ${colorOption.bg}
                     ${selectedBackgroundColor === colorOption.value 
                       ? 'border-pink-400 scale-125 shadow-xl' 
-                      : `${colorOption.border} hover:scale-110 active:scale-95`
-                    }
+                      : `${colorOption.border} hover:scale-110 active:scale-95`}
                   `}
                   title={colorOption.name}
                   style={{
                     minWidth: '2.5rem',
                     marginRight: index === colors.length - 1 ? '1rem' : '0'
                   }}
-                >
-
-                </button>
+                />
               ))}
             </div>
-            
+
             {/* Scroll Indicators */}
             <div className="absolute top-1/2 left-0 transform -translate-y-1/2 w-6 h-12 bg-gradient-to-r from-white/80 to-transparent pointer-events-none rounded-r-full"></div>
             <div className="absolute top-1/2 right-0 transform -translate-y-1/2 w-6 h-12 bg-gradient-to-l from-white/80 to-transparent pointer-events-none rounded-l-full"></div>
           </div>
-          
+
           {/* Scroll hint */}
           <p className="text-center text-xs text-gray-500 mt-2">
             Slide to see more colors →
