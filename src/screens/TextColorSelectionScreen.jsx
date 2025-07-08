@@ -52,7 +52,8 @@ const TextColorSelectionScreen = () => {
         selectedFont,
         fontSize,
         textPosition,
-        transform: initialTransform
+        transform: initialTransform,
+        stripCount
       } 
     })
   }
@@ -80,30 +81,30 @@ const TextColorSelectionScreen = () => {
 
   const getPreviewStyle = () => {
     const fonts = [
-      { name: 'Arial', style: 'Arial, sans-serif' },
+      { name: 'Arial', style: 'Arial, Helvetica, sans-serif' },
       { name: 'Georgia', style: 'Georgia, serif' },
-      { name: 'Helvetica', style: 'Helvetica, sans-serif' },
-      { name: 'Times New Roman', style: 'Times New Roman, serif' },
-      { name: 'Verdana', style: 'Verdana, sans-serif' },
-      { name: 'Comic Sans', style: 'Comic Sans MS, cursive' },
-      { name: 'Impact', style: 'Impact, sans-serif' },
-      { name: 'Palatino', style: 'Palatino, serif' },
-      { name: 'Roboto', style: 'Roboto, sans-serif' },
-      { name: 'Open Sans', style: 'Open Sans, sans-serif' },
-      { name: 'Montserrat', style: 'Montserrat, sans-serif' },
-      { name: 'Lato', style: 'Lato, sans-serif' }
+      { name: 'Helvetica', style: 'Helvetica, Arial, sans-serif' },
+      { name: 'Times New Roman', style: 'Times New Roman, Times, serif' },
+      { name: 'Verdana', style: 'Verdana, Geneva, sans-serif' },
+      { name: 'Comic Sans MS', style: 'Comic Sans MS, cursive, sans-serif' },
+      { name: 'Impact', style: 'Impact, Charcoal, sans-serif' },
+      { name: 'Palatino', style: 'Palatino, Palatino Linotype, serif' },
+      { name: 'Courier New', style: 'Courier New, Courier, monospace' },
+      { name: 'Lucida Console', style: 'Lucida Console, Monaco, monospace' },
+      { name: 'Tahoma', style: 'Tahoma, Geneva, sans-serif' }
     ]
     
     return {
       fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
       fontSize: `${fontSize}px`,
-      color: selectedTextColor
+      color: selectedTextColor,
+      whiteSpace: 'nowrap',
+      fontWeight: '500',
+      lineHeight: '1.2'
     }
   }
 
-  const getSelectedColorInfo = () => {
-    return colors.find(c => c.value === selectedTextColor) || colors[0]
-  }
+
 
   const getTextStyle = () => ({
     position: 'absolute',
@@ -171,7 +172,7 @@ const TextColorSelectionScreen = () => {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                  <div className="px-4 py-2 whitespace-nowrap">
                     <p style={getPreviewStyle()}>{inputText}</p>
                   </div>
                 </div>
@@ -245,7 +246,7 @@ const TextColorSelectionScreen = () => {
               {/* Text overlay preview */}
               {inputText && (
                 <div style={getTextStyle()}>
-                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
+                  <div className="px-4 py-2 whitespace-nowrap">
                     <p style={getPreviewStyle()}>{inputText}</p>
                   </div>
                 </div>
@@ -263,31 +264,20 @@ const TextColorSelectionScreen = () => {
           )}
         </div>
 
-        {/* Selected Color Info */}
-        <div className="w-full max-w-xs mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center justify-center space-x-3">
-              <div className={`w-8 h-8 rounded-full ${getSelectedColorInfo().bg} border-2 ${getSelectedColorInfo().border} shadow-md`}></div>
-              <div className="text-center">
-                <p className="text-lg font-medium text-gray-800">{getSelectedColorInfo().name}</p>
-                <p className="text-xs text-gray-500">{selectedTextColor.toUpperCase()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
           <div className="relative">
                          <div 
-               className="color-slider flex space-x-4 px-4 pb-4 overflow-x-auto"
+               className="color-slider flex space-x-3 px-4 py-2 overflow-x-auto"
              >
               {colors.map((colorOption, index) => (
                 <button
                   key={colorOption.value}
                   onClick={() => setSelectedTextColor(colorOption.value)}
                                      className={`
-                     color-option w-12 h-12 rounded-full border-3 transition-all duration-300 shadow-lg
+                     color-option w-10 h-10 rounded-full border-2 transition-all duration-300 shadow-lg
                      ${colorOption.bg}
                      ${selectedTextColor === colorOption.value 
                        ? 'border-pink-400 scale-125 shadow-xl' 
@@ -296,15 +286,11 @@ const TextColorSelectionScreen = () => {
                    `}
                   title={colorOption.name}
                   style={{
-                    minWidth: '3rem',
+                    minWidth: '2.5rem',
                     marginRight: index === colors.length - 1 ? '1rem' : '0'
                   }}
                 >
-                  {selectedTextColor === colorOption.value && (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse shadow-sm"></div>
-                    </div>
-                  )}
+
                 </button>
               ))}
             </div>
@@ -320,20 +306,7 @@ const TextColorSelectionScreen = () => {
           </p>
         </div>
 
-        {/* Sample Text Preview */}
-        <div className="w-full max-w-xs mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
-            <p className="text-center text-gray-600 text-sm mb-2">Preview:</p>
-            <div className="bg-gray-100 rounded-lg p-3">
-              <p 
-                className="text-center"
-                style={getPreviewStyle()}
-              >
-                {inputText || 'Sample Text'}
-              </p>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Submit Button */}

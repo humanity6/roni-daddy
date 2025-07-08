@@ -36,12 +36,15 @@ const CircleSubmitButton = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '10px',
+    fontSize: '8px',
     fontWeight: 'bold',
     textAlign: 'center',
     color: disabled ? '#999' : textColor,
     fontFamily: 'PoppinsLight, sans-serif',
-    border: `7px solid ${disabled ? '#999' : borderColor}`
+    border: `7px solid ${disabled ? '#999' : borderColor}`,
+    // To make sure the text is not broken into multiple lines and is contained within the inner circle
+    whiteSpace: 'nowrap',         // force single line
+    overflow: 'hidden',           // hide overflow
   }
 
   const handleMouseDown = (e) => {

@@ -1,20 +1,85 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { useTextBoundaries, validateTextInput, createPositionHandlers, validateFontSize } from '../utils/textBoundaryManager'
 
 const TextInputScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, transform: initialTransform, imageTransforms, inputText: initialText, textPosition: initialPosition, stripCount } = location.state || {}
+  const { 
+    brand, 
+    model, 
+    color, 
+    template, 
+    uploadedImage, 
+    uploadedImages, 
+    transform: initialTransform, 
+    imageTransforms, 
+    inputText: initialText, 
+    textPosition: initialPosition, 
+    stripCount,
+    fontSize: initialFontSize,
+    selectedFont: initialFont
+  } = location.state || {}
   const { generatedImage, keyword, optionalText, aiCredits } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
-  const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 }) // percentage from top-left
-  const [textBoxSize, setTextBoxSize] = useState({ width: 0, height: 0 })
-  const [phoneCaseSize, setPhoneCaseSize] = useState({ width: 220, height: 400 }) // Default phone case size (w-72 h-[480px])
+  const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 })
+  const [fontSize, setFontSize] = useState(initialFontSize || 18)
+  const [selectedFont, setSelectedFont] = useState(initialFont || 'Arial')
+  const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
+  
   const textBoxRef = useRef(null)
   const filmStripTextBoxRef = useRef(null)
+
+  // Use the enhanced text boundary management system
+  const {
+    textDimensions,
+    containerDimensions,
+    safeBoundaries,
+    constrainPosition,
+    validateTextFit,
+    getMaxSafeCharacters,
+    getFontStyle,
+    measureRef
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+
+  // Handle text input validation
+  const handleTextChange = (e) => {
+    const validatedText = validateTextInput(e.target.value, 50)
+    setInputText(validatedText)
+  }
+
+  // Update state when location state changes (e.g., when coming back from FontSelectionScreen)
+  useEffect(() => {
+    if (location.state?.fontSize !== undefined) {
+      setFontSize(location.state.fontSize)
+    }
+    if (location.state?.selectedFont !== undefined) {
+      setSelectedFont(location.state.selectedFont)
+    }
+    if (location.state?.textPosition !== undefined) {
+      setTextPosition(location.state.textPosition)
+    }
+  }, [location.state?.fontSize, location.state?.selectedFont, location.state?.textPosition])
+
+  // Adjust position when text size changes, but avoid infinite loops
+  useEffect(() => {
+    if (inputText.trim() && textDimensions.width > 0 && !isPositionBeingAdjusted) {
+      const constrainedPosition = constrainPosition(textPosition)
+      
+      if (constrainedPosition.x !== textPosition.x || constrainedPosition.y !== textPosition.y) {
+        setIsPositionBeingAdjusted(true)
+        setTextPosition(constrainedPosition)
+        
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          setIsPositionBeingAdjusted(false)
+        }, 100)
+      }
+    }
+  }, [textDimensions, inputText, constrainPosition, textPosition, isPositionBeingAdjusted])
 
   const handleBack = () => {
     if (template?.id?.startsWith('film-strip')) {
@@ -52,7 +117,6 @@ const TextInputScreen = () => {
           optionalText,
           aiCredits,
           transform: initialTransform
-          // Removed generatedImage to reset it
         }
       })
     } else {
@@ -84,6 +148,8 @@ const TextInputScreen = () => {
         stripCount,
         inputText,
         textPosition,
+        fontSize,
+        selectedFont,
         transform: initialTransform
       } 
     })
@@ -94,101 +160,38 @@ const TextInputScreen = () => {
     setTextPosition({ x: 50, y: 50 })
   }
 
-  // Calculate dynamic boundaries based on text box size
-  const getDynamicBoundaries = () => {
-    if (textBoxSize.width === 0 || textBoxSize.height === 0) {
-      return { minX: 20, maxX: 80, minY: 15, maxY: 85 }
-    }
-    
-    // Calculate boundaries to keep text box fully within phone case
-    const minX = (textBoxSize.width / 2) / phoneCaseSize.width * 100
-    const maxX = 100 - (textBoxSize.width / 2) / phoneCaseSize.width * 100
-    const minY = (textBoxSize.height / 2) / phoneCaseSize.height * 100
-    const maxY = 100 - (textBoxSize.height / 2) / phoneCaseSize.height * 100
-    
-    return { minX, maxX, minY, maxY }
-  }
-
-  // Ensure text position stays within dynamic boundaries
+  // Ensure text starts centered when first added
   useEffect(() => {
-    const boundaries = getDynamicBoundaries()
-    let newPosition = { ...textPosition }
-    let changed = false
-    
-    if (textPosition.x < boundaries.minX) {
-      newPosition.x = boundaries.minX
-      changed = true
+    if (inputText.trim() && !textPosition.x && !textPosition.y) {
+      setTextPosition({ x: 50, y: 50 })
     }
-    if (textPosition.x > boundaries.maxX) {
-      newPosition.x = boundaries.maxX
-      changed = true
-    }
-    if (textPosition.y < boundaries.minY) {
-      newPosition.y = boundaries.minY
-      changed = true
-    }
-    if (textPosition.y > boundaries.maxY) {
-      newPosition.y = boundaries.maxY
-      changed = true
-    }
-    
-    if (changed) {
-      setTextPosition(newPosition)
-    }
-  }, [textPosition, textBoxSize, phoneCaseSize])
+  }, [inputText, textPosition])
 
-  // Measure text box size when text changes
-  useEffect(() => {
-    let rect = null
-    if (template?.id?.startsWith('film-strip')) {
-      if (filmStripTextBoxRef.current && inputText) {
-        rect = filmStripTextBoxRef.current.getBoundingClientRect()
-      }
-    } else {
-      if (textBoxRef.current && inputText) {
-        rect = textBoxRef.current.getBoundingClientRect()
-      }
-    }
-    
-    if (rect) {
-      setTextBoxSize({ width: rect.width, height: rect.height })
-    } else {
-      setTextBoxSize({ width: 0, height: 0 })
-    }
-  }, [inputText, template])
-
-  // Text positioning functions with dynamic boundary constraints
-  const moveTextLeft = () => {
-    const boundaries = getDynamicBoundaries()
-    setTextPosition(prev => ({ ...prev, x: Math.max(boundaries.minX, prev.x - 5) }))
-  }
-
-  const moveTextRight = () => {
-    const boundaries = getDynamicBoundaries()
-    setTextPosition(prev => ({ ...prev, x: Math.min(boundaries.maxX, prev.x + 5) }))
-  }
-
-  const moveTextUp = () => {
-    const boundaries = getDynamicBoundaries()
-    setTextPosition(prev => ({ ...prev, y: Math.max(boundaries.minY, prev.y - 5) }))
-  }
-
-  const moveTextDown = () => {
-    const boundaries = getDynamicBoundaries()
-    setTextPosition(prev => ({ ...prev, y: Math.min(boundaries.maxY, prev.y + 5) }))
-  }
+  // Text positioning functions with enhanced boundary constraints
+  const positionHandlers = createPositionHandlers(textPosition, safeBoundaries, setTextPosition)
 
   const getTextStyle = () => ({
     position: 'absolute',
     left: `${textPosition.x}%`,
     top: `${textPosition.y}%`,
     transform: 'translate(-50%, -50%)',
-    pointerEvents: 'none'
+    pointerEvents: 'none',
+    textAlign: 'center'
   })
 
   return (
     <div className="screen-container">
       <PastelBlobs />
+      
+      {/* Hidden measurement div */}
+      <div className="fixed -top-[9999px] -left-[9999px] pointer-events-none">
+        <div
+          ref={measureRef}
+          style={getFontStyle()}
+        >
+          {inputText || 'M'}
+        </div>
+      </div>
       
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4">
@@ -234,34 +237,30 @@ const TextInputScreen = () => {
                 <img src="/filmstrip-case.png" alt="Film strip case" className="w-full h-full object-contain" />
               </div>
               
-              {/* Text overlay for film strip - positioned above everything */}
+              {/* Text overlay for film strip */}
               {inputText && (
                 <div 
                   className="absolute z-30 pointer-events-none"
-                  style={{
-                    left: `${textPosition?.x || 50}%`,
-                    top: `${textPosition?.y || 50}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
+                  style={getTextStyle()}
                 >
                   <div 
                     ref={filmStripTextBoxRef}
-                    className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden"
+                    className="text-white"
+                    style={getFontStyle()}
                   >
-                    <p className="text-lg font-medium break-words leading-tight">{inputText}</p>
+                    {inputText}
                   </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="relative w-72 h-[480px]">
-              {/* Separate border element - positioned independently */}
+              {/* Separate border element */}
               <div className="phone-case-border"></div>
               
               {/* User's uploaded image */}
               <div className="phone-case-content">
                 {uploadedImages && uploadedImages.length > 0 ? (
-                  // Default layouts for other templates
                   <div className="w-full h-full overflow-hidden">
                     {uploadedImages.length === 4 ? (
                       <div className="w-full h-full flex flex-wrap">
@@ -323,9 +322,10 @@ const TextInputScreen = () => {
                 <div style={getTextStyle()}>
                   <div 
                     ref={textBoxRef}
-                    className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden"
+                    className="text-white"
+                    style={getFontStyle()}
                   >
-                    <p className="text-lg font-medium break-words leading-tight">{inputText}</p>
+                    {inputText}
                   </div>
                 </div>
               )}
@@ -355,10 +355,10 @@ const TextInputScreen = () => {
               <input
                 type="text"
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={handleTextChange}
                 placeholder="Enter Text"
                 className="w-full bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-full px-6 py-4 text-center text-lg font-poppins font-bold shadow-lg focus:outline-none focus:border-pink-400 transition-colors"
-                maxLength={50}
+                maxLength={getMaxSafeCharacters()}
               />
               {inputText && (
                 <button
@@ -376,7 +376,7 @@ const TextInputScreen = () => {
             </button>
           </div>
           <p className="text-center text-xs text-gray-500 mt-2">
-            {inputText.length}/50 characters
+            {inputText.length}/{getMaxSafeCharacters()} characters
           </p>
         </div>
 
@@ -388,7 +388,7 @@ const TextInputScreen = () => {
             {/* Up button */}
             <div className="flex justify-center mb-2">
               <button 
-                onClick={moveTextUp}
+                onClick={positionHandlers.moveUp}
                 className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
                 <ArrowUp size={20} className="text-gray-600" />
@@ -398,13 +398,13 @@ const TextInputScreen = () => {
             {/* Left and Right buttons */}
             <div className="flex items-center justify-center space-x-12 mb-2">
               <button 
-                onClick={moveTextLeft}
+                onClick={positionHandlers.moveLeft}
                 className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
                 <ArrowLeft size={20} className="text-gray-600" />
               </button>
               <button 
-                onClick={moveTextRight}
+                onClick={positionHandlers.moveRight}
                 className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
                 <ArrowRight size={20} className="text-gray-600" />
@@ -414,7 +414,7 @@ const TextInputScreen = () => {
             {/* Down button */}
             <div className="flex justify-center">
               <button 
-                onClick={moveTextDown}
+                onClick={positionHandlers.moveDown}
                 className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
                 <ArrowDown size={20} className="text-gray-600" />
@@ -436,11 +436,8 @@ const TextInputScreen = () => {
 
       {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
-        {/* Outer Pink Ring */}
         <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
-          {/* Updated: minimal gap between circles */}
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
-            {/* Inner Pink Circle */}
             <button 
               onClick={handleNext}
               className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
@@ -454,4 +451,4 @@ const TextInputScreen = () => {
   )
 }
 
-export default TextInputScreen 
+export default TextInputScreen

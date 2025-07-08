@@ -88,8 +88,7 @@ const BackgroundColorSelectionScreen = () => {
         textPosition,
         transform: initialTransform,
         template,
-        stripCount,
-        price: 16.99
+        stripCount
       }
     })
   }
@@ -113,13 +112,14 @@ const BackgroundColorSelectionScreen = () => {
     return {
       fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
       fontSize: `${fontSize}px`,
-      color: selectedTextColor || '#ffffff'
+      color: selectedTextColor || '#ffffff',
+      whiteSpace: 'nowrap',
+      fontWeight: '500',
+      lineHeight: '1.2'
     }
   }
 
-  const getSelectedColorInfo = () => {
-    return colors.find(c => c.value === selectedBackgroundColor) || colors[0]
-  }
+
 
   const getTextStyle = () => ({
     position: 'absolute',
@@ -141,7 +141,7 @@ const BackgroundColorSelectionScreen = () => {
         >
           <ArrowLeft size={20} className="text-white" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-800">Background Color</h1>
+        <h1 className="text-lg font-semibold text-gray-800">background colour</h1>
         <div className="w-12 h-12"></div>
       </div>
 
@@ -208,9 +208,7 @@ const BackgroundColorSelectionScreen = () => {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p style={getPreviewStyle()}>{inputText}</p>
-                  </div>
+                  <p style={getPreviewStyle()}>{inputText}</p>
                 </div>
               )}
             </div>
@@ -308,9 +306,7 @@ const BackgroundColorSelectionScreen = () => {
               {/* Text overlay preview - highest layer for user content */}
               {inputText && (
                 <div className="absolute z-15" style={getTextStyle()}>
-                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p style={getPreviewStyle()}>{inputText}</p>
-                  </div>
+                  <p style={getPreviewStyle()}>{inputText}</p>
                 </div>
               )}
               
@@ -326,31 +322,20 @@ const BackgroundColorSelectionScreen = () => {
           )}
         </div>
 
-        {/* Selected Color Info */}
-        <div className="w-full max-w-xs mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
-            <div className="flex items-center justify-center space-x-3">
-              <div className={`w-8 h-8 rounded-full ${getSelectedColorInfo().bg} border-2 ${getSelectedColorInfo().border} shadow-md`}></div>
-              <div className="text-center">
-                <p className="text-lg font-medium text-gray-800">{getSelectedColorInfo().name}</p>
-                <p className="text-xs text-gray-500">{selectedBackgroundColor.toUpperCase()}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
           <div className="relative">
             <div 
-              className="color-slider flex space-x-4 px-4 pb-4 overflow-x-auto"
+              className="color-slider flex space-x-3 px-4 py-2 overflow-x-auto"
             >
               {colors.map((colorOption, index) => (
                 <button
                   key={colorOption.value}
                   onClick={() => setSelectedBackgroundColor(colorOption.value)}
                   className={`
-                    color-option w-12 h-12 rounded-full border-3 transition-all duration-300 shadow-lg
+                    color-option w-10 h-10 rounded-full border-2 transition-all duration-300 shadow-lg
                     ${colorOption.bg}
                     ${selectedBackgroundColor === colorOption.value 
                       ? 'border-pink-400 scale-125 shadow-xl' 
@@ -359,15 +344,11 @@ const BackgroundColorSelectionScreen = () => {
                   `}
                   title={colorOption.name}
                   style={{
-                    minWidth: '3rem',
+                    minWidth: '2.5rem',
                     marginRight: index === colors.length - 1 ? '1rem' : '0'
                   }}
                 >
-                  {selectedBackgroundColor === colorOption.value && (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse shadow-sm"></div>
-                    </div>
-                  )}
+
                 </button>
               ))}
             </div>

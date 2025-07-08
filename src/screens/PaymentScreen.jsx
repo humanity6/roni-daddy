@@ -35,7 +35,7 @@ const PaymentScreen = () => {
     transform: initialTransform,
     template,
     stripCount,
-    price = 18.99,
+    price,
   } = location.state || {}
 
   // Fixed smaller blobs that match the mock-up design
@@ -74,11 +74,28 @@ const PaymentScreen = () => {
     }
   ]
 
+  // Determine the effective price. Use the explicit `price` from state if provided;
+  // otherwise, attempt to parse it from `template.price` (e.g. "£19.99") and
+  // fall back to 18.99 if all else fails.
+  const parsedTemplatePrice = template?.price
+    ? parseFloat(String(template.price).replace(/[^0-9.]/g, ''))
+    : NaN
+
+  const effectivePrice =
+    typeof price === 'number' && !isNaN(price)
+      ? price
+      : !isNaN(parsedTemplatePrice)
+        ? parsedTemplatePrice
+        : 18.99
+
   // Compute style helpers reused from previous screens
   const getPreviewStyle = () => ({
     fontFamily: FONT_MAP[selectedFont] || 'Arial, sans-serif',
     fontSize: `${fontSize}px`,
-    color: selectedTextColor
+    color: selectedTextColor,
+    whiteSpace: 'nowrap',
+    fontWeight: '500',
+    lineHeight: '1.2'
   })
 
   const getTextStyle = () => ({
@@ -99,7 +116,7 @@ const PaymentScreen = () => {
         designImage, 
         uploadedImages,
         imageTransforms,
-        price 
+        price: effectivePrice 
       } 
     })
   }
@@ -182,9 +199,7 @@ const PaymentScreen = () => {
                     transform: 'translate(-50%, -50%)'
                   }}
                 >
-                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p style={getPreviewStyle()}>{inputText}</p>
-                  </div>
+                  <p style={getPreviewStyle()}>{inputText}</p>
                 </div>
               )}
             </div>
@@ -277,9 +292,7 @@ const PaymentScreen = () => {
               {/* Text overlay preview - highest layer for user content */}
               {inputText && (
                 <div className="absolute z-15" style={getTextStyle()}>
-                  <div className="bg-black/20 px-4 py-2 rounded-lg backdrop-blur-sm whitespace-nowrap">
-                    <p style={getPreviewStyle()}>{inputText}</p>
-                  </div>
+                  <p style={getPreviewStyle()}>{inputText}</p>
                 </div>
               )}
               
@@ -301,7 +314,7 @@ const PaymentScreen = () => {
                 className="text-4xl font-semibold text-[#2F3842]"
                 style={{ fontFamily: 'Cubano, sans-serif' }}
               >
-                £{price.toFixed(2)}
+                £{effectivePrice.toFixed(2)}
               </p>
             </div>
           </div>

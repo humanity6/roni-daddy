@@ -16,7 +16,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'classic',
       name: 'Classic',
-      price: '£17.99',
+      price: '£19.99',
       category: 'basic',
       description: 'Single image with background',
       imageCount: 1,

@@ -1,18 +1,33 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Type, Minus, Plus, ChevronDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
+import { useTextBoundaries, validateFontSize } from '../utils/textBoundaryManager'
 
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount } = location.state || {}
   
-  const [selectedFont, setSelectedFont] = useState('Arial')
-  const [fontSize, setFontSize] = useState(18)
+  const [selectedFont, setSelectedFont] = useState(location.state?.selectedFont || 'Arial')
+  const [fontSize, setFontSize] = useState(location.state?.fontSize || 18)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [adjustedTextPosition, setAdjustedTextPosition] = useState(textPosition || { x: 50, y: 50 })
+  const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
 
+  // Use the enhanced text boundary management system
+  const {
+    textDimensions,
+    containerDimensions,
+    safeBoundaries,
+    constrainPosition,
+    validateTextFit,
+    getFontStyle,
+    measureRef
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+
+  // Font definitions for the dropdown
   const fonts = [
     { name: 'Arial', style: 'Arial, Helvetica, sans-serif' },
     { name: 'Georgia', style: 'Georgia, serif' },
@@ -23,10 +38,33 @@ const FontSelectionScreen = () => {
     { name: 'Impact', style: 'Impact, Charcoal, sans-serif' },
     { name: 'Palatino', style: 'Palatino, Palatino Linotype, serif' },
     { name: 'Courier New', style: 'Courier New, Courier, monospace' },
-    { name: 'Trebuchet MS', style: 'Trebuchet MS, sans-serif' },
     { name: 'Lucida Console', style: 'Lucida Console, Monaco, monospace' },
     { name: 'Tahoma', style: 'Tahoma, Geneva, sans-serif' }
   ]
+
+  // Initialize adjusted position when component mounts
+  useEffect(() => {
+    if (textPosition) {
+      setAdjustedTextPosition(textPosition)
+    }
+  }, [textPosition])
+
+  // Adjust position when text size changes due to font/size changes
+  useEffect(() => {
+    if (inputText?.trim() && textDimensions.width > 0 && !isPositionBeingAdjusted) {
+      const constrainedPosition = constrainPosition(adjustedTextPosition)
+      
+      if (constrainedPosition.x !== adjustedTextPosition.x || constrainedPosition.y !== adjustedTextPosition.y) {
+        setIsPositionBeingAdjusted(true)
+        setAdjustedTextPosition(constrainedPosition)
+        
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          setIsPositionBeingAdjusted(false)
+        }, 100)
+      }
+    }
+  }, [textDimensions, inputText, selectedFont, fontSize, constrainPosition, adjustedTextPosition, isPositionBeingAdjusted])
 
   const handleBack = () => {
     navigate('/text-input', { 
@@ -41,7 +79,7 @@ const FontSelectionScreen = () => {
         inputText,
         selectedFont,
         fontSize,
-        textPosition,
+        textPosition: adjustedTextPosition, // Pass the adjusted position back
         transform: initialTransform,
         stripCount
       } 
@@ -61,7 +99,7 @@ const FontSelectionScreen = () => {
         inputText,
         selectedFont,
         fontSize,
-        textPosition,
+        textPosition: adjustedTextPosition, // Pass the adjusted position forward
         transform: initialTransform,
         stripCount
       } 
@@ -69,30 +107,44 @@ const FontSelectionScreen = () => {
   }
 
   const increaseFontSize = () => {
-    if (fontSize < 32) {
-      setFontSize(prev => prev + 2)
-    }
+    const newSize = validateFontSize(Math.min(30, fontSize + 2), inputText?.length || 0, containerDimensions)
+    setFontSize(newSize)
   }
 
   const decreaseFontSize = () => {
-    if (fontSize > 12) {
-      setFontSize(prev => prev - 2)
-    }
+    const newSize = validateFontSize(Math.max(12, fontSize - 2), inputText?.length || 0, containerDimensions)
+    setFontSize(newSize)
   }
 
-  const getPreviewStyle = () => ({
-    fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, Helvetica, sans-serif',
-    fontSize: `${fontSize}px`
-  })
+  const getPreviewStyle = () => getFontStyle()
 
   const handleFontSelect = (fontName) => {
     setSelectedFont(fontName)
     setIsDropdownOpen(false)
   }
 
+  const getTextStyle = () => ({
+    position: 'absolute',
+    left: `${adjustedTextPosition.x}%`,
+    top: `${adjustedTextPosition.y}%`,
+    transform: 'translate(-50%, -50%)',
+    pointerEvents: 'none',
+    textAlign: 'center'
+  })
+
   return (
     <div className="screen-container" style={{ overflow: 'visible' }}>
       <PastelBlobs />
+      
+      {/* Hidden measurement div */}
+      <div className="fixed -top-[9999px] -left-[9999px] pointer-events-none">
+        <div
+          ref={measureRef}
+          style={getFontStyle()}
+        >
+          {inputText || 'M'}
+        </div>
+      </div>
       
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4">
@@ -138,31 +190,29 @@ const FontSelectionScreen = () => {
                 <img src="/filmstrip-case.png" alt="Film strip case" className="w-full h-full object-contain" />
               </div>
               
-              {/* Text overlay for film strip - positioned above everything */}
+              {/* Text overlay for film strip */}
               {inputText && (
                 <div 
                   className="absolute z-30 pointer-events-none"
-                  style={{
-                    left: `${textPosition?.x || 50}%`,
-                    top: `${textPosition?.y || 50}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
+                  style={getTextStyle()}
                 >
-                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden">
-                    <p style={getPreviewStyle()} className="break-words leading-tight">{inputText}</p>
+                  <div 
+                    className="text-white"
+                    style={getFontStyle()}
+                  >
+                    {inputText}
                   </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="relative w-72 h-[480px]">
-              {/* Separate border element - positioned independently */}
+              {/* Separate border element */}
               <div className="phone-case-border"></div>
               
               {/* User's uploaded image */}
               <div className="phone-case-content">
                 {uploadedImages && uploadedImages.length > 0 ? (
-                  // Multi-image layouts
                   <div className="w-full h-full overflow-hidden">
                     {uploadedImages.length === 4 ? (
                       <div className="w-full h-full flex flex-wrap">
@@ -221,26 +271,22 @@ const FontSelectionScreen = () => {
 
               {/* Text overlay preview */}
               {inputText && (
-                <div 
-                  className="absolute pointer-events-none"
-                  style={{
-                    left: `${textPosition?.x || 50}%`,
-                    top: `${textPosition?.y || 50}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                >
-                  <div className="bg-black/50 text-white px-4 py-2 rounded-lg backdrop-blur-sm max-w-[160px] overflow-hidden">
-                    <p style={getPreviewStyle()} className="break-words leading-tight">{inputText}</p>
+                <div style={getTextStyle()}>
+                  <div 
+                    className="text-white"
+                    style={getFontStyle()}
+                  >
+                    {inputText}
                   </div>
                 </div>
               )}
               
               {/* Phone Template Overlay */}
-              <div className="absolute inset-0">
+              <div className="absolute inset-0 pointer-events-none">
                 <img 
                   src="/phone-template.png" 
                   alt="Phone template overlay" 
-                  className="w-full h-full object-contain pointer-events-none"
+                  className="w-full h-full object-contain"
                 />
               </div>
             </div>
@@ -264,7 +310,7 @@ const FontSelectionScreen = () => {
             <button 
               onClick={increaseFontSize}
               className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center active:scale-95 transition-transform"
-              disabled={fontSize >= 32}
+              disabled={fontSize >= 30}
             >
               <Plus size={16} className="text-gray-600" />
             </button>
@@ -342,11 +388,8 @@ const FontSelectionScreen = () => {
 
       {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
-        {/* Outer Pink Ring */}
         <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
-          {/* Updated: minimal gap between circles */}
           <div className="w-17 h-17 rounded-full border-0.5 border-white bg-white flex items-center justify-center">
-            {/* Inner Pink Circle */}
             <button 
               onClick={handleNext}
               className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
@@ -360,4 +403,4 @@ const FontSelectionScreen = () => {
   )
 }
 
-export default FontSelectionScreen 
+export default FontSelectionScreen
