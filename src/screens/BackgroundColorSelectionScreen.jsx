@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Type } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
+import { fonts as availableFonts } from '../utils/fontManager'
 
 const BackgroundColorSelectionScreen = () => {
   const navigate = useNavigate()
@@ -94,21 +95,7 @@ const BackgroundColorSelectionScreen = () => {
   }
 
   const getPreviewStyle = () => {
-    const fonts = [
-      { name: 'Arial', style: 'Arial, sans-serif' },
-      { name: 'Georgia', style: 'Georgia, serif' },
-      { name: 'Helvetica', style: 'Helvetica, sans-serif' },
-      { name: 'Times New Roman', style: 'Times New Roman, serif' },
-      { name: 'Verdana', style: 'Verdana, sans-serif' },
-      { name: 'Comic Sans', style: 'Comic Sans MS, cursive' },
-      { name: 'Impact', style: 'Impact, sans-serif' },
-      { name: 'Palatino', style: 'Palatino, serif' },
-      { name: 'Roboto', style: 'Roboto, sans-serif' },
-      { name: 'Open Sans', style: 'Open Sans, sans-serif' },
-      { name: 'Montserrat', style: 'Montserrat, sans-serif' },
-      { name: 'Lato', style: 'Lato, sans-serif' }
-    ]
-    
+    const fonts = availableFonts
     return {
       fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
       fontSize: `${fontSize}px`,
@@ -118,8 +105,6 @@ const BackgroundColorSelectionScreen = () => {
       lineHeight: '1.2'
     }
   }
-
-
 
   const getTextStyle = () => ({
     position: 'absolute',
@@ -321,8 +306,6 @@ const BackgroundColorSelectionScreen = () => {
             </div>
           )}
         </div>
-
-
 
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">

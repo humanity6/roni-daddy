@@ -27,7 +27,7 @@ const TemplateSelectionScreen = () => {
     {
       id: '2-in-1',
       name: '2 in 1',
-      price: '£17.99',
+      price: '£19.99',
       category: 'basic',
       description: '2 images with layouts',
       imageCount: 2,
@@ -38,7 +38,7 @@ const TemplateSelectionScreen = () => {
     {
       id: '3-in-1',
       name: '3 in 1',
-      price: '£17.99',
+      price: '£19.99',
       category: 'basic',
       description: '3 images with layouts',
       imageCount: 3,
@@ -49,7 +49,7 @@ const TemplateSelectionScreen = () => {
     {
       id: '4-in-1',
       name: '4 in 1',
-      price: '£17.99',
+      price: '£19.99',
       category: 'basic',
       description: '4 images with layouts',
       imageCount: 4,
@@ -62,7 +62,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'retro-remix',
       name: 'Retro Remix',
-      price: '£18.99',
+      price: '£21.99',
       category: 'ai',
       description: 'AI retro style',
       imageCount: 1,
@@ -74,7 +74,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'film-strip-3',
       name: 'Film Strip',
-      price: '£18.99',
+      price: '£19.99',
       category: 'film',
       description: '3 in 1 Film Strip',
       imageCount: 3,
@@ -85,7 +85,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'cover-shoot',
       name: 'Cover Shoot',
-      price: '£18.99',
+      price: '£21.99',
       category: 'ai',
       description: 'Model-style AI enhancement',
       imageCount: 1,
@@ -96,7 +96,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'funny-toon',
       name: 'Funny Toon',
-      price: '£18.99',
+      price: '£21.99',
       category: 'ai',
       description: 'Cartoon conversion',
       imageCount: 1,
@@ -107,7 +107,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'glitch-pro',
       name: 'Glitch Pro X',
-      price: '£18.99',
+      price: '£21.99',
       category: 'ai',
       description: 'Digital glitch effects',
       imageCount: 1,
@@ -118,7 +118,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'footy-fan',
       name: 'Footy Fan',
-      price: '£18.99',
+      price: '£23.99',
       category: 'ai',
       description: 'Football team themes',
       imageCount: 1,

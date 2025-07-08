@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { fonts, DEFAULT_FONT_SIZE } from './fontManager'
 
 // Constants for container dimensions
 const CONTAINER_DIMENSIONS = {
@@ -15,25 +16,11 @@ const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
   const [safeBoundaries, setSafeBoundaries] = useState({ minX: 10, maxX: 90, minY: 10, maxY: 90 })
   const measureRef = useRef(null)
 
-  // Get font style for consistent rendering
+  // Get font style for consistent rendering using the central font manager
   const getFontStyle = useCallback(() => {
-    const fonts = [
-      { name: 'Arial', style: 'Arial, Helvetica, sans-serif' },
-      { name: 'Georgia', style: 'Georgia, serif' },
-      { name: 'Helvetica', style: 'Helvetica, Arial, sans-serif' },
-      { name: 'Times New Roman', style: 'Times New Roman, Times, serif' },
-      { name: 'Verdana', style: 'Verdana, Geneva, sans-serif' },
-      { name: 'Comic Sans MS', style: 'Comic Sans MS, cursive, sans-serif' },
-      { name: 'Impact', style: 'Impact, Charcoal, sans-serif' },
-      { name: 'Palatino', style: 'Palatino, Palatino Linotype, serif' },
-      { name: 'Courier New', style: 'Courier New, Courier, monospace' },
-      { name: 'Lucida Console', style: 'Lucida Console, Monaco, monospace' },
-      { name: 'Tahoma', style: 'Tahoma, Geneva, sans-serif' }
-    ]
-    
     return {
-      fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
-      fontSize: `${fontSize}px`,
+      fontFamily: fonts.find((f) => f.name === selectedFont)?.style || 'Arial, sans-serif',
+      fontSize: `${fontSize || DEFAULT_FONT_SIZE}px`,
       fontWeight: '500',
       lineHeight: '1.2',
       whiteSpace: 'nowrap'
@@ -199,18 +186,12 @@ const createPositionHandlers = (currentPosition, safeBoundaries, setPosition) =>
   }
 }
 
-// Font size validation
-const validateFontSize = (newSize, textLength, containerDimensions) => {
+// Font size validation – simplified.  We no longer auto-shrink the text.  The
+// size is clamped between a sensible range but otherwise left unchanged.
+const validateFontSize = (newSize /* ignoredArgs */) => {
   const minSize = 12
   const maxSize = 30
-  
-  // Limit font size based on text length to prevent overflow
-  const estimatedWidth = textLength * newSize * 0.6
-  const maxAllowedSize = Math.floor((containerDimensions.width - CONTAINER_DIMENSIONS.SAFE_MARGIN * 3) / (textLength * 0.6))
-  
-  const safeMaxSize = Math.min(maxSize, maxAllowedSize)
-  
-  return Math.max(minSize, Math.min(safeMaxSize, newSize))
+  return Math.max(minSize, Math.min(maxSize, newSize))
 }
 
 export {

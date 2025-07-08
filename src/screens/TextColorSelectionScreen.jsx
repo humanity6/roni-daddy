@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
+import { fonts as availableFonts } from '../utils/fontManager'
 
 const TextColorSelectionScreen = () => {
   const navigate = useNavigate()
@@ -80,20 +81,7 @@ const TextColorSelectionScreen = () => {
   }
 
   const getPreviewStyle = () => {
-    const fonts = [
-      { name: 'Arial', style: 'Arial, Helvetica, sans-serif' },
-      { name: 'Georgia', style: 'Georgia, serif' },
-      { name: 'Helvetica', style: 'Helvetica, Arial, sans-serif' },
-      { name: 'Times New Roman', style: 'Times New Roman, Times, serif' },
-      { name: 'Verdana', style: 'Verdana, Geneva, sans-serif' },
-      { name: 'Comic Sans MS', style: 'Comic Sans MS, cursive, sans-serif' },
-      { name: 'Impact', style: 'Impact, Charcoal, sans-serif' },
-      { name: 'Palatino', style: 'Palatino, Palatino Linotype, serif' },
-      { name: 'Courier New', style: 'Courier New, Courier, monospace' },
-      { name: 'Lucida Console', style: 'Lucida Console, Monaco, monospace' },
-      { name: 'Tahoma', style: 'Tahoma, Geneva, sans-serif' }
-    ]
-    
+    const fonts = availableFonts
     return {
       fontFamily: fonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
       fontSize: `${fontSize}px`,
@@ -103,8 +91,6 @@ const TextColorSelectionScreen = () => {
       lineHeight: '1.2'
     }
   }
-
-
 
   const getTextStyle = () => ({
     position: 'absolute',
@@ -264,8 +250,6 @@ const TextColorSelectionScreen = () => {
           )}
         </div>
 
-
-
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
           <div className="relative">
@@ -306,7 +290,6 @@ const TextColorSelectionScreen = () => {
           </p>
         </div>
 
-
       </div>
 
       {/* Submit Button */}
@@ -325,7 +308,6 @@ const TextColorSelectionScreen = () => {
           </div>
         </div>
       </div>
-
 
     </div>
   )

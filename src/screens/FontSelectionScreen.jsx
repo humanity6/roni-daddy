@@ -4,6 +4,7 @@ import { ArrowLeft, Type, Minus, Plus, ChevronDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { useTextBoundaries, validateFontSize } from '../utils/textBoundaryManager'
+import { fonts as availableFonts } from '../utils/fontManager'
 
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
@@ -11,7 +12,7 @@ const FontSelectionScreen = () => {
   const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount } = location.state || {}
   
   const [selectedFont, setSelectedFont] = useState(location.state?.selectedFont || 'Arial')
-  const [fontSize, setFontSize] = useState(location.state?.fontSize || 18)
+  const [fontSize, setFontSize] = useState(location.state?.fontSize || 30)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [adjustedTextPosition, setAdjustedTextPosition] = useState(textPosition || { x: 50, y: 50 })
   const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
@@ -27,20 +28,8 @@ const FontSelectionScreen = () => {
     measureRef
   } = useTextBoundaries(template, inputText, fontSize, selectedFont)
 
-  // Font definitions for the dropdown
-  const fonts = [
-    { name: 'Arial', style: 'Arial, Helvetica, sans-serif' },
-    { name: 'Georgia', style: 'Georgia, serif' },
-    { name: 'Helvetica', style: 'Helvetica, Arial, sans-serif' },
-    { name: 'Times New Roman', style: 'Times New Roman, Times, serif' },
-    { name: 'Verdana', style: 'Verdana, Geneva, sans-serif' },
-    { name: 'Comic Sans MS', style: 'Comic Sans MS, cursive, sans-serif' },
-    { name: 'Impact', style: 'Impact, Charcoal, sans-serif' },
-    { name: 'Palatino', style: 'Palatino, Palatino Linotype, serif' },
-    { name: 'Courier New', style: 'Courier New, Courier, monospace' },
-    { name: 'Lucida Console', style: 'Lucida Console, Monaco, monospace' },
-    { name: 'Tahoma', style: 'Tahoma, Geneva, sans-serif' }
-  ]
+  // The centralised font catalogue
+  const fonts = availableFonts
 
   // Initialize adjusted position when component mounts
   useEffect(() => {

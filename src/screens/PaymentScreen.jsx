@@ -1,21 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
-
-// Map of available fonts to CSS font-family declarations (mirrors earlier screens)
-const FONT_MAP = {
-  'Arial': 'Arial, sans-serif',
-  'Georgia': 'Georgia, serif',
-  'Helvetica': 'Helvetica, sans-serif',
-  'Times New Roman': 'Times New Roman, serif',
-  'Verdana': 'Verdana, sans-serif',
-  'Comic Sans': 'Comic Sans MS, cursive',
-  'Impact': 'Impact, sans-serif',
-  'Palatino': 'Palatino, serif',
-  'Roboto': 'Roboto, sans-serif',
-  'Open Sans': 'Open Sans, sans-serif',
-  'Montserrat': 'Montserrat, sans-serif',
-  'Lato': 'Lato, sans-serif'
-}
+import { fonts as availableFonts } from '../utils/fontManager'
 
 const PaymentScreen = () => {
   const navigate = useNavigate()
@@ -28,7 +13,7 @@ const PaymentScreen = () => {
     imageTransforms,
     inputText,
     selectedFont = 'Arial',
-    fontSize = 18,
+    fontSize = 30,
     selectedTextColor = '#ffffff',
     selectedBackgroundColor = '#ffffff',
     textPosition,
@@ -90,7 +75,7 @@ const PaymentScreen = () => {
 
   // Compute style helpers reused from previous screens
   const getPreviewStyle = () => ({
-    fontFamily: FONT_MAP[selectedFont] || 'Arial, sans-serif',
+    fontFamily: availableFonts.find(f => f.name === selectedFont)?.style || 'Arial, sans-serif',
     fontSize: `${fontSize}px`,
     color: selectedTextColor,
     whiteSpace: 'nowrap',

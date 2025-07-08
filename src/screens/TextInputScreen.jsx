@@ -26,7 +26,7 @@ const TextInputScreen = () => {
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 })
-  const [fontSize, setFontSize] = useState(initialFontSize || 18)
+  const [fontSize, setFontSize] = useState(initialFontSize || 30)
   const [selectedFont, setSelectedFont] = useState(initialFont || 'Arial')
   const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
   
