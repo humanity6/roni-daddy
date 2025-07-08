@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Type, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Type, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RefreshCw, ArrowRight as ArrowForward, ArrowLeft as ArrowBack, ArrowUp, ArrowDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { fonts as availableFonts } from '../utils/fontManager'
@@ -15,7 +15,7 @@ const BackgroundColorSelectionScreen = () => {
     template, 
     uploadedImage, 
     uploadedImages, 
-    imageTransforms, 
+    imageTransforms: initialImageTransforms, 
     inputText, 
     selectedFont, 
     fontSize, 
@@ -24,7 +24,33 @@ const BackgroundColorSelectionScreen = () => {
     stripCount,
     selectedTextColor 
   } = location.state || {}
-  
+
+  // Maintain local copy of image transforms for live editing
+  const [imageTransforms, setImageTransforms] = useState(initialImageTransforms || (uploadedImages ? uploadedImages.map(() => ({ x: 0, y: 0, scale: 1 })) : []))
+
+  // We'll edit only the first image for now (or single image template)
+  const activeIdx = 0
+
+  const hasImage = uploadedImages && uploadedImages[activeIdx]
+
+  const updateTransform = (delta) => {
+    setImageTransforms((prev) => {
+      const next = [...prev]
+      const current = next[activeIdx] || { x: 0, y: 0, scale: 1 }
+      next[activeIdx] = { ...current, ...delta }
+      return next
+    })
+  }
+
+  // Control handlers
+  const moveLeft = () => hasImage && updateTransform({ x: Math.max(-100, (imageTransforms[activeIdx]?.x || 0) - 10) })
+  const moveRight = () => hasImage && updateTransform({ x: Math.min(100, (imageTransforms[activeIdx]?.x || 0) + 10) })
+  const moveUp = () => hasImage && updateTransform({ y: Math.max(-100, (imageTransforms[activeIdx]?.y || 0) - 10) })
+  const moveDown = () => hasImage && updateTransform({ y: Math.min(100, (imageTransforms[activeIdx]?.y || 0) + 10) })
+  const zoomInImg = () => hasImage && updateTransform({ scale: Math.min(5, (imageTransforms[activeIdx]?.scale || 1) + 0.2) })
+  const zoomOutImg = () => hasImage && updateTransform({ scale: Math.max(0.1, (imageTransforms[activeIdx]?.scale || 1) - 0.2) })
+  const resetTransform = () => hasImage && updateTransform({ x: 0, y: 0, scale: 1 })
+
   const [selectedBackgroundColor, setSelectedBackgroundColor] = useState('#ffffff')
 
   const colors = [
@@ -276,7 +302,7 @@ const BackgroundColorSelectionScreen = () => {
                     src={uploadedImage} 
                     alt="Uploaded design" 
                     className="phone-case-image-contain"
-                    style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
+                    style={imageTransforms && imageTransforms[0] ? { transform: `translate(${imageTransforms[0].x}%, ${imageTransforms[0].y}%) scale(${imageTransforms[0].scale})`, transformOrigin: 'center center' } : initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-50">
@@ -330,6 +356,33 @@ const BackgroundColorSelectionScreen = () => {
             <ChevronRight size={20} className="text-gray-600" />
           </button>
         </div>
+
+        {/* Control Buttons Row (green squares) */}
+        {uploadedImages && uploadedImages.length > 0 && (
+          <div className="flex items-center justify-center space-x-3 mb-6">
+            <button onClick={zoomOutImg} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <ZoomOut size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+            <button onClick={zoomInImg} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <ZoomIn size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+            <button onClick={resetTransform} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <RefreshCw size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+            <button onClick={moveRight} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <ArrowForward size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+            <button onClick={moveLeft} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <ArrowBack size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+            <button onClick={moveDown} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <ArrowDown size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+            <button onClick={moveUp} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
+              <ArrowUp size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+            </button>
+          </div>
+        )}
 
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
