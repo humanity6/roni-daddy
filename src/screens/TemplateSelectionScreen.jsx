@@ -266,8 +266,7 @@ const TemplateSelectionScreen = () => {
                     {renderTemplatePreview(template)}
                   </div>
                   <div className="flex flex-col items-center justify-center text-center w-full px-0 mt-0">
-                    <span className="text-[13px] font-normal text-gray-900 font-poppins-light leading-tight w-full" style={{ wordSpacing: '-2px', maxWidth: '100%' }}>{template.name}</span>
-                    <span className="text-[13px] font-bold text-gray-900 font-poppins-light leading-tight w-full" style={{ wordSpacing: '-2px', maxWidth: '100%' }}>{template.price}</span>
+                    <span className="text-[13px] font-normal text-gray-900 font-poppins-light leading-tight w-full" style={{ wordSpacing: '-2px', maxWidth: '100%' }}>{template.name} <span className="font-bold">{template.price}</span></span>
                   </div>
                 </button>
               ))}

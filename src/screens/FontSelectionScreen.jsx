@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Type, Minus, Plus, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, Type, Minus, Plus, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
-import { useTextBoundaries, validateFontSize } from '../utils/textBoundaryManager'
+import { useTextBoundaries, validateFontSize, createPositionHandlers } from '../utils/textBoundaryManager'
 import { fonts as availableFonts } from '../utils/fontManager'
 
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount, selectedTextColor } = location.state || {}
   
   const [selectedFont, setSelectedFont] = useState(location.state?.selectedFont || 'Arial')
   const [fontSize, setFontSize] = useState(location.state?.fontSize || 30)
@@ -27,6 +27,9 @@ const FontSelectionScreen = () => {
     getFontStyle,
     measureRef
   } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+
+  // Position handlers for manual adjustment
+  const positionHandlers = createPositionHandlers(adjustedTextPosition, safeBoundaries, setAdjustedTextPosition)
 
   // The centralised font catalogue
   const fonts = availableFonts
@@ -69,6 +72,7 @@ const FontSelectionScreen = () => {
         selectedFont,
         fontSize,
         textPosition: adjustedTextPosition, // Pass the adjusted position back
+        selectedTextColor,
         transform: initialTransform,
         stripCount
       } 
@@ -89,6 +93,7 @@ const FontSelectionScreen = () => {
         selectedFont,
         fontSize,
         textPosition: adjustedTextPosition, // Pass the adjusted position forward
+        selectedTextColor,
         transform: initialTransform,
         stripCount
       } 
@@ -105,7 +110,10 @@ const FontSelectionScreen = () => {
     setFontSize(newSize)
   }
 
-  const getPreviewStyle = () => getFontStyle()
+  const getPreviewStyle = () => ({
+    ...getFontStyle(),
+    color: selectedTextColor || '#ffffff'
+  })
 
   const handleFontSelect = (fontName) => {
     setSelectedFont(fontName)
@@ -187,7 +195,10 @@ const FontSelectionScreen = () => {
                 >
                   <div 
                     className="text-white"
-                    style={getFontStyle()}
+                    style={{
+                      ...getFontStyle(),
+                      color: selectedTextColor || '#ffffff'
+                    }}
                   >
                     {inputText}
                   </div>
@@ -263,7 +274,10 @@ const FontSelectionScreen = () => {
                 <div style={getTextStyle()}>
                   <div 
                     className="text-white"
-                    style={getFontStyle()}
+                    style={{
+                      ...getFontStyle(),
+                      color: selectedTextColor || '#ffffff'
+                    }}
                   >
                     {inputText}
                   </div>
@@ -370,18 +384,50 @@ const FontSelectionScreen = () => {
           )}
         </div>
 
-        {/* Sample Text Preview */}
-        <div className="w-full max-w-xs mb-6">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
-            <p className="text-center text-gray-600 text-sm mb-2">Preview:</p>
-            <p 
-              className="text-center text-gray-800"
-              style={getPreviewStyle()}
-            >
-              {inputText || 'Sample Text'}
-            </p>
+
+
+        {/* Position Control Buttons */}
+        {inputText && (
+          <div className="mb-6">
+            <p className="text-center text-sm font-medium text-gray-700 mb-3">Position Text</p>
+
+            {/* Up button */}
+            <div className="flex justify-center mb-2">
+              <button 
+                onClick={positionHandlers.moveUp}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowUp size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Left and Right buttons */}
+            <div className="flex items-center justify-center space-x-12 mb-2">
+              <button 
+                onClick={positionHandlers.moveLeft}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowLeftIcon size={20} className="text-gray-600" />
+              </button>
+              <button 
+                onClick={positionHandlers.moveRight}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowRightIcon size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Down button */}
+            <div className="flex justify-center">
+              <button 
+                onClick={positionHandlers.moveDown}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowDown size={20} className="text-gray-600" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Overlay to close dropdown */}

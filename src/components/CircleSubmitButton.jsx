@@ -42,6 +42,7 @@ const CircleSubmitButton = ({
     color: disabled ? '#999' : textColor,
     fontFamily: 'PoppinsLight, sans-serif',
     border: `7px solid ${disabled ? '#999' : borderColor}`,
+    padding: '8px',
     // To make sure the text is not broken into multiple lines and is contained within the inner circle
     whiteSpace: 'nowrap',         // force single line
     overflow: 'hidden',           // hide overflow

@@ -3,7 +3,7 @@ import { fonts, DEFAULT_FONT_SIZE } from './fontManager'
 
 // Constants for container dimensions
 const CONTAINER_DIMENSIONS = {
-  PHONE_CASE: { width: 230, height: 380 }, // w-72 = 288px, h-[480px] = 480px
+  PHONE_CASE: { width: 230, height: 380 }, 
   FILM_STRIP: { width: 525, height: 525 },
   // Safe zones to keep text well within bounds
   SAFE_MARGIN: 20 // pixels from edge

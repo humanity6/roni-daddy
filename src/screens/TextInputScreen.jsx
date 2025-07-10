@@ -20,13 +20,14 @@ const TextInputScreen = () => {
     textPosition: initialPosition, 
     stripCount,
     fontSize: initialFontSize,
-    selectedFont: initialFont
+    selectedFont: initialFont,
+    selectedTextColor
   } = location.state || {}
   const { generatedImage, keyword, optionalText, aiCredits } = location.state || {}
   
   const [inputText, setInputText] = useState(initialText || '')
   const [textPosition, setTextPosition] = useState(initialPosition || { x: 50, y: 50 })
-  const [fontSize, setFontSize] = useState(initialFontSize || 34)
+  const [fontSize, setFontSize] = useState(initialFontSize || 30)
   const [selectedFont, setSelectedFont] = useState(initialFont || 'Arial')
   const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
   
@@ -150,6 +151,7 @@ const TextInputScreen = () => {
         textPosition,
         fontSize,
         selectedFont,
+        selectedTextColor,
         transform: initialTransform
       } 
     })
@@ -246,7 +248,10 @@ const TextInputScreen = () => {
                   <div 
                     ref={filmStripTextBoxRef}
                     className="text-white"
-                    style={getFontStyle()}
+                    style={{
+                      ...getFontStyle(),
+                      color: selectedTextColor || '#ffffff'
+                    }}
                   >
                     {inputText}
                   </div>
@@ -323,7 +328,10 @@ const TextInputScreen = () => {
                   <div 
                     ref={textBoxRef}
                     className="text-white"
-                    style={getFontStyle()}
+                    style={{
+                      ...getFontStyle(),
+                      color: selectedTextColor || '#ffffff'
+                    }}
                   >
                     {inputText}
                   </div>

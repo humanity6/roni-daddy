@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
+// Positioning utilities
+import { useTextBoundaries, createPositionHandlers } from '../utils/textBoundaryManager'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { fonts as availableFonts } from '../utils/fontManager'
@@ -10,7 +12,37 @@ const TextColorSelectionScreen = () => {
   const location = useLocation()
   const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, selectedFont, fontSize, textPosition, transform: initialTransform, stripCount } = location.state || {}
   
-  const [selectedTextColor, setSelectedTextColor] = useState('#ffffff')
+  // Local state for adjustable text position
+  const [adjustedTextPosition, setAdjustedTextPosition] = useState(textPosition || { x: 50, y: 50 })
+  const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
+
+  // Hook for text boundaries
+  const {
+    textDimensions,
+    containerDimensions,
+    safeBoundaries,
+    constrainPosition,
+    validateTextFit,
+    getFontStyle,
+    measureRef
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+
+  // Position handlers
+  const positionHandlers = createPositionHandlers(adjustedTextPosition, safeBoundaries, setAdjustedTextPosition)
+
+  // Sync position when text or dimensions change
+  useEffect(() => {
+    if (inputText?.trim() && textDimensions.width > 0 && !isPositionBeingAdjusted) {
+      const constrainedPosition = constrainPosition(adjustedTextPosition)
+      if (constrainedPosition.x !== adjustedTextPosition.x || constrainedPosition.y !== adjustedTextPosition.y) {
+        setIsPositionBeingAdjusted(true)
+        setAdjustedTextPosition(constrainedPosition)
+        setTimeout(() => setIsPositionBeingAdjusted(false), 100)
+      }
+    }
+  }, [textDimensions, inputText, selectedFont, fontSize, constrainPosition, adjustedTextPosition, isPositionBeingAdjusted])
+
+  const [selectedTextColor, setSelectedTextColor] = useState(location.state?.selectedTextColor || '#ffffff')
 
   const colors = [
     { name: 'White', value: '#ffffff', bg: 'bg-white', border: 'border-gray-300' },
@@ -52,7 +84,8 @@ const TextColorSelectionScreen = () => {
         inputText,
         selectedFont,
         fontSize,
-        textPosition,
+        textPosition: adjustedTextPosition,
+        selectedTextColor,
         transform: initialTransform,
         stripCount
       } 
@@ -73,7 +106,7 @@ const TextColorSelectionScreen = () => {
         selectedFont,
         fontSize,
         selectedTextColor,
-        textPosition,
+        textPosition: adjustedTextPosition,
         transform: initialTransform,
         stripCount
       }
@@ -94,8 +127,8 @@ const TextColorSelectionScreen = () => {
 
   const getTextStyle = () => ({
     position: 'absolute',
-    left: `${textPosition?.x || 50}%`,
-    top: `${textPosition?.y || 50}%`,
+    left: `${adjustedTextPosition.x}%`,
+    top: `${adjustedTextPosition.y}%`,
     transform: 'translate(-50%, -50%)',
     pointerEvents: 'none'
   })
@@ -103,6 +136,13 @@ const TextColorSelectionScreen = () => {
   return (
     <div className="screen-container">
       <PastelBlobs />
+
+      {/* Hidden measurement div */}
+      <div className="fixed -top-[9999px] -left-[9999px] pointer-events-none">
+        <div ref={measureRef} style={getFontStyle()}>
+          {inputText || 'M'}
+        </div>
+      </div>
       
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-4">
@@ -152,11 +192,7 @@ const TextColorSelectionScreen = () => {
               {inputText && (
                 <div 
                   className="absolute z-30 pointer-events-none"
-                  style={{
-                    left: `${textPosition?.x || 50}%`,
-                    top: `${textPosition?.y || 50}%`,
-                    transform: 'translate(-50%, -50%)'
-                  }}
+                  style={getTextStyle()}
                 >
                   <div className="px-4 py-2 whitespace-nowrap">
                     <p style={getPreviewStyle()}>{inputText}</p>
@@ -273,6 +309,49 @@ const TextColorSelectionScreen = () => {
             <ChevronRight size={20} className="text-gray-600" />
           </button>
         </div>
+
+        {/* Position Control Buttons */}
+        {inputText && (
+          <div className="mb-6">
+            <p className="text-center text-sm font-medium text-gray-700 mb-3">Position Text</p>
+
+            {/* Up button */}
+            <div className="flex justify-center mb-2">
+              <button 
+                onClick={positionHandlers.moveUp}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowUp size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Left and Right buttons */}
+            <div className="flex items-center justify-center space-x-12 mb-2">
+              <button 
+                onClick={positionHandlers.moveLeft}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowLeft size={20} className="text-gray-600" />
+              </button>
+              <button 
+                onClick={positionHandlers.moveRight}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowRight size={20} className="text-gray-600" />
+              </button>
+            </div>
+
+            {/* Down button */}
+            <div className="flex justify-center">
+              <button 
+                onClick={positionHandlers.moveDown}
+                className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              >
+                <ArrowDown size={20} className="text-gray-600" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Horizontal Color Slider */}
         <div className="w-full mb-8">
