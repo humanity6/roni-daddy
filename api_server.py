@@ -1100,26 +1100,18 @@ async def confirm_payment(request: PaymentConfirmRequest):
         client = get_chinese_api_client()
         
         # Report payment to Chinese API
-        payment_data = {
-            "mobile_model_id": request.order_data.get("mobile_model_id"),
-            "device_id": client.config.device_id,
-            "third_id": third_pay_id,
-            "pay_amount": intent.amount / 100,  # Convert back to pounds
-            "pay_type": 6  # Card payment
-        }
-        
-        payment_result = await client.report_payment(payment_data)
+        payment_result = client.report_payment(
+            mobile_model_id=request.order_data.get("mobile_model_id", "MM020250701000001"),
+            pay_amount=intent.amount / 100,  # Convert back to pounds
+            pay_type=6  # Card payment
+        )
         
         # Submit order to Chinese API
-        order_data = {
-            "third_pay_id": third_pay_id,
-            "third_id": third_order_id,
-            "mobile_model_id": request.order_data.get("mobile_model_id"),
-            "pic": request.order_data.get("pic"),
-            "device_id": client.config.device_id
-        }
-        
-        order_result = await client.submit_order(order_data)
+        order_result = client.create_order(
+            third_pay_id=third_pay_id,
+            mobile_model_id=request.order_data.get("mobile_model_id", "MM020250701000001"),
+            pic_url=request.order_data.get("pic", "")
+        )
         
         return {
             "success": True,
