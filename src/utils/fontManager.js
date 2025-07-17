@@ -26,7 +26,19 @@ export const fonts = [
   { name: 'Roboto',           style: 'Roboto, Helvetica, Arial, sans-serif' },
   { name: 'Open Sans',        style: 'Open Sans, Helvetica, Arial, sans-serif' },
   { name: 'Montserrat',       style: 'Montserrat, Helvetica, Arial, sans-serif' },
-  { name: 'Lato',             style: 'Lato, Helvetica, Arial, sans-serif' }
+  { name: 'Lato',             style: 'Lato, Helvetica, Arial, sans-serif' },
+  // Additional fonts for phone case text overlays
+  { name: 'Poppins',          style: 'Poppins, Helvetica, Arial, sans-serif' },
+  { name: 'Nunito',           style: 'Nunito, Helvetica, Arial, sans-serif' },
+  { name: 'Quicksand',        style: 'Quicksand, Helvetica, Arial, sans-serif' },
+  { name: 'Pacifico',         style: 'Pacifico, cursive, sans-serif' },
+  { name: 'Dancing Script',   style: 'Dancing Script, cursive, sans-serif' },
+  { name: 'Bebas Neue',       style: 'Bebas Neue, Impact, Charcoal, sans-serif' },
+  { name: 'Oswald',           style: 'Oswald, Impact, Charcoal, sans-serif' },
+  { name: 'Playfair Display', style: 'Playfair Display, Georgia, serif' },
+  { name: 'Source Sans Pro',  style: 'Source Sans Pro, Helvetica, Arial, sans-serif' },
+  { name: 'Ubuntu',           style: 'Ubuntu, Helvetica, Arial, sans-serif' },
+  { name: 'Raleway',          style: 'Raleway, Helvetica, Arial, sans-serif' }
 ]
 
 // Helper to build a style object for the provided font & optional overrides.

@@ -313,7 +313,7 @@ const FunnyToonGenerateScreen = () => {
               disabled={aiCredits===0||isGenerating}
               className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
-              <span className="font-semibold text-[10px]">{generatedImage ? 'Submit' : 'Generate'}</span>
+              <span className="font-semibold text-[8px] leading-none text-center px-1 break-words">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>
           </div>
         </div>
