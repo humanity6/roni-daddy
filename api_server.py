@@ -13,6 +13,8 @@ import time
 from typing import Optional, List
 import json
 import requests
+import stripe
+from pydantic import BaseModel
 from chinese_api_client import ChineseAPIClient, ChineseAPIConfig
 
 # Load environment variables - check multiple locations
@@ -41,6 +43,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Stripe Configuration
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+
+# Pydantic models for payment requests
+class PaymentIntentRequest(BaseModel):
+    amount: float
+    template_id: str
+    brand: str
+    model: str
+    color: str
+
+class PaymentConfirmRequest(BaseModel):
+    payment_intent_id: str
+    order_data: dict
 
 # Chinese API Configuration
 def get_chinese_api_config():
@@ -931,6 +948,191 @@ async def get_template_styles(template_id: str):
         return {"modes": list(template_config["modes"].keys())}
     else:
         return {"options": []}
+
+# Our own Brand and Model API endpoints for Chinese team
+@app.get("/api/brands")
+async def get_our_brands():
+    """Get brands that we provide to Chinese team"""
+    return {
+        "msg": "操作成功",
+        "code": 200,
+        "data": [
+            {
+                "name": "苹果",
+                "e_name": "iPhone",
+                "id": "BR020250701000001"
+            },
+            {
+                "name": "三星",
+                "e_name": "SAMSUNG",
+                "id": "BR020250701000002"
+            },
+            {
+                "name": "谷歌",
+                "e_name": "Google",
+                "id": "BR020250701000003"
+            }
+        ]
+    }
+
+@app.get("/api/models/{brand_id}")
+async def get_our_models(brand_id: str):
+    """Get phone models for a specific brand that we provide to Chinese team"""
+    
+    models_data = {
+        "BR020250701000001": [  # iPhone
+            {
+                "mobile_model_name": "iPhone 15 Pro",
+                "mobile_model_id": "MM020250701000001",
+                "price": 19.99,
+                "stock": 100
+            },
+            {
+                "mobile_model_name": "iPhone 15 Pro Max",
+                "mobile_model_id": "MM020250701000002",
+                "price": 19.99,
+                "stock": 100
+            },
+            {
+                "mobile_model_name": "iPhone 15",
+                "mobile_model_id": "MM020250701000003",
+                "price": 19.99,
+                "stock": 100
+            },
+            {
+                "mobile_model_name": "iPhone 15 Plus",
+                "mobile_model_id": "MM020250701000004",
+                "price": 19.99,
+                "stock": 100
+            }
+        ],
+        "BR020250701000002": [  # Samsung
+            {
+                "mobile_model_name": "Samsung Galaxy S24",
+                "mobile_model_id": "MM020250701000005",
+                "price": 19.99,
+                "stock": 100
+            },
+            {
+                "mobile_model_name": "Samsung Galaxy S24+",
+                "mobile_model_id": "MM020250701000006",
+                "price": 19.99,
+                "stock": 100
+            },
+            {
+                "mobile_model_name": "Samsung Galaxy S24 Ultra",
+                "mobile_model_id": "MM020250701000007",
+                "price": 19.99,
+                "stock": 100
+            }
+        ],
+        "BR020250701000003": [  # Google
+            {
+                "mobile_model_name": "Google Pixel 8",
+                "mobile_model_id": "MM020250701000008",
+                "price": 19.99,
+                "stock": 100
+            },
+            {
+                "mobile_model_name": "Google Pixel 8 Pro",
+                "mobile_model_id": "MM020250701000009",
+                "price": 19.99,
+                "stock": 100
+            }
+        ]
+    }
+    
+    if brand_id not in models_data:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    
+    return {
+        "msg": "操作成功",
+        "code": 200,
+        "data": models_data[brand_id]
+    }
+
+@app.post("/create-payment-intent")
+async def create_payment_intent(request: PaymentIntentRequest):
+    """Create a Stripe payment intent"""
+    try:
+        # Convert amount to pence (Stripe requires integers)
+        amount_pence = int(request.amount * 100)
+        
+        # Create payment intent
+        intent = stripe.PaymentIntent.create(
+            amount=amount_pence,
+            currency='gbp',
+            metadata={
+                'template_id': request.template_id,
+                'brand': request.brand,
+                'model': request.model,
+                'color': request.color
+            }
+        )
+        
+        return {
+            "client_secret": intent.client_secret,
+            "payment_intent_id": intent.id
+        }
+    
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment intent creation failed: {str(e)}")
+
+@app.post("/confirm-payment")
+async def confirm_payment(request: PaymentConfirmRequest):
+    """Confirm payment and process order"""
+    try:
+        # Retrieve payment intent to verify it's paid
+        intent = stripe.PaymentIntent.retrieve(request.payment_intent_id)
+        
+        if intent.status != 'succeeded':
+            raise HTTPException(status_code=400, detail="Payment not completed")
+        
+        # Generate third-party payment ID in Chinese API format
+        from datetime import datetime
+        now = datetime.now()
+        third_pay_id = f"PYEN{now.strftime('%y%m%d')}{str(uuid.uuid4().hex[:6]).upper()}"
+        third_order_id = f"OREN{now.strftime('%y%m%d')}{str(uuid.uuid4().hex[:6]).upper()}"
+        
+        # Get Chinese API client
+        client = get_chinese_api_client()
+        
+        # Report payment to Chinese API
+        payment_data = {
+            "mobile_model_id": request.order_data.get("mobile_model_id"),
+            "device_id": client.config.device_id,
+            "third_id": third_pay_id,
+            "pay_amount": intent.amount / 100,  # Convert back to pounds
+            "pay_type": 6  # Card payment
+        }
+        
+        payment_result = await client.report_payment(payment_data)
+        
+        # Submit order to Chinese API
+        order_data = {
+            "third_pay_id": third_pay_id,
+            "third_id": third_order_id,
+            "mobile_model_id": request.order_data.get("mobile_model_id"),
+            "pic": request.order_data.get("pic"),
+            "device_id": client.config.device_id
+        }
+        
+        order_result = await client.submit_order(order_data)
+        
+        return {
+            "success": True,
+            "payment_id": third_pay_id,
+            "order_id": third_order_id,
+            "queue_no": order_result.get("queue_no"),
+            "status": order_result.get("status")
+        }
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment confirmation failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

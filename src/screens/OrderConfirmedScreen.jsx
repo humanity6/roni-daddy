@@ -1,8 +1,13 @@
 import { ArrowLeft } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 const OrderConfirmedScreen = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  
+  // Get real order data from payment screen
+  const { orderData, brand, model, price } = location.state || {}
+  const orderNumber = orderData?.order_id || orderData?.queue_no || 'Loading...'
 
   const handleBack = () => {
     navigate(-1)
@@ -37,7 +42,7 @@ const OrderConfirmedScreen = () => {
 
           {/* Green order number pill */}
           <div className="px-10 py-2 bg-[#D4EFC1] rounded-full">
-            <p className="text-4xl font-black text-[#2F3842]" style={{ fontFamily:'Redminer, Cubano, Arial Black, sans-serif' }}>9630</p>
+            <p className="text-4xl font-black text-[#2F3842]" style={{ fontFamily:'Redminer, Cubano, Arial Black, sans-serif' }}>{orderNumber}</p>
           </div>
 
           {/* Phone-style rectangle card */}
@@ -90,7 +95,7 @@ const OrderConfirmedScreen = () => {
                   <div className="w-16 h-5 bg-white rounded-full"></div>
                 </div>
                 <div className="text-center">
-                  <p className="text-[#2F3842] text-6xl md:text-7xl font-black" style={{ fontFamily:'Redminer, Cubano, Arial Black, sans-serif' }}>9630</p>
+                  <p className="text-[#2F3842] text-6xl md:text-7xl font-black" style={{ fontFamily:'Redminer, Cubano, Arial Black, sans-serif' }}>{orderNumber}</p>
                 </div>
               </div>
             </div>

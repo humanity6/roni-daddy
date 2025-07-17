@@ -1,10 +1,14 @@
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { fonts as availableFonts } from '../utils/fontManager'
+import { getTemplatePrice } from '../config/templatePricing'
+import { useState } from 'react'
 
 const PaymentScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [paymentError, setPaymentError] = useState(null)
 
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
@@ -59,19 +63,13 @@ const PaymentScreen = () => {
     }
   ]
 
-  // Determine the effective price. Use the explicit `price` from state if provided;
-  // otherwise, attempt to parse it from `template.price` (e.g. "£19.99") and
-  // fall back to 18.99 if all else fails.
-  const parsedTemplatePrice = template?.price
-    ? parseFloat(String(template.price).replace(/[^0-9.]/g, ''))
-    : NaN
-
-  const effectivePrice =
+  // Get the effective price from template pricing config
+  const effectivePrice = 
     typeof price === 'number' && !isNaN(price)
       ? price
-      : !isNaN(parsedTemplatePrice)
-        ? parsedTemplatePrice
-        : 18.99
+      : template?.id 
+        ? getTemplatePrice(template.id)
+        : 19.99
 
   // Compute style helpers reused from previous screens
   const getPreviewStyle = () => ({
@@ -95,15 +93,80 @@ const PaymentScreen = () => {
     navigate(-1)
   }
 
-  const handlePay = () => {
-    navigate('/order-confirmed', { 
-      state: { 
-        designImage, 
-        uploadedImages,
-        imageTransforms,
-        price: effectivePrice 
-      } 
-    })
+  const handlePay = async () => {
+    if (isProcessingPayment) return
+    
+    setIsProcessingPayment(true)
+    setPaymentError(null)
+    
+    try {
+      // Get all the order data we need
+      const { brand, model, color } = location.state || {}
+      
+      // Create payment intent
+      const paymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: effectivePrice,
+          template_id: template?.id || 'classic',
+          brand: brand || 'iPhone',
+          model: model || 'iPhone 15 Pro',
+          color: color || 'Natural Titanium'
+        }),
+      })
+      
+      if (!paymentResponse.ok) {
+        throw new Error('Payment setup failed')
+      }
+      
+      const { payment_intent_id } = await paymentResponse.json()
+      
+      // For now, simulate successful payment (in production, this would use Stripe Elements)
+      // Confirm payment
+      const confirmResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment_intent_id,
+          order_data: {
+            mobile_model_id: `MM${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}000001`,
+            pic: designImage
+          }
+        }),
+      })
+      
+      if (!confirmResponse.ok) {
+        throw new Error('Payment confirmation failed')
+      }
+      
+      const orderResult = await confirmResponse.json()
+      
+      // Navigate to order confirmed with real data
+      navigate('/order-confirmed', { 
+        state: { 
+          designImage, 
+          uploadedImages,
+          imageTransforms,
+          price: effectivePrice,
+          orderData: orderResult,
+          brand,
+          model,
+          color,
+          template
+        } 
+      })
+      
+    } catch (error) {
+      console.error('Payment error:', error)
+      setPaymentError('Payment failed. Please try again.')
+    } finally {
+      setIsProcessingPayment(false)
+    }
   }
 
   return (
@@ -311,13 +374,21 @@ const PaymentScreen = () => {
             <div className="rounded-full bg-white p-[6px]">
               <button
                 onClick={handlePay}
-                className="w-20 h-20 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold"
+                disabled={isProcessingPayment}
+                className="w-20 h-20 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Pay
+                {isProcessingPayment ? '...' : 'Pay'}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Error message */}
+        {paymentError && (
+          <div className="mb-4 px-4 py-2 bg-red-100 border border-red-400 text-red-700 rounded">
+            {paymentError}
+          </div>
+        )}
 
         {/* Bottom helper text */}
         <div className="mb-8 text-center">

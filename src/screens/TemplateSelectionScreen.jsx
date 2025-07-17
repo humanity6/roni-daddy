@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { getTemplatePriceDisplay } from '../config/templatePricing'
 
 const TemplateSelectionScreen = () => {
   const navigate = useNavigate()
@@ -16,7 +17,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'classic',
       name: 'Classic',
-      price: '£19.99',
+      price: getTemplatePriceDisplay('classic'),
       category: 'basic',
       description: 'Single image with background',
       imageCount: 1,
@@ -27,7 +28,7 @@ const TemplateSelectionScreen = () => {
     {
       id: '2-in-1',
       name: '2 in 1',
-      price: '£19.99',
+      price: getTemplatePriceDisplay('2-in-1'),
       category: 'basic',
       description: '2 images with layouts',
       imageCount: 2,
@@ -38,7 +39,7 @@ const TemplateSelectionScreen = () => {
     {
       id: '3-in-1',
       name: '3 in 1',
-      price: '£19.99',
+      price: getTemplatePriceDisplay('3-in-1'),
       category: 'basic',
       description: '3 images with layouts',
       imageCount: 3,
@@ -49,7 +50,7 @@ const TemplateSelectionScreen = () => {
     {
       id: '4-in-1',
       name: '4 in 1',
-      price: '£19.99',
+      price: getTemplatePriceDisplay('4-in-1'),
       category: 'basic',
       description: '4 images with layouts',
       imageCount: 4,
@@ -74,7 +75,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'film-strip-3',
       name: 'Film Strip',
-      price: '£19.99',
+      price: getTemplatePriceDisplay('film-strip-3'),
       category: 'film',
       description: '3 in 1 Film Strip',
       imageCount: 3,
@@ -96,7 +97,7 @@ const TemplateSelectionScreen = () => {
     {
       id: 'funny-toon',
       name: 'Funny Toon',
-      price: '£21.99',
+      price: getTemplatePriceDisplay('funny-toon'),
       category: 'ai',
       description: 'Cartoon conversion',
       imageCount: 1,
