@@ -551,19 +551,70 @@ async def get_phone_models(brand_id: str):
         # Simple fallback based on brand_id
         if brand_id.lower() == "iphone":
             fallback_models = [
+                {"id": "iphone-16-pro-max", "name": "iPhone 16 Pro Max", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-16-pro", "name": "iPhone 16 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-16-plus", "name": "iPhone 16 Plus", "price": 17.99, "stock": 10, "available": True},
                 {"id": "iphone-16", "name": "iPhone 16", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-15-pro-max", "name": "iPhone 15 Pro Max", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-15-pro", "name": "iPhone 15 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-15-plus", "name": "iPhone 15 Plus", "price": 17.99, "stock": 10, "available": True},
                 {"id": "iphone-15", "name": "iPhone 15", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-14", "name": "iPhone 14", "price": 17.99, "stock": 10, "available": True}
+                {"id": "iphone-14-pro-max", "name": "iPhone 14 Pro Max", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-14-pro", "name": "iPhone 14 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-14-plus", "name": "iPhone 14 Plus", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-14", "name": "iPhone 14", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-13-pro-max", "name": "iPhone 13 Pro Max", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-13-pro", "name": "iPhone 13 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-13", "name": "iPhone 13", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-13-mini", "name": "iPhone 13 mini", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-12-pro-max", "name": "iPhone 12 Pro Max", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-12-pro", "name": "iPhone 12 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-12", "name": "iPhone 12", "price": 17.99, "stock": 10, "available": True},
+                {"id": "iphone-12-mini", "name": "iPhone 12 mini", "price": 17.99, "stock": 10, "available": True}
             ]
         elif brand_id.lower() == "samsung":
             fallback_models = [
+                {"id": "galaxy-s24-ultra", "name": "Galaxy S24 Ultra", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s24-plus", "name": "Galaxy S24 Plus", "price": 17.99, "stock": 10, "available": True},
                 {"id": "galaxy-s24", "name": "Galaxy S24", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s23", "name": "Galaxy S23", "price": 17.99, "stock": 10, "available": True}
+                {"id": "galaxy-s23-ultra", "name": "Galaxy S23 Ultra", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s23-plus", "name": "Galaxy S23 Plus", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s23", "name": "Galaxy S23", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s22-ultra", "name": "Galaxy S22 Ultra", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s22-plus", "name": "Galaxy S22 Plus", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s22", "name": "Galaxy S22", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s21-ultra", "name": "Galaxy S21 Ultra", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s21-plus", "name": "Galaxy S21 Plus", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-s21", "name": "Galaxy S21", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-z-fold6", "name": "Galaxy Z Fold 6", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-z-fold5", "name": "Galaxy Z Fold 5", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-z-fold4", "name": "Galaxy Z Fold 4", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-z-flip6", "name": "Galaxy Z Flip 6", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-z-flip5", "name": "Galaxy Z Flip 5", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-z-flip4", "name": "Galaxy Z Flip 4", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-a55", "name": "Galaxy A55", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-a35", "name": "Galaxy A35", "price": 17.99, "stock": 10, "available": True},
+                {"id": "galaxy-a25", "name": "Galaxy A25", "price": 17.99, "stock": 10, "available": True}
             ]
         elif brand_id.lower() == "google":
             fallback_models = [
+                {"id": "pixel-9-pro-xl", "name": "Pixel 9 Pro XL", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-9-pro", "name": "Pixel 9 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-9", "name": "Pixel 9", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-8-pro", "name": "Pixel 8 Pro", "price": 17.99, "stock": 10, "available": True},
                 {"id": "pixel-8", "name": "Pixel 8", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-7", "name": "Pixel 7", "price": 17.99, "stock": 10, "available": True}
+                {"id": "pixel-8a", "name": "Pixel 8a", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-7-pro", "name": "Pixel 7 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-7", "name": "Pixel 7", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-7a", "name": "Pixel 7a", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-6-pro", "name": "Pixel 6 Pro", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-6", "name": "Pixel 6", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-6a", "name": "Pixel 6a", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-5", "name": "Pixel 5", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-5a", "name": "Pixel 5a", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-4-xl", "name": "Pixel 4 XL", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-4", "name": "Pixel 4", "price": 17.99, "stock": 10, "available": True},
+                {"id": "pixel-4a", "name": "Pixel 4a", "price": 17.99, "stock": 10, "available": True}
             ]
         
         return {
