@@ -1083,8 +1083,7 @@ async def create_checkout_session(request: CheckoutSessionRequest):
                 'template_id': request.template_id,
                 'brand': request.brand,
                 'model': request.model,
-                'color': request.color,
-                'design_image': request.design_image or ''
+                'color': request.color
             }
         )
         
