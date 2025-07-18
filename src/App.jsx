@@ -29,6 +29,8 @@ import GlitchProGenerateScreen from './screens/GlitchProGenerateScreen'
 import CoverShootScreen from './screens/CoverShootScreen'
 import CoverShootGenerateScreen from './screens/CoverShootGenerateScreen'
 import RetroRemixGenerateScreen from './screens/RetroRemixGenerateScreen'
+import PaymentSuccessScreen from './screens/PaymentSuccessScreen'
+import PaymentCancelScreen from './screens/PaymentCancelScreen'
 
 function App() {
   return (
@@ -66,6 +68,8 @@ function App() {
           <Route path="/cover-shoot" element={<CoverShootScreen />} />
           <Route path="/cover-shoot-generate" element={<CoverShootGenerateScreen />} />
           <Route path="/retro-remix-generate" element={<RetroRemixGenerateScreen />} />
+          <Route path="/payment-success" element={<PaymentSuccessScreen />} />
+          <Route path="/payment-cancel" element={<PaymentCancelScreen />} />
         </Routes>
       </div>
     </AppStateProvider>

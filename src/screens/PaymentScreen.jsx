@@ -103,8 +103,26 @@ const PaymentScreen = () => {
       // Get all the order data we need
       const { brand, model, color } = location.state || {}
       
-      // Create payment intent
-      const paymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/create-payment-intent`, {
+      // Store current order data in localStorage for success page
+      const orderData = {
+        designImage, 
+        uploadedImages,
+        imageTransforms,
+        price: effectivePrice,
+        brand: brand || 'iPhone',
+        model: model || 'iPhone 15 Pro',
+        color: color || 'Natural Titanium',
+        template,
+        inputText,
+        selectedFont,
+        selectedTextColor,
+        selectedBackgroundColor,
+        textPosition
+      }
+      localStorage.setItem('pendingOrder', JSON.stringify(orderData))
+      
+      // Create Stripe checkout session
+      const checkoutResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/create-checkout-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,57 +132,23 @@ const PaymentScreen = () => {
           template_id: template?.id || 'classic',
           brand: brand || 'iPhone',
           model: model || 'iPhone 15 Pro',
-          color: color || 'Natural Titanium'
+          color: color || 'Natural Titanium',
+          design_image: designImage
         }),
       })
       
-      if (!paymentResponse.ok) {
-        throw new Error('Payment setup failed')
+      if (!checkoutResponse.ok) {
+        throw new Error('Checkout session creation failed')
       }
       
-      const { payment_intent_id } = await paymentResponse.json()
+      const { checkout_url } = await checkoutResponse.json()
       
-      // For now, simulate successful payment (in production, this would use Stripe Elements)
-      // Confirm payment
-      const confirmResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/confirm-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          payment_intent_id,
-          order_data: {
-            mobile_model_id: `MM${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}000001`,
-            pic: designImage
-          }
-        }),
-      })
-      
-      if (!confirmResponse.ok) {
-        throw new Error('Payment confirmation failed')
-      }
-      
-      const orderResult = await confirmResponse.json()
-      
-      // Navigate to order confirmed with real data
-      navigate('/order-confirmed', { 
-        state: { 
-          designImage, 
-          uploadedImages,
-          imageTransforms,
-          price: effectivePrice,
-          orderData: orderResult,
-          brand,
-          model,
-          color,
-          template
-        } 
-      })
+      // Redirect to Stripe hosted checkout
+      window.location.href = checkout_url
       
     } catch (error) {
       console.error('Payment error:', error)
-      setPaymentError('Payment failed. Please try again.')
-    } finally {
+      setPaymentError('Payment setup failed. Please try again.')
       setIsProcessingPayment(false)
     }
   }

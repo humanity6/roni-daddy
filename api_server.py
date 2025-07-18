@@ -48,15 +48,16 @@ app.add_middleware(
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
 # Pydantic models for payment requests
-class PaymentIntentRequest(BaseModel):
+class CheckoutSessionRequest(BaseModel):
     amount: float
     template_id: str
     brand: str
     model: str
     color: str
+    design_image: Optional[str] = None
 
-class PaymentConfirmRequest(BaseModel):
-    payment_intent_id: str
+class PaymentSuccessRequest(BaseModel):
+    session_id: str
     order_data: dict
 
 # Chinese API Configuration
@@ -1051,52 +1052,72 @@ async def get_our_models(brand_id: str):
         "data": models_data[brand_id]
     }
 
-@app.post("/create-payment-intent")
-async def create_payment_intent(request: PaymentIntentRequest):
-    """Create a Stripe payment intent"""
+@app.post("/create-checkout-session")
+async def create_checkout_session(request: CheckoutSessionRequest):
+    """Create a Stripe Checkout session"""
     try:
         # Convert amount to pence (Stripe requires integers)
         amount_pence = int(request.amount * 100)
         
-        # Create payment intent
-        intent = stripe.PaymentIntent.create(
-            amount=amount_pence,
-            currency='gbp',
+        # Determine the base URL for redirects
+        base_url = "http://localhost:5173"  # Frontend URL
+        
+        # Create checkout session
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'gbp',
+                    'product_data': {
+                        'name': f'Phone Case - {request.template_id}',
+                        'description': f'{request.brand} {request.model} - {request.color}',
+                    },
+                    'unit_amount': amount_pence,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=f'{base_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}',
+            cancel_url=f'{base_url}/payment-cancel',
             metadata={
                 'template_id': request.template_id,
                 'brand': request.brand,
                 'model': request.model,
-                'color': request.color
+                'color': request.color,
+                'design_image': request.design_image or ''
             }
         )
         
         return {
-            "client_secret": intent.client_secret,
-            "payment_intent_id": intent.id
+            "checkout_url": session.url,
+            "session_id": session.id
         }
     
     except stripe.error.StripeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Payment intent creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Checkout session creation failed: {str(e)}")
 
-@app.post("/confirm-payment")
-async def confirm_payment(request: PaymentConfirmRequest):
-    """Confirm payment and process order"""
+@app.post("/process-payment-success")
+async def process_payment_success(request: PaymentSuccessRequest):
+    """Process successful payment from Stripe Checkout"""
     try:
-        print(f"Starting payment confirmation for intent: {request.payment_intent_id}")
+        print(f"Starting payment processing for session: {request.session_id}")
         
-        # Retrieve payment intent to verify it's paid
-        intent = stripe.PaymentIntent.retrieve(request.payment_intent_id)
-        print(f"Payment intent status: {intent.status}")
+        # Retrieve checkout session to verify payment
+        session = stripe.checkout.Session.retrieve(request.session_id)
+        print(f"Checkout session status: {session.payment_status}")
+        print(f"Session amount: {session.amount_total}")
+        print(f"Session currency: {session.currency}")
         
-        # For testing purposes, we'll accept any payment intent status
-        # In production, you would check: if intent.status != 'succeeded'
-        print(f"Payment intent amount: {intent.amount}")
-        print(f"Payment intent currency: {intent.currency}")
+        if session.payment_status != 'paid':
+            raise HTTPException(status_code=400, detail="Payment not completed")
         
-        # For testing, we'll skip the Chinese API integration and return mock data
-        # since we're getting permission errors with the Chinese API
+        # Get metadata from session
+        template_id = session.metadata.get('template_id', 'classic')
+        brand = session.metadata.get('brand', 'iPhone')
+        model = session.metadata.get('model', 'iPhone 15 Pro')
+        color = session.metadata.get('color', 'Natural Titanium')
         
         # Generate third-party payment ID in Chinese API format
         from datetime import datetime
@@ -1107,7 +1128,7 @@ async def confirm_payment(request: PaymentConfirmRequest):
         print(f"Generated payment ID: {third_pay_id}")
         print(f"Generated order ID: {third_order_id}")
         
-        # For now, return success without Chinese API calls to test the flow
+        # For testing, we'll skip the Chinese API integration and return mock data
         # In production, you would uncomment the Chinese API calls below
         
         # try:
@@ -1117,7 +1138,7 @@ async def confirm_payment(request: PaymentConfirmRequest):
         #     # Report payment to Chinese API
         #     payment_result = client.report_payment(
         #         mobile_model_id=request.order_data.get("mobile_model_id", "MM020250701000001"),
-        #         pay_amount=intent.amount / 100,  # Convert back to pounds
+        #         pay_amount=session.amount_total / 100,  # Convert back to pounds
         #         pay_type=6  # Card payment
         #     )
         #     
@@ -1142,17 +1163,22 @@ async def confirm_payment(request: PaymentConfirmRequest):
             "payment_id": third_pay_id,
             "order_id": third_order_id,
             "queue_no": "Q001",
-            "status": 8  # 8 = waiting for printing
+            "status": 8,  # 8 = waiting for printing
+            "brand": brand,
+            "model": model,
+            "color": color,
+            "template_id": template_id,
+            "amount": session.amount_total / 100
         }
         
     except stripe.error.StripeError as e:
         print(f"Stripe error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
     except Exception as e:
-        print(f"Payment confirmation error: {str(e)}")
+        print(f"Payment processing error: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Payment confirmation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment processing failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
