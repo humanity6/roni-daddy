@@ -509,9 +509,38 @@ async def reset_database_endpoint():
         from sqlalchemy import text
         from database import SessionLocal, Base, engine
         
-        # Drop all tables
-        print("Dropping all tables...")
-        Base.metadata.drop_all(bind=engine)
+        # Use raw SQL to drop everything with CASCADE
+        print("Dropping all views and tables with CASCADE...")
+        
+        with engine.connect() as connection:
+            # Start a transaction
+            trans = connection.begin()
+            try:
+                # Drop all views first
+                print("Dropping views...")
+                connection.execute(text("DROP VIEW IF EXISTS order_analytics CASCADE;"))
+                connection.execute(text("DROP VIEW IF EXISTS recent_activity CASCADE;"))
+                
+                # Drop all tables with CASCADE to handle any remaining dependencies
+                print("Dropping all tables with CASCADE...")
+                connection.execute(text("""
+                    DO $$ 
+                    DECLARE 
+                        r RECORD;
+                    BEGIN
+                        FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = current_schema()) LOOP
+                            EXECUTE 'DROP TABLE IF EXISTS ' || quote_ident(r.tablename) || ' CASCADE';
+                        END LOOP;
+                    END $$;
+                """))
+                
+                # Commit the transaction
+                trans.commit()
+                print("All tables and views dropped successfully")
+                
+            except Exception as e:
+                trans.rollback()
+                raise e
         
         # Create all tables fresh
         print("Creating all tables...")
@@ -519,7 +548,7 @@ async def reset_database_endpoint():
         
         return {
             "success": True,
-            "message": "Database reset successfully - all tables dropped and recreated",
+            "message": "Database reset successfully - all views and tables dropped and recreated",
             "status": "ready_for_initialization"
         }
         
