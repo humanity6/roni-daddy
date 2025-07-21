@@ -61,6 +61,9 @@ app.add_middleware(
 # Stripe Configuration
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
+# JWT Configuration
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'fallback-secret-change-in-production')
+
 # Pydantic models for payment requests
 class CheckoutSessionRequest(BaseModel):
     amount: float
@@ -775,7 +778,7 @@ async def create_checkout_session(
         amount_pence = int(request.amount * 100)
         
         # Determine the base URL for redirects
-        base_url = "http://localhost:5173"  # Frontend URL
+        base_url = "https://pimp-my-case.vercel.app"  # Production Frontend URL
         
         # Create checkout session
         session = stripe.checkout.Session.create(

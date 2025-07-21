@@ -132,7 +132,7 @@ class AIImageService {
     try {
       console.log('🔍 Service - Getting phone models for brand:', brandId)
       
-      const response = await fetch(`${API_BASE_URL}/chinese-api/brands/${brandId}/models`)
+      const response = await fetch(`${API_BASE_URL}/api/brands/${brandId}/models`)
       
       if (!response.ok) {
         throw new Error(`Models request failed: ${response.status}`)

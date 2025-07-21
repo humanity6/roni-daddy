@@ -12,7 +12,8 @@
       "Bash(set PGPASSWORD=TX1Sbbd0LQflv9WlotioAjcThdsouYnD)",
       "Bash(where psql)",
       "Bash(psql:*)",
-      "Bash(if exist .env type .env)"
+      "Bash(if exist .env type .env)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
