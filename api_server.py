@@ -44,10 +44,14 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "https://pimp-my-case.vercel.app",  # Production frontend
         "https://pimp-my-case.vercel.app/",  # With trailing slash
+        "https://pimp-my-case-arshads-projects-c0bbf026.vercel.app",  # Main deployment
+        "https://pimp-my-case-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
         "https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app",  # Git branch domain
         "https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
         "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app",  # Preview domain
-        "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app/"  # With trailing slash
+        "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
+        "https://*.vercel.app",  # Allow all Vercel preview deployments
+        "https://*.vercel.app/"  # With trailing slash
     ],
     allow_credentials=True,
     allow_methods=["*"],
