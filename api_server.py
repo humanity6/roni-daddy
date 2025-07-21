@@ -480,11 +480,58 @@ def save_generated_image(base64_data: str, template_id: str) -> tuple:
 async def root():
     return {"message": "PimpMyCase API - Database Edition", "status": "active", "version": "2.0.0"}
 
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon to prevent 404 errors"""
+    # Return a simple redirect to the main logo
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="https://pimp-my-case.vercel.app/logo.png")
+
 # Legacy endpoints removed - using database instead
 
 # Chinese API endpoints removed - now using database
 
 # Old phone models endpoint removed - using database
+
+@app.get("/init-database")
+async def init_database_endpoint(db: Session = Depends(get_db)):
+    """Initialize database with sample data - for production setup"""
+    try:
+        from init_db import init_brands, init_phone_models, init_templates, init_fonts, init_colors, init_vending_machine
+        
+        # Create all tables first
+        create_tables()
+        
+        # Initialize all data
+        init_brands()
+        init_phone_models()
+        init_templates()
+        init_fonts()
+        init_colors()
+        init_vending_machine()
+        
+        return {
+            "success": True,
+            "message": "Database initialized successfully with all sample data",
+            "initialized": [
+                "brands (iPhone, Samsung, Google)",
+                "phone models (20+ iPhone, 20+ Samsung, 17+ Google models)",
+                "templates (5 basic + 4 AI templates)",
+                "fonts (16 fonts including Google fonts)",
+                "colors (12 background + 11 text colors)",
+                "default vending machine"
+            ]
+        }
+        
+    except Exception as e:
+        print(f"Database initialization error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to initialize database"
+        }
 
 @app.get("/health")
 async def health_check(db: Session = Depends(get_db)):
@@ -815,6 +862,50 @@ async def create_checkout_session(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Checkout session creation failed: {str(e)}")
 
+@app.get("/payment-success")
+async def payment_success_page(session_id: str, db: Session = Depends(get_db)):
+    """Handle payment success redirect from Stripe"""
+    try:
+        print(f"Payment success page accessed with session: {session_id}")
+        
+        # Retrieve checkout session to verify payment
+        session = stripe.checkout.Session.retrieve(session_id)
+        print(f"Checkout session status: {session.payment_status}")
+        
+        if session.payment_status != 'paid':
+            raise HTTPException(status_code=400, detail="Payment not completed")
+        
+        # Get metadata from session
+        template_name = session.metadata.get('template_id', 'classic')
+        brand_name = session.metadata.get('brand', 'iPhone')
+        model_name = session.metadata.get('model', 'iPhone 15 Pro')
+        color = session.metadata.get('color', 'Natural Titanium')
+        
+        # Generate queue number for display
+        queue_no = f"Q{str(int(session.created))[-6:]}"
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "payment_id": session.payment_intent,
+            "queue_no": queue_no,
+            "status": "paid",
+            "brand": brand_name,
+            "model": model_name,
+            "color": color,
+            "template_id": template_name,
+            "amount": session.amount_total / 100
+        }
+        
+    except stripe.error.StripeError as e:
+        print(f"Stripe error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except Exception as e:
+        print(f"Payment success error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Payment success failed: {str(e)}")
+
 @app.post("/process-payment-success")
 async def process_payment_success(
     request: PaymentSuccessRequest,
@@ -937,6 +1028,52 @@ async def process_payment_success(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Payment processing failed: {str(e)}")
+
+@app.post("/stripe-webhook")
+async def stripe_webhook_handler(request: Request, db: Session = Depends(get_db)):
+    """Handle Stripe webhook events"""
+    try:
+        payload = await request.body()
+        sig_header = request.headers.get('stripe-signature')
+        
+        try:
+            # Verify webhook signature
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, os.getenv('STRIPE_WEBHOOK_SECRET')
+            )
+        except ValueError:
+            # Invalid payload
+            raise HTTPException(status_code=400, detail="Invalid payload")
+        except stripe.error.SignatureVerificationError:
+            # Invalid signature
+            raise HTTPException(status_code=400, detail="Invalid signature")
+
+        print(f"Stripe webhook received: {event['type']}")
+        
+        # Handle the event
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            print(f"Payment successful for session: {session['id']}")
+            
+            # You can process the payment here if needed
+            # For now, just log and return success
+            
+        elif event['type'] == 'payment_intent.succeeded':
+            payment_intent = event['data']['object']
+            print(f"Payment intent succeeded: {payment_intent['id']}")
+            
+        elif event['type'] == 'payment_intent.payment_failed':
+            payment_intent = event['data']['object']
+            print(f"Payment failed: {payment_intent['id']}")
+            
+        else:
+            print(f"Unhandled event type: {event['type']}")
+
+        return {"success": True, "event_type": event['type']}
+
+    except Exception as e:
+        print(f"Webhook error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Webhook processing failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

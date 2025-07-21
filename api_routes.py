@@ -38,14 +38,17 @@ async def get_brands(include_unavailable: bool = False, db: Session = Depends(ge
 
 @router.get("/api/brands/{brand_id}/models")
 async def get_phone_models(brand_id: str, include_unavailable: bool = False, db: Session = Depends(get_db)):
-    """Get phone models for a specific brand"""
+    """Get phone models for a specific brand (by ID or name)"""
     try:
-        # Verify brand exists
+        # Try to find brand by ID first, then by name (case insensitive)
         brand = BrandService.get_brand_by_id(db, brand_id)
         if not brand:
-            raise HTTPException(status_code=404, detail="Brand not found")
+            brand = BrandService.get_brand_by_name(db, brand_id)
         
-        models = PhoneModelService.get_models_by_brand(db, brand_id, include_unavailable)
+        if not brand:
+            raise HTTPException(status_code=404, detail=f"Brand '{brand_id}' not found")
+        
+        models = PhoneModelService.get_models_by_brand(db, brand.id, include_unavailable)
         return {
             "success": True,
             "models": [
