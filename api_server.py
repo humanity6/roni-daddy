@@ -50,12 +50,21 @@ app.add_middleware(
         "https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
         "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app",  # Preview domain
         "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
-        "https://*.vercel.app",  # Allow all Vercel preview deployments
-        "https://*.vercel.app/"  # With trailing slash
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel deployments
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
 )
 
 # Stripe Configuration
@@ -493,21 +502,59 @@ async def favicon():
 
 # Old phone models endpoint removed - using database
 
+@app.get("/reset-database")
+async def reset_database_endpoint():
+    """Reset database by dropping and recreating all tables"""
+    try:
+        from sqlalchemy import text
+        from database import SessionLocal, Base, engine
+        
+        # Drop all tables
+        print("Dropping all tables...")
+        Base.metadata.drop_all(bind=engine)
+        
+        # Create all tables fresh
+        print("Creating all tables...")
+        Base.metadata.create_all(bind=engine)
+        
+        return {
+            "success": True,
+            "message": "Database reset successfully - all tables dropped and recreated",
+            "status": "ready_for_initialization"
+        }
+        
+    except Exception as e:
+        print(f"Database reset error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to reset database"
+        }
+
 @app.get("/init-database")
-async def init_database_endpoint(db: Session = Depends(get_db)):
+async def init_database_endpoint():
     """Initialize database with sample data - for production setup"""
     try:
         from init_db import init_brands, init_phone_models, init_templates, init_fonts, init_colors, init_vending_machine
         
-        # Create all tables first
+        # Create all tables first (safe to call multiple times)
+        print("Creating/verifying database tables...")
         create_tables()
         
         # Initialize all data
+        print("Initializing brands...")
         init_brands()
+        print("Initializing phone models...")
         init_phone_models()
+        print("Initializing templates...")
         init_templates()
+        print("Initializing fonts...")
         init_fonts()
+        print("Initializing colors...")
         init_colors()
+        print("Initializing vending machine...")
         init_vending_machine()
         
         return {

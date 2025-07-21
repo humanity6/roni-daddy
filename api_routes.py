@@ -432,7 +432,7 @@ async def toggle_color_activation(color_id: str, db: Session = Depends(get_db)):
 async def create_order(
     session_id: str = Form(...),
     brand_id: str = Form(...),
-    model_id: str = Form(...),
+    phone_model_id: str = Form(..., alias="model_id"),
     template_id: str = Form(...),
     user_data: str = Form("{}"),  # JSON string
     db: Session = Depends(get_db)
@@ -444,7 +444,7 @@ async def create_order(
         if not brand:
             raise HTTPException(status_code=404, detail="Brand not found")
         
-        model = PhoneModelService.get_model_by_id(db, model_id)
+        model = PhoneModelService.get_model_by_id(db, phone_model_id)
         if not model:
             raise HTTPException(status_code=404, detail="Phone model not found")
         
@@ -469,7 +469,7 @@ async def create_order(
         order_data = {
             "session_id": session_id,
             "brand_id": brand_id,
-            "model_id": model_id,
+            "model_id": phone_model_id,
             "template_id": template_id,
             "user_data": user_data_dict,
             "total_amount": total_amount,
