@@ -14,7 +14,7 @@ class AIImageService {
    * @param {string} size - Image size ('1024x1024', '1024x1536', '1536x1024')
    * @returns {Promise<Object>} Generation result
    */
-  async generateImage(templateId, styleParams, imageFile = null, quality = 'medium', size = '1024x1536') {
+  async generateImage(templateId, styleParams, imageFile = null, quality = 'low', size = '1024x1536') {
     try {
       console.log('🔍 Service - generateImage called')
       console.log('🔍 Service - templateId:', templateId)
@@ -157,7 +157,7 @@ class AIImageService {
    * @param {string} size - Image size
    * @returns {Promise<Object>} Generation and order result
    */
-  async generateAndOrder(templateId, styleParams, mobileModelId, imageFile = null, quality = 'medium', size = '1024x1536') {
+  async generateAndOrder(templateId, styleParams, mobileModelId, imageFile = null, quality = 'low', size = '1024x1536') {
     try {
       console.log('🔍 Service - Generate and Order with Chinese API')
       console.log('🔍 Service - templateId:', templateId)
@@ -333,7 +333,7 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateRetroRemix(keyword, optionalText = '', imageFile, quality = 'medium') {
+  async generateRetroRemix(keyword, optionalText = '', imageFile, quality = 'low') {
     const styleParams = {
       keyword,
       optional_text: optionalText
@@ -349,7 +349,7 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateFunnyToon(style, imageFile, quality = 'medium') {
+  async generateFunnyToon(style, imageFile, quality = 'low') {
     const styleParams = { style }
     
     return this.generateImage('funny-toon', styleParams, imageFile, quality)
@@ -362,7 +362,7 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateCoverShoot(style, imageFile, quality = 'medium') {
+  async generateCoverShoot(style, imageFile, quality = 'low') {
     const styleParams = { style }
     return this.generateImage('cover-shoot', styleParams, imageFile, quality)
   }
@@ -374,7 +374,7 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateGlitchPro(mode, imageFile, quality = 'medium') {
+  async generateGlitchPro(mode, imageFile, quality = 'low') {
     const styleParams = { style: mode }
     
     return this.generateImage('glitch-pro', styleParams, imageFile, quality)
@@ -388,11 +388,6 @@ class AIImageService {
    * @param {string} quality - Image quality
    * @returns {Promise<Object>} Generation result
    */
-  async generateFootyFan(team, style, imageFile, quality = 'medium') {
-    const styleParams = { team, style }
-    
-    return this.generateImage('footy-fan', styleParams, imageFile, quality)
-  }
 
   /**
    * Estimate generation cost (placeholder - can be enhanced)
@@ -401,7 +396,7 @@ class AIImageService {
    * @param {boolean} hasReference - Whether reference image is used
    * @returns {Object} Cost estimation
    */
-  estimateCost(quality = 'medium', size = '1024x1536', hasReference = false) {
+  estimateCost(quality = 'low', size = '1024x1536', hasReference = false) {
     const tokenMap = {
       'low': { '1024x1024': 272, '1024x1536': 408, '1536x1024': 400 },
       'medium': { '1024x1024': 1056, '1024x1536': 1584, '1536x1024': 1568 },

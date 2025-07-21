@@ -1,6 +1,7 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 import openai
 import base64
 import io
@@ -15,21 +16,30 @@ import json
 import requests
 import stripe
 from pydantic import BaseModel
-from chinese_api_client import ChineseAPIClient, ChineseAPIConfig
+from sqlalchemy.orm import Session
+from database import get_db, create_tables
+from api_routes import router
+from db_services import OrderService, OrderImageService, BrandService, PhoneModelService, TemplateService
+from models import PhoneModel, Template
+from datetime import datetime
 
 # Load environment variables - check multiple locations
 load_dotenv()  # Current directory
 load_dotenv("image gen/.env")  # Image gen subdirectory
 load_dotenv(".env")  # Explicit current directory
 
-app = FastAPI(title="Roni AI Image Generator API", version="1.0.0")
+app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0")
 
-# CORS middleware for React frontend
+# Include the new API routes
+app.include_router(router)
+
+# CORS middleware for React frontend and admin dashboard
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", 
-        "http://localhost:3000",
+        "http://localhost:5173",  # Mobile app
+        "http://localhost:3000",   # Admin dashboard
+        "http://localhost:3001",   # Admin dashboard alternate
         "http://192.168.100.4:5173",  # Your IP address
         "http://127.0.0.1:5173",
         "https://pimp-my-case.vercel.app",  # Production frontend
@@ -55,32 +65,31 @@ class CheckoutSessionRequest(BaseModel):
     model: str
     color: str
     design_image: Optional[str] = None
+    order_id: Optional[str] = None
 
 class PaymentSuccessRequest(BaseModel):
     session_id: str
     order_data: dict
 
-# Chinese API Configuration
-def get_chinese_api_config():
-    """Get Chinese API configuration from environment variables"""
-    return ChineseAPIConfig(
-        base_url=os.getenv('CHINESE_API_BASE_URL', 'http://app-dev.deligp.com:8500/mobileShell/en'),
-        account=os.getenv('CHINESE_API_ACCOUNT', 'taharizvi.ai@gmail.com'),
-        password=os.getenv('CHINESE_API_PASSWORD', 'EN112233'),
-        device_id=os.getenv('CHINESE_API_DEVICE_ID', 'TEST_DEVICE_001'),
-        timeout=int(os.getenv('CHINESE_API_TIMEOUT', '30'))
+# Exception handler for validation errors
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"Validation error for {request.url}: {exc.errors()}")
+    print(f"Request body: {await request.body()}")
+    return JSONResponse(
+        status_code=400,
+        content={"detail": f"Validation error: {exc.errors()}"}
     )
 
-# Initialize Chinese API client
-chinese_api_client = None
-
-def get_chinese_api_client():
-    """Get or create Chinese API client"""
-    global chinese_api_client
-    if chinese_api_client is None:
-        config = get_chinese_api_config()
-        chinese_api_client = ChineseAPIClient(config)
-    return chinese_api_client
+# Database startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    try:
+        create_tables()
+        print("Database tables created/verified")
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
 # Initialize OpenAI client
 def get_openai_client():
@@ -389,7 +398,7 @@ def generate_style_prompt(template_id: str, style_params: dict) -> str:
     return template_config["base"]
 
 async def generate_image_gpt_image_1(prompt: str, reference_image: Optional[str] = None, 
-                                   quality: str = "medium", size: str = "1024x1536"):
+                                   quality: str = "low", size: str = "1024x1536"):
     """Generate image using GPT-image-1 with optimized cartoon prompts"""
     client = get_openai_client()
     
@@ -462,169 +471,16 @@ def save_generated_image(base64_data: str, template_id: str) -> tuple:
 
 @app.get("/")
 async def root():
-    return {"message": "Roni AI Image Generator API", "status": "active"}
+    return {"message": "PimpMyCase API - Database Edition", "status": "active", "version": "2.0.0"}
 
-# Chinese API Integration Endpoints
+# Legacy endpoints removed - using database instead
 
-@app.get("/chinese-api/health")
-async def chinese_api_health():
-    """Check Chinese API health"""
-    try:
-        client = get_chinese_api_client()
-        is_healthy = client.health_check()
-        return {
-            "chinese_api_available": is_healthy,
-            "fallback_available": True,
-            "message": "Chinese API available" if is_healthy else "Using fallback to OpenAI"
-        }
-    except Exception as e:
-        return {
-            "chinese_api_available": False,
-            "fallback_available": True,
-            "message": f"Chinese API unavailable: {str(e)}, using fallback to OpenAI"
-        }
+# Chinese API endpoints removed - now using database
 
-@app.get("/chinese-api/brands")
-async def get_phone_brands():
-    """Get available phone brands from Chinese API with fallback"""
-    try:
-        client = get_chinese_api_client()
-        brands = client.get_brands()
-        
-        # Format brands for frontend compatibility
-        formatted_brands = []
-        for brand in brands:
-            formatted_brands.append({
-                "id": brand.get("id"),
-                "name": brand.get("name"),
-                "e_name": brand.get("e_name"),
-                "display_name": brand.get("e_name", brand.get("name", "")).upper()
-            })
-        
-        return {
-            "success": True,
-            "brands": formatted_brands,
-            "source": "chinese_api"
-        }
-    except Exception as e:
-        # Fallback to hardcoded brands if Chinese API fails
-        print(f"Chinese API brands failed: {e}, using fallback")
-        fallback_brands = [
-            {"id": "iphone", "name": "iPhone", "e_name": "IPHONE", "display_name": "IPHONE"},
-            {"id": "samsung", "name": "Samsung", "e_name": "SAMSUNG", "display_name": "SAMSUNG"},
-            {"id": "google", "name": "Google", "e_name": "GOOGLE", "display_name": "GOOGLE"}
-        ]
-        return {
-            "success": True,
-            "brands": fallback_brands,
-            "source": "fallback"
-        }
-
-@app.get("/chinese-api/brands/{brand_id}/models")
-async def get_phone_models(brand_id: str):
-    """Get available phone models for a brand from Chinese API with fallback"""
-    try:
-        client = get_chinese_api_client()
-        models = client.get_stock_list(brand_id)
-        
-        # Format models for frontend compatibility
-        formatted_models = []
-        for model in models:
-            formatted_models.append({
-                "id": model.get("mobile_model_id"),
-                "name": model.get("mobile_model_name"),
-                "price": model.get("price"),
-                "stock": model.get("stock"),
-                "available": model.get("stock", 0) > 0
-            })
-        
-        return {
-            "success": True,
-            "models": formatted_models,
-            "source": "chinese_api"
-        }
-    except Exception as e:
-        # Fallback to hardcoded models if Chinese API fails
-        print(f"Chinese API models failed: {e}, using fallback")
-        fallback_models = []
-        
-        # Simple fallback based on brand_id
-        if brand_id.lower() == "iphone":
-            fallback_models = [
-                {"id": "iphone-16-pro-max", "name": "iPhone 16 Pro Max", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-16-pro", "name": "iPhone 16 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-16-plus", "name": "iPhone 16 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-16", "name": "iPhone 16", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-15-pro-max", "name": "iPhone 15 Pro Max", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-15-pro", "name": "iPhone 15 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-15-plus", "name": "iPhone 15 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-15", "name": "iPhone 15", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-14-pro-max", "name": "iPhone 14 Pro Max", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-14-pro", "name": "iPhone 14 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-14-plus", "name": "iPhone 14 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-14", "name": "iPhone 14", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-13-pro-max", "name": "iPhone 13 Pro Max", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-13-pro", "name": "iPhone 13 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-13", "name": "iPhone 13", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-13-mini", "name": "iPhone 13 mini", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-12-pro-max", "name": "iPhone 12 Pro Max", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-12-pro", "name": "iPhone 12 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-12", "name": "iPhone 12", "price": 17.99, "stock": 10, "available": True},
-                {"id": "iphone-12-mini", "name": "iPhone 12 mini", "price": 17.99, "stock": 10, "available": True}
-            ]
-        elif brand_id.lower() == "samsung":
-            fallback_models = [
-                {"id": "galaxy-s24-ultra", "name": "Galaxy S24 Ultra", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s24-plus", "name": "Galaxy S24 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s24", "name": "Galaxy S24", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s23-ultra", "name": "Galaxy S23 Ultra", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s23-plus", "name": "Galaxy S23 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s23", "name": "Galaxy S23", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s22-ultra", "name": "Galaxy S22 Ultra", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s22-plus", "name": "Galaxy S22 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s22", "name": "Galaxy S22", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s21-ultra", "name": "Galaxy S21 Ultra", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s21-plus", "name": "Galaxy S21 Plus", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-s21", "name": "Galaxy S21", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-z-fold6", "name": "Galaxy Z Fold 6", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-z-fold5", "name": "Galaxy Z Fold 5", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-z-fold4", "name": "Galaxy Z Fold 4", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-z-flip6", "name": "Galaxy Z Flip 6", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-z-flip5", "name": "Galaxy Z Flip 5", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-z-flip4", "name": "Galaxy Z Flip 4", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-a55", "name": "Galaxy A55", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-a35", "name": "Galaxy A35", "price": 17.99, "stock": 10, "available": True},
-                {"id": "galaxy-a25", "name": "Galaxy A25", "price": 17.99, "stock": 10, "available": True}
-            ]
-        elif brand_id.lower() == "google":
-            fallback_models = [
-                {"id": "pixel-9-pro-xl", "name": "Pixel 9 Pro XL", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-9-pro", "name": "Pixel 9 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-9", "name": "Pixel 9", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-8-pro", "name": "Pixel 8 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-8", "name": "Pixel 8", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-8a", "name": "Pixel 8a", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-7-pro", "name": "Pixel 7 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-7", "name": "Pixel 7", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-7a", "name": "Pixel 7a", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-6-pro", "name": "Pixel 6 Pro", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-6", "name": "Pixel 6", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-6a", "name": "Pixel 6a", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-5", "name": "Pixel 5", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-5a", "name": "Pixel 5a", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-4-xl", "name": "Pixel 4 XL", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-4", "name": "Pixel 4", "price": 17.99, "stock": 10, "available": True},
-                {"id": "pixel-4a", "name": "Pixel 4a", "price": 17.99, "stock": 10, "available": True}
-            ]
-        
-        return {
-            "success": True,
-            "models": fallback_models,
-            "source": "fallback"
-        }
+# Old phone models endpoint removed - using database
 
 @app.get("/health")
-async def health_check():
+async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint"""
     try:
         # Check if API key exists
@@ -651,22 +507,20 @@ async def health_check():
             openai_status = "unhealthy"
             openai_error = f"OpenAI client initialization failed: {str(client_error)}"
         
-        # Check Chinese API status
-        chinese_api_status = "healthy"
-        chinese_api_error = None
+        # Check database status
+        database_status = "healthy"
+        database_error = None
         
         try:
-            client = get_chinese_api_client()
-            chinese_api_available = client.health_check()
-            if not chinese_api_available:
-                chinese_api_status = "unhealthy"
-                chinese_api_error = "Chinese API authentication failed"
-        except Exception as chinese_error:
-            chinese_api_status = "unhealthy"
-            chinese_api_error = f"Chinese API error: {str(chinese_error)}"
+            # Simple database query to test connection
+            from sqlalchemy import text
+            db.execute(text("SELECT 1"))
+        except Exception as db_error:
+            database_status = "unhealthy"
+            database_error = f"Database connection failed: {str(db_error)}"
         
         # Overall status
-        overall_status = "healthy" if (openai_status == "healthy" or chinese_api_status == "healthy") else "unhealthy"
+        overall_status = "healthy" if (openai_status == "healthy" and database_status == "healthy") else "unhealthy"
         
         return {
             "status": overall_status,
@@ -675,34 +529,37 @@ async def health_check():
                 "error": openai_error,
                 "api_key_preview": f"{api_key[:10]}...{api_key[-4:]}" if api_key else None
             },
-            "chinese_api": {
-                "status": chinese_api_status,
-                "error": chinese_api_error,
-                "available": chinese_api_status == "healthy"
+            "database": {
+                "status": database_status,
+                "error": database_error,
+                "url": os.getenv('DATABASE_URL', 'Not configured')[:20] + "..." if os.getenv('DATABASE_URL') else "Not configured"
             },
-            "message": "API ready for image generation with Chinese API integration and fallback support"
+            "message": "API ready for image generation with database backend"
         }
         
     except Exception as e:
         return {
             "status": "unhealthy", 
             "error": str(e),
-            "suggestion": "Check your API configurations in the .env file"
+            "suggestion": "Check your API configurations and database connection"
         }
 
 @app.post("/generate")
 async def generate_image(
     template_id: str = Form(...),
     style_params: str = Form(...),  # JSON string
+    order_id: Optional[str] = Form(None),  # Optional order ID for tracking
     image: Optional[UploadFile] = File(None),
-    quality: str = Form("medium"),
-    size: str = Form("1024x1536")  # Default to portrait orientation
+    quality: str = Form("low"),
+    size: str = Form("1024x1536"),  # Default to portrait orientation
+    db: Session = Depends(get_db)
 ):
     """Generate AI image based on template and style parameters"""
     
     try:
         print(f"🔄 API - Generate request received")
         print(f"🔄 API - template_id: {template_id}")
+        print(f"🔄 API - order_id: {order_id}")
         print(f"🔄 API - quality: {quality}")
         print(f"🔄 API - size: {size}")
         print(f"🔄 API - image file provided: {image is not None}")
@@ -725,7 +582,7 @@ async def generate_image(
         prompt = generate_style_prompt(template_id, style_data)
         print(f"🔄 API - Generated prompt: {prompt}")
         
-        # Generate image with DALL-E
+        # Generate image with GPT-image-1
         print(f"🔄 API - Starting AI generation...")
         response = await generate_image_gpt_image_1(
             prompt=prompt,
@@ -761,6 +618,20 @@ async def generate_image(
             file_path = str(file_path)
         else:
             raise HTTPException(status_code=500, detail="Invalid response format - no image data")
+        
+        # Add image to order if order_id provided
+        if order_id:
+            try:
+                OrderImageService.add_order_image(
+                    db, 
+                    order_id, 
+                    file_path, 
+                    "generated", 
+                    {"template_id": template_id, "style_params": style_data, "prompt": prompt}
+                )
+                print(f"🔄 API - Image added to order {order_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to add image to order: {e}")
             
         return {
             "success": True,
@@ -768,7 +639,8 @@ async def generate_image(
             "file_path": file_path,
             "prompt": prompt,
             "template_id": template_id,
-            "style_params": style_data
+            "style_params": style_data,
+            "order_id": order_id
         }
     
     except json.JSONDecodeError:
@@ -776,202 +648,7 @@ async def generate_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/chinese-api/generate-and-order")
-async def generate_and_order(
-    template_id: str = Form(...),
-    style_params: str = Form(...),  # JSON string
-    mobile_model_id: str = Form(...),  # Chinese API model ID
-    image: Optional[UploadFile] = File(None),
-    quality: str = Form("medium"),
-    size: str = Form("1024x1536")
-):
-    """Generate AI image and create order using Chinese API with fallback"""
-    
-    try:
-        print(f"🔄 Chinese API - Generate and Order request received")
-        print(f"🔄 Chinese API - template_id: {template_id}")
-        print(f"🔄 Chinese API - mobile_model_id: {mobile_model_id}")
-        
-        # Parse style parameters
-        style_data = json.loads(style_params)
-        print(f"🔄 Chinese API - style_data: {style_data}")
-        
-        # Step 1: Generate image with OpenAI (always use AI generation)
-        reference_image = None
-        if image:
-            print(f"🔄 Chinese API - Converting uploaded image...")
-            reference_image = convert_image_for_api(image.file)
-            print(f"🔄 Chinese API - Image converted successfully")
-        
-        # Generate appropriate prompt
-        prompt = generate_style_prompt(template_id, style_data)
-        print(f"🔄 Chinese API - Generated prompt: {prompt}")
-        
-        # Generate image with GPT-image-1
-        print(f"🔄 Chinese API - Starting AI generation...")
-        response = await generate_image_gpt_image_1(
-            prompt=prompt,
-            reference_image=reference_image,
-            quality=quality,
-            size=size
-        )
-        print(f"🔄 Chinese API - AI generation completed")
-        
-        if not response or not response.data:
-            raise HTTPException(status_code=500, detail="No image generated")
-        
-        # Save image locally first
-        if hasattr(response.data[0], 'b64_json') and response.data[0].b64_json:
-            file_path, filename = save_generated_image(response.data[0].b64_json, template_id)
-            image_bytes = base64.b64decode(response.data[0].b64_json)
-        elif hasattr(response.data[0], 'url') and response.data[0].url:
-            img_response = requests.get(response.data[0].url)
-            img_response.raise_for_status()
-            
-            timestamp = int(time.time())
-            random_id = str(uuid.uuid4())[:8]
-            filename = f"{template_id}-{timestamp}-{random_id}.png"
-            
-            generated_dir = ensure_directories()
-            file_path = generated_dir / filename
-            
-            with open(file_path, 'wb') as f:
-                f.write(img_response.content)
-                
-            file_path = str(file_path)
-            image_bytes = img_response.content
-        else:
-            raise HTTPException(status_code=500, detail="Invalid response format - no image data")
-        
-        # Step 2: Try Chinese API workflow
-        try:
-            client = get_chinese_api_client()
-            
-            # Upload image to Chinese API
-            print(f"🔄 Chinese API - Uploading image to Chinese API...")
-            pic_url = client.upload_file(filename, image_bytes)
-            print(f"🔄 Chinese API - Image uploaded: {pic_url}")
-            
-            # Report payment (simulate payment for now)
-            print(f"🔄 Chinese API - Reporting payment...")
-            payment_info = client.report_payment(mobile_model_id, 17.99)
-            print(f"🔄 Chinese API - Payment reported: {payment_info['third_id']}")
-            
-            # Create order
-            print(f"🔄 Chinese API - Creating order...")
-            order_info = client.create_order(
-                payment_info['third_id'],
-                mobile_model_id,
-                pic_url
-            )
-            print(f"🔄 Chinese API - Order created: {order_info['third_id']}")
-            
-            return {
-                "success": True,
-                "filename": filename,
-                "file_path": file_path,
-                "prompt": prompt,
-                "template_id": template_id,
-                "style_params": style_data,
-                "chinese_api_response": {
-                    "pic_url": pic_url,
-                    "payment_info": payment_info,
-                    "order_info": order_info
-                },
-                "source": "chinese_api"
-            }
-            
-        except Exception as chinese_api_error:
-            print(f"🔄 Chinese API workflow failed: {chinese_api_error}")
-            # Fallback to just returning the generated image
-            return {
-                "success": True,
-                "filename": filename,
-                "file_path": file_path,
-                "prompt": prompt,
-                "template_id": template_id,
-                "style_params": style_data,
-                "chinese_api_response": None,
-                "source": "fallback",
-                "chinese_api_error": str(chinese_api_error)
-            }
-    
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid style_params JSON")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/chinese-api/orders/status")
-async def get_order_status(third_ids: str):
-    """Get order status from Chinese API"""
-    try:
-        # Parse comma-separated third_ids
-        third_id_list = [id.strip() for id in third_ids.split(',')]
-        
-        client = get_chinese_api_client()
-        statuses = client.get_order_status(third_id_list)
-        
-        return {
-            "success": True,
-            "statuses": statuses,
-            "source": "chinese_api"
-        }
-    except Exception as e:
-        print(f"Failed to get order status: {e}")
-        # Return mock status for fallback
-        return {
-            "success": True,
-            "statuses": [{"third_id": tid, "status": 8} for tid in third_ids.split(',')],
-            "source": "fallback",
-            "error": str(e)
-        }
-
-@app.get("/chinese-api/printing-queue")
-async def get_printing_queue():
-    """Get printing queue from Chinese API"""
-    try:
-        client = get_chinese_api_client()
-        queue = client.get_printing_list()
-        
-        return {
-            "success": True,
-            "queue": queue,
-            "source": "chinese_api"
-        }
-    except Exception as e:
-        print(f"Failed to get printing queue: {e}")
-        # Return mock queue for fallback
-        return {
-            "success": True,
-            "queue": [],
-            "source": "fallback",
-            "error": str(e)
-        }
-
-@app.get("/chinese-api/payment/status")
-async def get_payment_status(third_ids: str):
-    """Get payment status from Chinese API"""
-    try:
-        # Parse comma-separated third_ids
-        third_id_list = [id.strip() for id in third_ids.split(',')]
-        
-        client = get_chinese_api_client()
-        statuses = client.get_payment_status(third_id_list)
-        
-        return {
-            "success": True,
-            "statuses": statuses,
-            "source": "chinese_api"
-        }
-    except Exception as e:
-        print(f"Failed to get payment status: {e}")
-        # Return mock status for fallback
-        return {
-            "success": True,
-            "statuses": [{"third_id": tid, "status": 3} for tid in third_ids.split(',')],
-            "source": "fallback",
-            "error": str(e)
-        }
+# All Chinese API endpoints removed - now using database-driven architecture
 
 @app.get("/image/{filename}")
 async def get_image(filename: str):
@@ -1001,110 +678,93 @@ async def get_template_styles(template_id: str):
     else:
         return {"options": []}
 
-# Our own Brand and Model API endpoints for Chinese team
-@app.get("/api/brands")
-async def get_our_brands():
-    """Get brands that we provide to Chinese team"""
-    return {
-        "msg": "操作成功",
-        "code": 200,
-        "data": [
-            {
-                "name": "苹果",
-                "e_name": "iPhone",
-                "id": "BR020250701000001"
-            },
-            {
-                "name": "三星",
-                "e_name": "SAMSUNG",
-                "id": "BR020250701000002"
-            },
-            {
-                "name": "谷歌",
-                "e_name": "Google",
-                "id": "BR020250701000003"
-            }
-        ]
-    }
+# Chinese API endpoints for final order processing
+@app.post("/api/chinese/submit-order")
+async def submit_order_to_chinese(
+    order_id: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Submit finalized order to Chinese API for printing"""
+    try:
+        order = OrderService.get_order_by_id(db, order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        if order.payment_status != "paid":
+            raise HTTPException(status_code=400, detail="Order not paid")
+        
+        # Get order images
+        images = OrderImageService.get_order_images(db, order_id)
+        if not images:
+            raise HTTPException(status_code=400, detail="No images found for order")
+        
+        # Prepare order data for Chinese API
+        order_data = {
+            "order_id": order.id,
+            "mobile_model_id": order.phone_model.chinese_model_id,
+            "customer_info": order.user_data,
+            "images": [
+                {
+                    "url": f"/image/{os.path.basename(img.image_path)}",
+                    "type": img.image_type,
+                    "ai_params": img.ai_params
+                }
+                for img in images
+            ],
+            "payment_confirmed": True,
+            "total_amount": float(order.total_amount),
+            "currency": order.currency
+        }
+        
+        # TODO: Send to Chinese API when they implement their endpoints
+        # For now, just update order status
+        OrderService.update_order_status(db, order_id, "sent_to_chinese")
+        
+        return {
+            "success": True,
+            "message": "Order submitted to Chinese API",
+            "order_data": order_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to submit order: {str(e)}")
 
-@app.get("/api/models/{brand_id}")
-async def get_our_models(brand_id: str):
-    """Get phone models for a specific brand that we provide to Chinese team"""
-    
-    models_data = {
-        "BR020250701000001": [  # iPhone
-            {
-                "mobile_model_name": "iPhone 15 Pro",
-                "mobile_model_id": "MM020250701000001",
-                "price": 19.99,
-                "stock": 100
-            },
-            {
-                "mobile_model_name": "iPhone 15 Pro Max",
-                "mobile_model_id": "MM020250701000002",
-                "price": 19.99,
-                "stock": 100
-            },
-            {
-                "mobile_model_name": "iPhone 15",
-                "mobile_model_id": "MM020250701000003",
-                "price": 19.99,
-                "stock": 100
-            },
-            {
-                "mobile_model_name": "iPhone 15 Plus",
-                "mobile_model_id": "MM020250701000004",
-                "price": 19.99,
-                "stock": 100
-            }
-        ],
-        "BR020250701000002": [  # Samsung
-            {
-                "mobile_model_name": "Samsung Galaxy S24",
-                "mobile_model_id": "MM020250701000005",
-                "price": 19.99,
-                "stock": 100
-            },
-            {
-                "mobile_model_name": "Samsung Galaxy S24+",
-                "mobile_model_id": "MM020250701000006",
-                "price": 19.99,
-                "stock": 100
-            },
-            {
-                "mobile_model_name": "Samsung Galaxy S24 Ultra",
-                "mobile_model_id": "MM020250701000007",
-                "price": 19.99,
-                "stock": 100
-            }
-        ],
-        "BR020250701000003": [  # Google
-            {
-                "mobile_model_name": "Google Pixel 8",
-                "mobile_model_id": "MM020250701000008",
-                "price": 19.99,
-                "stock": 100
-            },
-            {
-                "mobile_model_name": "Google Pixel 8 Pro",
-                "mobile_model_id": "MM020250701000009",
-                "price": 19.99,
-                "stock": 100
-            }
-        ]
-    }
-    
-    if brand_id not in models_data:
-        raise HTTPException(status_code=404, detail="Brand not found")
-    
-    return {
-        "msg": "操作成功",
-        "code": 200,
-        "data": models_data[brand_id]
-    }
+@app.post("/api/chinese/order-status-update")
+async def chinese_order_status_update(
+    order_id: str = Form(...),
+    status: str = Form(...),
+    queue_number: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Receive status updates from Chinese API"""
+    try:
+        chinese_data = {}
+        if queue_number:
+            chinese_data["queue_number"] = queue_number
+        
+        order = OrderService.update_order_status(db, order_id, status, chinese_data)
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        return {
+            "success": True,
+            "message": "Order status updated",
+            "order_id": order_id,
+            "status": status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update order status: {str(e)}")
 
 @app.post("/create-checkout-session")
-async def create_checkout_session(request: CheckoutSessionRequest):
+async def create_checkout_session(
+    request: CheckoutSessionRequest,
+    db: Session = Depends(get_db)
+):
     """Create a Stripe Checkout session"""
     try:
         # Convert amount to pence (Stripe requires integers)
@@ -1121,7 +781,7 @@ async def create_checkout_session(request: CheckoutSessionRequest):
                     'currency': 'gbp',
                     'product_data': {
                         'name': f'Phone Case - {request.template_id}',
-                        'description': f'{request.brand} {request.model} - {request.color}',
+                        'description': f'{request.brand} {request.model}',
                     },
                     'unit_amount': amount_pence,
                 },
@@ -1149,7 +809,10 @@ async def create_checkout_session(request: CheckoutSessionRequest):
         raise HTTPException(status_code=500, detail=f"Checkout session creation failed: {str(e)}")
 
 @app.post("/process-payment-success")
-async def process_payment_success(request: PaymentSuccessRequest):
+async def process_payment_success(
+    request: PaymentSuccessRequest,
+    db: Session = Depends(get_db)
+):
     """Process successful payment from Stripe Checkout"""
     try:
         print(f"Starting payment processing for session: {request.session_id}")
@@ -1164,60 +827,98 @@ async def process_payment_success(request: PaymentSuccessRequest):
             raise HTTPException(status_code=400, detail="Payment not completed")
         
         # Get metadata from session
-        template_id = session.metadata.get('template_id', 'classic')
-        brand = session.metadata.get('brand', 'iPhone')
-        model = session.metadata.get('model', 'iPhone 15 Pro')
+        template_name = session.metadata.get('template_id', 'classic')
+        brand_name = session.metadata.get('brand', 'iPhone')
+        model_name = session.metadata.get('model', 'iPhone 15 Pro')
         color = session.metadata.get('color', 'Natural Titanium')
         
-        # Generate third-party payment ID in Chinese API format
-        from datetime import datetime
-        now = datetime.now()
-        third_pay_id = f"PYEN{now.strftime('%y%m%d')}{str(uuid.uuid4().hex[:6]).upper()}"
-        third_order_id = f"OREN{now.strftime('%y%m%d')}{str(uuid.uuid4().hex[:6]).upper()}"
+        # Find or create order from the request data
+        order_id = request.order_data.get('order_id')
+        if order_id:
+            order = OrderService.get_order_by_id(db, order_id)
+            if order:
+                # Update existing order with payment info
+                order.stripe_session_id = request.session_id
+                order.stripe_payment_intent_id = session.payment_intent
+                order.payment_status = "paid"
+                order.paid_at = datetime.utcnow()
+                order.status = "paid"
+                db.commit()
+            else:
+                raise HTTPException(status_code=404, detail="Order not found")
+        else:
+            # Try to lookup brand, model, and template IDs, with fallbacks
+            brand = BrandService.get_brand_by_name(db, brand_name)
+            if not brand:
+                # Create a default brand if it doesn't exist
+                brand_data = {
+                    "name": brand_name,
+                    "display_name": brand_name.upper(),
+                    "is_available": True
+                }
+                brand = BrandService.create_brand(db, brand_data)
+            
+            model = PhoneModelService.get_model_by_name(db, model_name, brand.id)
+            if not model:
+                # Create a default model if it doesn't exist
+                model_data = {
+                    "brand_id": brand.id,
+                    "name": model_name,
+                    "display_name": model_name,
+                    "price": session.amount_total / 100,
+                    "is_available": True
+                }
+                model = PhoneModel(**model_data)
+                db.add(model)
+                db.commit()
+                db.refresh(model)
+            
+            template = TemplateService.get_template_by_id(db, template_name)
+            if not template:
+                # Create a default template if it doesn't exist
+                template_data = {
+                    "id": template_name,
+                    "name": template_name.title(),
+                    "description": f"Auto-created template for {template_name}",
+                    "is_active": True,
+                    "category": "basic",
+                    "price": session.amount_total / 100,
+                    "display_price": f"£{session.amount_total / 100:.2f}"
+                }
+                template = Template(**template_data)
+                db.add(template)
+                db.commit()
+                db.refresh(template)
+            
+            # Create new order if none exists
+            order_data = {
+                "stripe_session_id": request.session_id,
+                "stripe_payment_intent_id": session.payment_intent,
+                "payment_status": "paid",
+                "paid_at": datetime.utcnow(),
+                "status": "paid",
+                "total_amount": session.amount_total / 100,
+                "currency": session.currency.upper(),
+                "brand_id": brand.id,
+                "model_id": model.id,
+                "template_id": template.id,
+                "user_data": request.order_data
+            }
+            order = OrderService.create_order(db, order_data)
         
-        print(f"Generated payment ID: {third_pay_id}")
-        print(f"Generated order ID: {third_order_id}")
+        # Generate queue number for display
+        queue_no = f"Q{str(order.created_at.timestamp())[-6:]}"
         
-        # For testing, we'll skip the Chinese API integration and return mock data
-        # In production, you would uncomment the Chinese API calls below
-        
-        # try:
-        #     # Get Chinese API client
-        #     client = get_chinese_api_client()
-        #     
-        #     # Report payment to Chinese API
-        #     payment_result = client.report_payment(
-        #         mobile_model_id=request.order_data.get("mobile_model_id", "MM020250701000001"),
-        #         pay_amount=session.amount_total / 100,  # Convert back to pounds
-        #         pay_type=6  # Card payment
-        #     )
-        #     
-        #     # Submit order to Chinese API
-        #     order_result = client.create_order(
-        #         third_pay_id=third_pay_id,
-        #         mobile_model_id=request.order_data.get("mobile_model_id", "MM020250701000001"),
-        #         pic_url=request.order_data.get("pic", "")
-        #     )
-        #     
-        #     queue_no = order_result.get("queue_no", "Q001")
-        #     status = order_result.get("status", 8)  # 8 = waiting for printing
-        # except Exception as chinese_api_error:
-        #     print(f"Chinese API error: {chinese_api_error}")
-        #     # Use fallback values for testing
-        #     queue_no = "Q001"
-        #     status = 8
-        
-        # Mock successful response for testing
         return {
             "success": True,
-            "payment_id": third_pay_id,
-            "order_id": third_order_id,
-            "queue_no": "Q001",
-            "status": 8,  # 8 = waiting for printing
-            "brand": brand,
-            "model": model,
+            "order_id": order.id,
+            "payment_id": session.payment_intent,
+            "queue_no": queue_no,
+            "status": "paid",
+            "brand": brand_name,
+            "model": model_name,
             "color": color,
-            "template_id": template_id,
+            "template_id": template_name,
             "amount": session.amount_total / 100
         }
         

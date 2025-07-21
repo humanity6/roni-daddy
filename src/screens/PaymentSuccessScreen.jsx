@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { useAppState } from '../contexts/AppStateContext'
 
 const PaymentSuccessScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { actions } = useAppState()
   const [isProcessing, setIsProcessing] = useState(true)
   const [orderData, setOrderData] = useState(null)
   const [error, setError] = useState(null)
@@ -54,6 +56,15 @@ const PaymentSuccessScreen = () => {
         
         // Clear pending order from localStorage
         localStorage.removeItem('pendingOrder')
+        
+        // Reset AI credits after successful payment
+        actions.setAiCredits(4)
+        
+        // Skip payment success screen and go directly to order confirmed
+        navigate('/order-confirmed', { 
+          state: completeOrderData
+        })
+        return
         
       } catch (err) {
         console.error('Payment processing error:', err)

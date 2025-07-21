@@ -3,10 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft as ArrowL, Upload, ZoomIn, ZoomOut, RefreshCw, ArrowRight, ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
+import { useAppState } from '../contexts/AppStateContext'
 
 const RetroRemixGenerateScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { state, actions } = useAppState()
   const {
     brand,
     model,
@@ -15,12 +17,9 @@ const RetroRemixGenerateScreen = () => {
     uploadedImage,
     keyword = '',
     optionalText = '',
-    aiCredits: initialCredits = 4,
     transform: initialTransform,
     generatedImage: initialGeneratedImage
   } = location.state || {}
-
-  const [aiCredits,setAiCredits] = useState(initialCredits)
   const [isGenerating,setIsGenerating] = useState(false)
   const [generatedImage,setGeneratedImage] = useState(initialGeneratedImage || null)
   const [originalImageFile,setOriginalImageFile] = useState(null)
@@ -45,20 +44,20 @@ const RetroRemixGenerateScreen = () => {
 
   const handleBack = () => {
     navigate('/retro-remix',{
-      state:{brand,model,color,template,uploadedImage,keyword,optionalText,aiCredits,transform,generatedImage}
+      state:{brand,model,color,template,uploadedImage,keyword,optionalText,transform,generatedImage}
     })
   }
 
   const handleRegenerate = async () => {
-    if(aiCredits<=0 || !originalImageFile) return
+    if(state.aiCredits<=0 || !originalImageFile) return
     setIsGenerating(true)
     setError(null)
     try{
       await aiImageService.checkHealth()
-      const result = await aiImageService.generateRetroRemix(keyword,optionalText,originalImageFile,'medium')
+      const result = await aiImageService.generateRetroRemix(keyword,optionalText,originalImageFile,'low')
       if(result.success){
         setGeneratedImage(aiImageService.getImageUrl(result.filename))
-        setAiCredits(prev=>Math.max(0,prev-1))
+        actions.deductAiCredit()
       } else {
         throw new Error('Generation failed')
       }
@@ -71,7 +70,7 @@ const RetroRemixGenerateScreen = () => {
 
   const handleGenerate = () => {
     navigate('/text-input',{
-      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,generatedImage,keyword,optionalText,transform,aiCredits}
+      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,generatedImage,keyword,optionalText,transform}
     })
   }
 
@@ -93,8 +92,8 @@ const RetroRemixGenerateScreen = () => {
             <ChevronLeft size={24} className="text-gray-600"/>
           </button>
           <div className="flex flex-col flex-grow mx-2 space-y-2">
-            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center whitespace-nowrap">AI CREDITS REMAINING: {aiCredits}</div>
-            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0||isGenerating?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
+            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center whitespace-nowrap">AI CREDITS REMAINING: {state.aiCredits}</div>
+            <button onClick={handleRegenerate} disabled={state.aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${state.aiCredits===0||isGenerating?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
           </div>
           <button 
             onClick={handleGenerate}
@@ -116,8 +115,8 @@ const RetroRemixGenerateScreen = () => {
             {/* Inner Pink Circle */}
             <button 
               onClick={generatedImage ? handleGenerate : handleRegenerate}
-              disabled={aiCredits===0||isGenerating}
-              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
+              disabled={state.aiCredits===0||isGenerating}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${state.aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
               <span className="font-semibold text-[10px]">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>

@@ -23,6 +23,9 @@ const initialState = {
   selectedFont: null,
   textColor: null,
   
+  // AI Credits
+  aiCredits: 4,
+  
   // Order flow
   designComplete: false,
   orderNumber: null,
@@ -44,6 +47,8 @@ const ACTIONS = {
   SET_CUSTOM_TEXT: 'SET_CUSTOM_TEXT',
   SET_FONT: 'SET_FONT',
   SET_TEXT_COLOR: 'SET_TEXT_COLOR',
+  SET_AI_CREDITS: 'SET_AI_CREDITS',
+  DEDUCT_AI_CREDIT: 'DEDUCT_AI_CREDIT',
   SET_DESIGN_COMPLETE: 'SET_DESIGN_COMPLETE',
   SET_ORDER_STATUS: 'SET_ORDER_STATUS',
   SET_ORDER_NUMBER: 'SET_ORDER_NUMBER',
@@ -107,6 +112,18 @@ const appStateReducer = (state, action) => {
         textColor: action.payload
       }
     
+    case ACTIONS.SET_AI_CREDITS:
+      return {
+        ...state,
+        aiCredits: action.payload
+      }
+    
+    case ACTIONS.DEDUCT_AI_CREDIT:
+      return {
+        ...state,
+        aiCredits: Math.max(0, state.aiCredits - 1)
+      }
+    
     case ACTIONS.SET_DESIGN_COMPLETE:
       return {
         ...state,
@@ -147,7 +164,8 @@ const appStateReducer = (state, action) => {
       return {
         ...initialState,
         sessionId: state.sessionId,
-        qrSession: state.qrSession
+        qrSession: state.qrSession,
+        aiCredits: 4
       }
     
     default:
@@ -245,6 +263,15 @@ export const AppStateProvider = ({ children }) => {
     setTextColor: (color) => dispatch({
       type: ACTIONS.SET_TEXT_COLOR,
       payload: color
+    }),
+    
+    setAiCredits: (credits) => dispatch({
+      type: ACTIONS.SET_AI_CREDITS,
+      payload: credits
+    }),
+    
+    deductAiCredit: () => dispatch({
+      type: ACTIONS.DEDUCT_AI_CREDIT
     }),
     
     setDesignComplete: (complete) => dispatch({

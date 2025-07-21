@@ -22,9 +22,6 @@ import FilmStripUploadScreen from './screens/FilmStripUploadScreen'
 import MultiImageUploadScreen from './screens/MultiImageUploadScreen'
 import RetroRemixScreen from './screens/RetroRemixScreen'
 import GlitchScreen from './screens/GlitchScreen'
-import FootyFanScreen from './screens/FootyFanScreen'
-import FootyFanStyleScreen from './screens/FootyFanStyleScreen'
-import FootyFanGenerateScreen from './screens/FootyFanGenerateScreen'
 import GlitchProGenerateScreen from './screens/GlitchProGenerateScreen'
 import CoverShootScreen from './screens/CoverShootScreen'
 import CoverShootGenerateScreen from './screens/CoverShootGenerateScreen'
@@ -61,9 +58,6 @@ function App() {
           <Route path="/multi-image-upload" element={<MultiImageUploadScreen />} />
           <Route path="/retro-remix" element={<RetroRemixScreen />} />
           <Route path="/glitch" element={<GlitchScreen />} />
-          <Route path="/footy-fan" element={<FootyFanScreen />} />
-          <Route path="/footy-fan-style" element={<FootyFanStyleScreen />} />
-          <Route path="/footy-fan-generate" element={<FootyFanGenerateScreen />} />
           <Route path="/glitch-pro-generate" element={<GlitchProGenerateScreen />} />
           <Route path="/cover-shoot" element={<CoverShootScreen />} />
           <Route path="/cover-shoot-generate" element={<CoverShootGenerateScreen />} />

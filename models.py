@@ -1,0 +1,226 @@
+"""SQLAlchemy models for the phone case customization platform"""
+
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, DECIMAL, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from database import Base
+import uuid
+
+class Brand(Base):
+    """Phone brands (iPhone, Samsung, Google, etc.)"""
+    __tablename__ = "brands"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), nullable=False)  # "iPhone"
+    display_name = Column(String(100), nullable=False)  # "IPHONE"
+    frame_color = Column(String(50), default="#007AFF")  # UI frame color
+    button_color = Column(String(50), default="#007AFF")  # UI button color
+    is_available = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    subtitle = Column(String(200))  # Optional subtitle
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    models = relationship("PhoneModel", back_populates="brand", cascade="all, delete-orphan")
+
+class PhoneModel(Base):
+    """Individual phone models within each brand"""
+    __tablename__ = "phone_models"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    brand_id = Column(String, ForeignKey("brands.id"), nullable=False)
+    name = Column(String(200), nullable=False)  # "iPhone 15 Pro Max"
+    display_name = Column(String(200), nullable=False)  # Display version
+    chinese_model_id = Column(String(100))  # ID used by Chinese API
+    price = Column(DECIMAL(10, 2), nullable=False, default=19.99)
+    stock = Column(Integer, default=0)
+    is_available = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    release_year = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    brand = relationship("Brand", back_populates="models")
+    orders = relationship("Order", back_populates="phone_model")
+
+class Template(Base):
+    """AI and basic templates for phone case designs"""
+    __tablename__ = "templates"
+
+    id = Column(String, primary_key=True)  # 'funny-toon', 'retro-remix', etc.
+    name = Column(String(100), nullable=False)  # "Funny Toon"
+    description = Column(Text)
+    price = Column(DECIMAL(10, 2), nullable=False, default=19.99)
+    currency = Column(String(3), default="GBP")
+    category = Column(String(50), nullable=False)  # 'basic', 'ai', 'film'
+    image_count = Column(Integer, default=1)  # Number of images required
+    features = Column(JSON)  # Array of feature descriptions
+    preview_image_path = Column(String(500))  # Path to preview image
+    display_price = Column(String(20))  # "£19.99"
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    orders = relationship("Order", back_populates="template")
+    ai_styles = relationship("AIStyle", back_populates="template", cascade="all, delete-orphan")
+
+class Font(Base):
+    """Available fonts for text customization"""
+    __tablename__ = "fonts"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), nullable=False)  # "Arial"
+    css_style = Column(String(200))  # CSS font-family value
+    font_weight = Column(String(20), default="400")
+    is_google_font = Column(Boolean, default=False)
+    google_font_url = Column(String(500))  # Google Fonts import URL
+    display_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Color(Base):
+    """Available colors for backgrounds and text"""
+    __tablename__ = "colors"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), nullable=False)  # "Deep Blue"
+    hex_value = Column(String(7), nullable=False)  # "#1E40AF"
+    css_classes = Column(JSON)  # {"bg": "bg-blue-700", "border": "border-blue-700"}
+    color_type = Column(String(20), nullable=False)  # 'background' or 'text'
+    display_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AIStyle(Base):
+    """AI generation styles for templates"""
+    __tablename__ = "ai_styles"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    template_id = Column(String, ForeignKey("templates.id"), nullable=False)
+    style_name = Column(String(100), nullable=False)  # "Wild and Wacky"
+    description = Column(Text)  # Detailed style description/prompt
+    prompt_keywords = Column(JSON)  # Additional keywords for AI generation
+    is_active = Column(Boolean, default=True)
+    display_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    template = relationship("Template", back_populates="ai_styles")
+
+class VendingMachine(Base):
+    """Vending machine configurations"""
+    __tablename__ = "vending_machines"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(100), nullable=False)  # "Machine 1"
+    location = Column(String(200))  # "Mall of America - Level 2"
+    chinese_device_id = Column(String(100))  # Device ID for Chinese API
+    qr_config = Column(JSON)  # QR code generation settings
+    is_active = Column(Boolean, default=True)
+    last_heartbeat = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    orders = relationship("Order", back_populates="vending_machine")
+
+class Order(Base):
+    """Customer orders"""
+    __tablename__ = "orders"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(100))  # QR session ID or web session
+    
+    # User data
+    user_data = Column(JSON)  # Store any user preferences/data
+    
+    # Product selection
+    brand_id = Column(String, ForeignKey("brands.id"), nullable=False)
+    model_id = Column(String, ForeignKey("phone_models.id"), nullable=False)
+    template_id = Column(String, ForeignKey("templates.id"), nullable=False)
+    
+    # Order details
+    status = Column(String(50), default="created")  # created, paid, generating, sent_to_chinese, printing, completed, failed
+    total_amount = Column(DECIMAL(10, 2), nullable=False)
+    currency = Column(String(3), default="GBP")
+    
+    # Payment info
+    stripe_session_id = Column(String(200))
+    stripe_payment_intent_id = Column(String(200))
+    payment_status = Column(String(50), default="pending")  # pending, paid, failed, refunded
+    paid_at = Column(DateTime(timezone=True))
+    
+    # Chinese API integration
+    chinese_payment_id = Column(String(100))  # Third-party payment ID for Chinese API
+    chinese_order_id = Column(String(100))  # Third-party order ID for Chinese API
+    queue_number = Column(String(50))  # Queue number from Chinese API
+    
+    # Machine info
+    machine_id = Column(String, ForeignKey("vending_machines.id"))
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    completed_at = Column(DateTime(timezone=True))
+
+    # Relationships
+    brand = relationship("Brand")
+    phone_model = relationship("PhoneModel", back_populates="orders")
+    template = relationship("Template", back_populates="orders")
+    vending_machine = relationship("VendingMachine", back_populates="orders")
+    images = relationship("OrderImage", back_populates="order", cascade="all, delete-orphan")
+    chinese_queue_items = relationship("ChineseAPIQueue", back_populates="order", cascade="all, delete-orphan")
+
+class OrderImage(Base):
+    """Generated images for orders"""
+    __tablename__ = "order_images"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey("orders.id"), nullable=False)
+    image_path = Column(String(500), nullable=False)  # Path to stored image
+    image_type = Column(String(50), default="generated")  # generated, uploaded, final
+    ai_params = Column(JSON)  # AI generation parameters used
+    chinese_image_url = Column(String(500))  # URL returned by Chinese API after upload
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    order = relationship("Order", back_populates="images")
+
+class ChineseAPIQueue(Base):
+    """Queue for Chinese API communications"""
+    __tablename__ = "chinese_api_queue"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey("orders.id"), nullable=False)
+    action = Column(String(50), nullable=False)  # upload_image, report_payment, create_order, get_status
+    payload = Column(JSON)  # Request payload sent to Chinese API
+    response = Column(JSON)  # Response received from Chinese API
+    status = Column(String(50), default="pending")  # pending, sent, success, failed
+    error_message = Column(Text)
+    retry_count = Column(Integer, default=0)
+    sent_at = Column(DateTime(timezone=True))
+    completed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    order = relationship("Order", back_populates="chinese_queue_items")
+
+class AdminUser(Base):
+    """Admin users for the dashboard"""
+    __tablename__ = "admin_users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String(100), unique=True, nullable=False)
+    email = Column(String(200), unique=True, nullable=False)
+    password_hash = Column(String(200), nullable=False)
+    role = Column(String(50), default="admin")  # admin, super_admin, viewer
+    is_active = Column(Boolean, default=True)
+    last_login = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

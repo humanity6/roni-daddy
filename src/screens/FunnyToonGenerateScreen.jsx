@@ -14,10 +14,12 @@ import {
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
+import { useAppState } from '../contexts/AppStateContext'
 
 const FunnyToonGenerateScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { state, actions } = useAppState()
   const {
     brand,
     model,
@@ -25,11 +27,8 @@ const FunnyToonGenerateScreen = () => {
     template,
     uploadedImage,
     toonStyle,
-    aiCredits: initialCredits = 4,
     transform: initialTransform
   } = location.state || {}
-
-  const [aiCredits, setAiCredits] = useState(initialCredits)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState(null) // Start with no generated image
   const [originalImageFile, setOriginalImageFile] = useState(null)
@@ -82,7 +81,6 @@ const FunnyToonGenerateScreen = () => {
         template,
         uploadedImage,
         toonStyle,
-        aiCredits,
         transform
       }
     })
@@ -90,12 +88,12 @@ const FunnyToonGenerateScreen = () => {
 
   const handleRegenerate = async () => {
     console.log('🔍 Debug - Regenerate clicked')
-    console.log('🔍 Debug - aiCredits:', aiCredits)
+    console.log('🔍 Debug - aiCredits:', state.aiCredits)
     console.log('🔍 Debug - originalImageFile:', originalImageFile ? `exists (${originalImageFile.size} bytes)` : 'null')
     console.log('🔍 Debug - toonStyle:', toonStyle)
     console.log('🔍 Debug - uploadedImage:', uploadedImage ? 'exists' : 'null')
     
-    if (aiCredits <= 0) {
+    if (state.aiCredits <= 0) {
       setError('No AI credits remaining')
       return
     }
@@ -121,7 +119,7 @@ const FunnyToonGenerateScreen = () => {
       const result = await aiImageService.generateFunnyToon(
         toonStyle || 'Wild and Wacky',
         originalImageFile,
-        'medium' // quality
+        'low' // quality
       )
       
       console.log('🔍 Debug - AI Result:', result)
@@ -131,7 +129,7 @@ const FunnyToonGenerateScreen = () => {
         const generatedImageUrl = aiImageService.getImageUrl(result.filename)
         console.log('🔍 Debug - Generated image URL:', generatedImageUrl)
         setGeneratedImage(generatedImageUrl)
-        setAiCredits((prev) => Math.max(0, prev - 1))
+        actions.deductAiCredit()
         setDebugInfo('AI generation successful!')
       } else {
         throw new Error('Generation failed - no success flag')
@@ -278,8 +276,8 @@ const FunnyToonGenerateScreen = () => {
             <ChevronLeft size={24} className="text-gray-600"/>
           </button>
           <div className="flex flex-col flex-grow mx-2 space-y-2">
-            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center whitespace-nowrap">AI CREDITS REMAINING: {aiCredits}</div>
-            <button onClick={handleRegenerate} disabled={aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${aiCredits===0||isGenerating?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
+            <div className="w-full py-2 rounded-full text-sm font-semibold bg-white border border-gray-300 text-gray-800 text-center whitespace-nowrap">AI CREDITS REMAINING: {state.aiCredits}</div>
+            <button onClick={handleRegenerate} disabled={state.aiCredits===0||isGenerating} className={`w-full py-2 rounded-full text-sm font-semibold text-white shadow-md active:scale-95 ${state.aiCredits===0||isGenerating?'bg-gray-300':'bg-gradient-to-r from-blue-400 to-blue-600'}`}>{isGenerating?'Generating...':'GENERATE IMAGE'}</button>
           </div>
           <button 
             onClick={handleGenerate}
@@ -310,8 +308,8 @@ const FunnyToonGenerateScreen = () => {
             {/* Inner Pink Circle */}
             <button 
               onClick={generatedImage ? handleGenerate : handleRegenerate}
-              disabled={aiCredits===0||isGenerating}
-              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
+              disabled={state.aiCredits===0||isGenerating}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center active:scale-95 transition-transform ${state.aiCredits===0?'bg-gray-400':'bg-pink-400'}`}
             >
               <span className="font-semibold text-[8px] leading-none text-center px-1 break-words">{generatedImage ? 'Submit' : 'Generate'}</span>
             </button>

@@ -53,7 +53,17 @@ const SamsungModelScreen = () => {
         )
         
         setSamsungModels(mappedModels)
-        setSelectedModel(mappedModels[0])
+        
+        // Try to find GALAXY S24 in the mapped models, otherwise use the first model
+        const galaxyS24Index = mappedModels.findIndex(model => 
+          model.toUpperCase().includes('GALAXY S24') && !model.toUpperCase().includes('ULTRA') && !model.toUpperCase().includes('+')
+        )
+        
+        if (galaxyS24Index >= 0) {
+          setSelectedModel(mappedModels[galaxyS24Index])
+        } else {
+          setSelectedModel(mappedModels[0])
+        }
       } else {
         console.log('🔄 SamsungModelScreen - Using fallback models')
         setSamsungModels(fallbackModels)

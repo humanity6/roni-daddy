@@ -7,7 +7,7 @@ const OrderConfirmedScreen = () => {
   
   // Get real order data from payment screen
   const { orderData, brand, model, price } = location.state || {}
-  const orderNumber = orderData?.order_id || orderData?.queue_no || 'Loading...'
+  const orderNumber = orderData?.queue_no || orderData?.order_id || 'Loading...'
 
   const handleBack = () => {
     navigate(-1)

@@ -57,7 +57,17 @@ const IPhoneModelScreen = () => {
         )
         
         setIPhoneModels(mappedModels)
-        setSelectedModel(mappedModels[0])
+        
+        // Try to find IPHONE 16 in the mapped models, otherwise use the first model
+        const iphone16Index = mappedModels.findIndex(model => 
+          model.toUpperCase().includes('IPHONE 16') && !model.toUpperCase().includes('PRO') && !model.toUpperCase().includes('PLUS')
+        )
+        
+        if (iphone16Index >= 0) {
+          setSelectedModel(mappedModels[iphone16Index])
+        } else {
+          setSelectedModel(mappedModels[0])
+        }
       } else {
         console.log('🔄 IPhoneModelScreen - Using fallback models')
         setIPhoneModels(fallbackModels)

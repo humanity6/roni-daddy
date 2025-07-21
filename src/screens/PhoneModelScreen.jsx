@@ -87,7 +87,33 @@ const PhoneModelScreen = () => {
       }))
       
       setModels(fallbackModels)
-      setSelectedModel(fallbackModelNames[0])
+      
+      // Set preferred default model based on brand
+      let defaultModel = fallbackModelNames[0]
+      if (brand.id?.toLowerCase() === 'iphone') {
+        const iphone16Index = fallbackModelNames.findIndex(name => 
+          name.toLowerCase().includes('iphone 16') && !name.toLowerCase().includes('pro') && !name.toLowerCase().includes('plus')
+        )
+        if (iphone16Index >= 0) {
+          defaultModel = fallbackModelNames[iphone16Index]
+        }
+      } else if (brand.id?.toLowerCase() === 'samsung') {
+        const galaxyS24Index = fallbackModelNames.findIndex(name => 
+          name.toLowerCase().includes('galaxy s24') && !name.toLowerCase().includes('ultra') && !name.toLowerCase().includes('+')
+        )
+        if (galaxyS24Index >= 0) {
+          defaultModel = fallbackModelNames[galaxyS24Index]
+        }
+      } else if (brand.id?.toLowerCase() === 'google') {
+        const pixel8Index = fallbackModelNames.findIndex(name => 
+          name.toLowerCase().includes('pixel 8') && !name.toLowerCase().includes('pro')
+        )
+        if (pixel8Index >= 0) {
+          defaultModel = fallbackModelNames[pixel8Index]
+        }
+      }
+      
+      setSelectedModel(defaultModel)
       setError('Using fallback data - Chinese API unavailable')
       
     } catch (error) {
@@ -104,7 +130,33 @@ const PhoneModelScreen = () => {
       }))
       
       setModels(fallbackModels)
-      setSelectedModel(fallbackModelNames[0])
+      
+      // Set preferred default model based on brand
+      let defaultModel = fallbackModelNames[0]
+      if (brand.id?.toLowerCase() === 'iphone') {
+        const iphone16Index = fallbackModelNames.findIndex(name => 
+          name.toLowerCase().includes('iphone 16') && !name.toLowerCase().includes('pro') && !name.toLowerCase().includes('plus')
+        )
+        if (iphone16Index >= 0) {
+          defaultModel = fallbackModelNames[iphone16Index]
+        }
+      } else if (brand.id?.toLowerCase() === 'samsung') {
+        const galaxyS24Index = fallbackModelNames.findIndex(name => 
+          name.toLowerCase().includes('galaxy s24') && !name.toLowerCase().includes('ultra') && !name.toLowerCase().includes('+')
+        )
+        if (galaxyS24Index >= 0) {
+          defaultModel = fallbackModelNames[galaxyS24Index]
+        }
+      } else if (brand.id?.toLowerCase() === 'google') {
+        const pixel8Index = fallbackModelNames.findIndex(name => 
+          name.toLowerCase().includes('pixel 8') && !name.toLowerCase().includes('pro')
+        )
+        if (pixel8Index >= 0) {
+          defaultModel = fallbackModelNames[pixel8Index]
+        }
+      }
+      
+      setSelectedModel(defaultModel)
       setError(`Failed to load models: ${error.message}`)
     } finally {
       setLoading(false)

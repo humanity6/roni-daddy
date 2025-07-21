@@ -51,7 +51,17 @@ const GoogleModelScreen = () => {
         )
         
         setGoogleModels(mappedModels)
-        setSelectedModel(mappedModels[0])
+        
+        // Try to find PIXEL 8 in the mapped models, otherwise use the first model
+        const pixel8Index = mappedModels.findIndex(model => 
+          model.toUpperCase().includes('PIXEL 8') && !model.toUpperCase().includes('PRO')
+        )
+        
+        if (pixel8Index >= 0) {
+          setSelectedModel(mappedModels[pixel8Index])
+        } else {
+          setSelectedModel(mappedModels[0])
+        }
       } else {
         console.log('🔄 GoogleModelScreen - Using fallback models')
         setGoogleModels(fallbackModels)
