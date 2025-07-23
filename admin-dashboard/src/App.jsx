@@ -1,4 +1,5 @@
 import React from 'react'
+// Trigger deployment - admin dashboard
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout'
