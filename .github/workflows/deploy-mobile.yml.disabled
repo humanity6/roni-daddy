@@ -1,18 +1,18 @@
-name: Deploy Admin Dashboard to Hostinger
+name: Deploy Mobile App to Hostinger
 
 on:
   push:
     branches: [ main ]
     paths: 
-      - 'admin-dashboard/**'
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'vite.config.js'
+      - '.env.production'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./admin-dashboard
-        
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,7 +22,6 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: './admin-dashboard/package-lock.json'
           
       - name: Install dependencies
         run: npm ci
@@ -31,21 +30,22 @@ jobs:
         run: npm run build
         env:
           VITE_API_BASE_URL: https://pimpmycase.onrender.com
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           
       - name: Deploy to Hostinger
         uses: easingthemes/ssh-deploy@main
         with:
           SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           ARGS: "-rlgoDzvc -i --delete"
-          SOURCE: "admin-dashboard/dist/"
+          SOURCE: "dist/"
           REMOTE_HOST: ${{ secrets.HOSTINGER_HOST }}
           REMOTE_USER: ${{ secrets.HOSTINGER_USERNAME }}
-          TARGET: "/domains/pimpmycase.shop/public_html/admin/"
+          TARGET: "/domains/pimpmycase.shop/public_html/"
           EXCLUDE: "/dist/, /node_modules/"
-          SSH_CMD_ARGS: "-p 65002"
+          
           SCRIPT_BEFORE: |
             whoami
             ls -al
           SCRIPT_AFTER: |
-            echo "Admin dashboard deployed successfully to admin.pimpmycase.shop"
-            ls -al /domains/pimpmycase.shop/public_html/admin/
+            echo "Mobile app deployed successfully to pimpmycase.shop"
+            ls -al /domains/pimpmycase.shop/public_html/
