@@ -1,0 +1,16 @@
+# Hostinger deployment configuration for mobile app
+project_type: nodejs
+node_version: 18
+
+build:
+  commands:
+    - npm ci
+    - npm run build
+  
+deploy:
+  source_dir: dist
+  target_dir: /domains/pimpmycase.shop/public_html/
+
+environment:
+  VITE_API_BASE_URL: https://pimpmycase.onrender.com
+  VITE_STRIPE_PUBLISHABLE_KEY: pk_test_51RlxWxP7sQmXV4GuIGiYUOArZTKzYBh8q4v3huS8gumpOOtGaMwHXtlS1Ak59HBG5cDCEQExJHjKCTQAeoXir8iH00TmIcbfvn
