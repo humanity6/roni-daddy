@@ -9,6 +9,7 @@ const PaymentScreen = () => {
   const location = useLocation()
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState(null)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null)
 
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
@@ -93,7 +94,7 @@ const PaymentScreen = () => {
     navigate(-1)
   }
 
-  const handlePay = async () => {
+  const handlePayOnApp = async () => {
     if (isProcessingPayment) return
     
     setIsProcessingPayment(true)
@@ -117,7 +118,8 @@ const PaymentScreen = () => {
         selectedFont,
         selectedTextColor,
         selectedBackgroundColor,
-        textPosition
+        textPosition,
+        paymentMethod: 'app'
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
       
@@ -149,6 +151,53 @@ const PaymentScreen = () => {
     } catch (error) {
       console.error('Payment error:', error)
       setPaymentError('Payment setup failed. Please try again.')
+      setIsProcessingPayment(false)
+    }
+  }
+
+  const handlePayViaVendingMachine = async () => {
+    if (isProcessingPayment) return
+    
+    setIsProcessingPayment(true)
+    setPaymentError(null)
+    
+    try {
+      // Get all the order data we need
+      const { brand, model, color } = location.state || {}
+      
+      // Store current order data in localStorage
+      const orderData = {
+        designImage, 
+        uploadedImages,
+        imageTransforms,
+        price: effectivePrice,
+        brand: brand || 'iPhone',
+        model: model || 'iPhone 15 Pro',
+        color: color || 'Natural Titanium',
+        template,
+        inputText,
+        selectedFont,
+        selectedTextColor,
+        selectedBackgroundColor,
+        textPosition,
+        paymentMethod: 'vending_machine'
+      }
+      localStorage.setItem('pendingOrder', JSON.stringify(orderData))
+      
+      // TODO: Integrate with Chinese vending machine payment system
+      // For now, simulate the vending machine payment flow
+      
+      // Navigate to a waiting screen for vending machine payment
+      navigate('/vending-payment-waiting', { 
+        state: { 
+          orderData,
+          price: effectivePrice 
+        } 
+      })
+      
+    } catch (error) {
+      console.error('Vending machine payment error:', error)
+      setPaymentError('Vending machine payment setup failed. Please try again.')
       setIsProcessingPayment(false)
     }
   }
@@ -352,17 +401,46 @@ const PaymentScreen = () => {
           </div>
         </div>
 
-        {/* Pay button */}
-        <div className="my-8">
-          <div className="rounded-full bg-pink-400 p-[6px] shadow-xl transition-transform active:scale-95">
-            <div className="rounded-full bg-white p-[6px]">
-              <button
-                onClick={handlePay}
-                disabled={isProcessingPayment}
-                className="w-20 h-20 rounded-full flex items-center justify-center bg-pink-400 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProcessingPayment ? '...' : 'Pay'}
-              </button>
+        {/* Payment Method Selection */}
+        <div className="my-8 space-y-4">
+          <h3 className="text-xl font-semibold text-center text-gray-800 mb-6">
+            Choose Payment Method
+          </h3>
+          
+          {/* Pay on App Button */}
+          <div className="flex justify-center">
+            <div className="rounded-full bg-blue-400 p-[6px] shadow-xl transition-transform active:scale-95">
+              <div className="rounded-full bg-white p-[6px]">
+                <button
+                  onClick={handlePayOnApp}
+                  disabled={isProcessingPayment}
+                  className="px-8 py-4 rounded-full flex items-center justify-center bg-blue-400 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]"
+                >
+                  {isProcessingPayment ? '...' : 'Pay on App'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Or Separator */}
+          <div className="flex items-center justify-center py-2">
+            <div className="border-t border-gray-300 w-16"></div>
+            <span className="mx-4 text-gray-500 font-medium">OR</span>
+            <div className="border-t border-gray-300 w-16"></div>
+          </div>
+
+          {/* Pay via Vending Machine Button */}
+          <div className="flex justify-center">
+            <div className="rounded-full bg-green-400 p-[6px] shadow-xl transition-transform active:scale-95">
+              <div className="rounded-full bg-white p-[6px]">
+                <button
+                  onClick={handlePayViaVendingMachine}
+                  disabled={isProcessingPayment}
+                  className="px-8 py-4 rounded-full flex items-center justify-center bg-green-400 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]"
+                >
+                  {isProcessingPayment ? '...' : 'Pay via Machine'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -380,8 +458,8 @@ const PaymentScreen = () => {
             className="text-gray-500 text-lg"
             style={{ fontFamily: 'PoppinsLight, Poppins, sans-serif' }}
           >
-            Please <span className="font-semibold">Scan</span> Your
-            <br /> Card on the Card Reader.
+            Choose <span className="font-semibold">Pay on App</span> for card payment
+            <br />or <span className="font-semibold">Pay via Machine</span> to use the vending machine.
           </p>
         </div>
       </div>

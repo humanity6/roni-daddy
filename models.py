@@ -33,7 +33,6 @@ class PhoneModel(Base):
     brand_id = Column(String, ForeignKey("brands.id"), nullable=False)
     name = Column(String(200), nullable=False)  # "iPhone 15 Pro Max"
     display_name = Column(String(200), nullable=False)  # Display version
-    chinese_model_id = Column(String(100))  # ID used by Chinese API
     price = Column(DECIMAL(10, 2), nullable=False, default=19.99)
     stock = Column(Integer, default=0)
     is_available = Column(Boolean, default=True)
@@ -120,7 +119,6 @@ class VendingMachine(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(100), nullable=False)  # "Machine 1"
     location = Column(String(200))  # "Mall of America - Level 2"
-    chinese_device_id = Column(String(100))  # Device ID for Chinese API
     qr_config = Column(JSON)  # QR code generation settings
     is_active = Column(Boolean, default=True)
     last_heartbeat = Column(DateTime(timezone=True))
@@ -155,11 +153,7 @@ class Order(Base):
     stripe_payment_intent_id = Column(String(200))
     payment_status = Column(String(50), default="pending")  # pending, paid, failed, refunded
     paid_at = Column(DateTime(timezone=True))
-    
-    # Chinese API integration
-    chinese_payment_id = Column(String(100))  # Third-party payment ID for Chinese API
-    chinese_order_id = Column(String(100))  # Third-party order ID for Chinese API
-    queue_number = Column(String(50))  # Queue number from Chinese API
+    queue_number = Column(String(50))  # Queue number for vending machine display
     
     # Machine info
     machine_id = Column(String, ForeignKey("vending_machines.id"))
@@ -175,7 +169,6 @@ class Order(Base):
     template = relationship("Template", back_populates="orders")
     vending_machine = relationship("VendingMachine", back_populates="orders")
     images = relationship("OrderImage", back_populates="order", cascade="all, delete-orphan")
-    chinese_queue_items = relationship("ChineseAPIQueue", back_populates="order", cascade="all, delete-orphan")
 
 class OrderImage(Base):
     """Generated images for orders"""
@@ -186,30 +179,10 @@ class OrderImage(Base):
     image_path = Column(String(500), nullable=False)  # Path to stored image
     image_type = Column(String(50), default="generated")  # generated, uploaded, final
     ai_params = Column(JSON)  # AI generation parameters used
-    chinese_image_url = Column(String(500))  # URL returned by Chinese API after upload
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     order = relationship("Order", back_populates="images")
-
-class ChineseAPIQueue(Base):
-    """Queue for Chinese API communications"""
-    __tablename__ = "chinese_api_queue"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    order_id = Column(String, ForeignKey("orders.id"), nullable=False)
-    action = Column(String(50), nullable=False)  # upload_image, report_payment, create_order, get_status
-    payload = Column(JSON)  # Request payload sent to Chinese API
-    response = Column(JSON)  # Response received from Chinese API
-    status = Column(String(50), default="pending")  # pending, sent, success, failed
-    error_message = Column(Text)
-    retry_count = Column(Integer, default=0)
-    sent_at = Column(DateTime(timezone=True))
-    completed_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    order = relationship("Order", back_populates="chinese_queue_items")
 
 class AdminUser(Base):
     """Admin users for the dashboard"""

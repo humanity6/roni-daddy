@@ -168,6 +168,16 @@ const appStateReducer = (state, action) => {
         aiCredits: 4
       }
     
+    case 'LOAD_STATE':
+      return {
+        ...action.payload,
+        // Keep current QR session data and don't persist loading/error states
+        sessionId: state.sessionId,
+        qrSession: state.qrSession,
+        loading: false,
+        error: null
+      }
+    
     default:
       return state
   }

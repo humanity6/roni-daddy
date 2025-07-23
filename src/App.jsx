@@ -29,6 +29,7 @@ import CoverShootGenerateScreen from './screens/CoverShootGenerateScreen'
 import RetroRemixGenerateScreen from './screens/RetroRemixGenerateScreen'
 import PaymentSuccessScreen from './screens/PaymentSuccessScreen'
 import PaymentCancelScreen from './screens/PaymentCancelScreen'
+import VendingPaymentWaitingScreen from './screens/VendingPaymentWaitingScreen'
 
 function App() {
   return (
@@ -65,6 +66,7 @@ function App() {
           <Route path="/retro-remix-generate" element={<RetroRemixGenerateScreen />} />
           <Route path="/payment-success" element={<PaymentSuccessScreen />} />
           <Route path="/payment-cancel" element={<PaymentCancelScreen />} />
+          <Route path="/vending-payment-waiting" element={<VendingPaymentWaitingScreen />} />
         </Routes>
       </div>
     </AppStateProvider>

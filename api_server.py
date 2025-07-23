@@ -94,6 +94,22 @@ class PaymentSuccessRequest(BaseModel):
     session_id: str
     order_data: dict
 
+# Pydantic models for Chinese manufacturer API communication
+class OrderStatusUpdateRequest(BaseModel):
+    order_id: str
+    status: str
+    queue_number: Optional[str] = None
+    estimated_completion: Optional[str] = None
+    chinese_order_id: Optional[str] = None
+    notes: Optional[str] = None
+
+class PrintCommandRequest(BaseModel):
+    order_id: str
+    image_urls: List[str]
+    phone_model: str
+    customer_info: dict
+    priority: Optional[int] = 1
+
 # Exception handler for validation errors
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -815,87 +831,104 @@ async def get_template_styles(template_id: str):
     else:
         return {"options": []}
 
-# Chinese API endpoints for final order processing
-@app.post("/api/chinese/submit-order")
-async def submit_order_to_chinese(
-    order_id: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    """Submit finalized order to Chinese API for printing"""
-    try:
-        order = OrderService.get_order_by_id(db, order_id)
-        if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
-        
-        if order.payment_status != "paid":
-            raise HTTPException(status_code=400, detail="Order not paid")
-        
-        # Get order images
-        images = OrderImageService.get_order_images(db, order_id)
-        if not images:
-            raise HTTPException(status_code=400, detail="No images found for order")
-        
-        # Prepare order data for Chinese API
-        order_data = {
-            "order_id": order.id,
-            "mobile_model_id": order.phone_model.chinese_model_id,
-            "customer_info": order.user_data,
-            "images": [
-                {
-                    "url": f"/image/{os.path.basename(img.image_path)}",
-                    "type": img.image_type,
-                    "ai_params": img.ai_params
-                }
-                for img in images
-            ],
-            "payment_confirmed": True,
-            "total_amount": float(order.total_amount),
-            "currency": order.currency
+# New API endpoints for Chinese manufacturers
+@app.get("/api/chinese/test-connection")
+async def test_chinese_connection():
+    """Test endpoint for Chinese manufacturers to verify API connectivity"""
+    return {
+        "status": "success",
+        "message": "Connection successful",
+        "api_version": "2.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "endpoints": {
+            "status_update": "/api/chinese/order-status-update",
+            "test_connection": "/api/chinese/test-connection"
         }
-        
-        # TODO: Send to Chinese API when they implement their endpoints
-        # For now, just update order status
-        OrderService.update_order_status(db, order_id, "sent_to_chinese")
-        
-        return {
-            "success": True,
-            "message": "Order submitted to Chinese API",
-            "order_data": order_data
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to submit order: {str(e)}")
+    }
 
 @app.post("/api/chinese/order-status-update")
-async def chinese_order_status_update(
-    order_id: str = Form(...),
-    status: str = Form(...),
-    queue_number: Optional[str] = Form(None),
+async def receive_order_status_update(
+    request: OrderStatusUpdateRequest,
     db: Session = Depends(get_db)
 ):
-    """Receive status updates from Chinese API"""
+    """Receive order status updates from Chinese manufacturers"""
     try:
-        chinese_data = {}
-        if queue_number:
-            chinese_data["queue_number"] = queue_number
-        
-        order = OrderService.update_order_status(db, order_id, status, chinese_data)
+        # Validate order exists
+        order = OrderService.get_order_by_id(db, request.order_id)
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         
+        # Prepare update data
+        update_data = {
+            "status": request.status
+        }
+        
+        if request.queue_number:
+            update_data["queue_number"] = request.queue_number
+        if request.estimated_completion:
+            update_data["estimated_completion"] = request.estimated_completion
+        if request.chinese_order_id:
+            update_data["chinese_order_id"] = request.chinese_order_id
+        if request.notes:
+            update_data["notes"] = request.notes
+        
+        # Update order status
+        updated_order = OrderService.update_order_status(db, request.order_id, request.status, update_data)
+        
         return {
             "success": True,
-            "message": "Order status updated",
-            "order_id": order_id,
-            "status": status
+            "message": "Order status updated successfully",
+            "order_id": request.order_id,
+            "status": request.status,
+            "updated_at": datetime.utcnow().isoformat()
         }
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update order status: {str(e)}")
+
+@app.post("/api/chinese/send-print-command")
+async def send_print_command(
+    request: PrintCommandRequest,
+    db: Session = Depends(get_db)
+):
+    """Send print command to Chinese manufacturers (placeholder for future implementation)"""
+    try:
+        # Validate order exists
+        order = OrderService.get_order_by_id(db, request.order_id)
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        # For now, this is a placeholder endpoint
+        # In the future, this would integrate with Chinese manufacturer APIs
+        print_command_data = {
+            "order_id": request.order_id,
+            "image_urls": request.image_urls,
+            "phone_model": request.phone_model,
+            "customer_info": request.customer_info,
+            "priority": request.priority,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Update order status to indicate print command was sent
+        OrderService.update_order_status(db, request.order_id, "print_command_sent", {
+            "print_command_data": print_command_data
+        })
+        
+        return {
+            "success": True,
+            "message": "Print command sent successfully",
+            "order_id": request.order_id,
+            "command_id": f"CMD_{int(time.time())}",
+            "status": "sent",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send print command: {str(e)}")
 
 @app.post("/create-checkout-session")
 async def create_checkout_session(
