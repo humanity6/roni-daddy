@@ -13,7 +13,8 @@
       "Bash(where psql)",
       "Bash(psql:*)",
       "Bash(if exist .env type .env)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

@@ -50,6 +50,13 @@ app.add_middleware(
         "https://pimp-my-case-git-main-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
         "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app",  # Preview domain
         "https://pimp-my-case-nh7bek7vb-arshads-projects-c0bbf026.vercel.app/",  # With trailing slash
+        # New Hostinger domains
+        "https://pimpmycase.shop",  # Main mobile app
+        "https://pimpmycase.shop/",  # With trailing slash
+        "https://admin.pimpmycase.shop",  # Admin dashboard
+        "https://admin.pimpmycase.shop/",  # With trailing slash
+        "https://www.pimpmycase.shop",  # WWW version
+        "https://www.pimpmycase.shop/",  # With trailing slash
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel deployments
     allow_credentials=True,
@@ -901,7 +908,7 @@ async def create_checkout_session(
         amount_pence = int(request.amount * 100)
         
         # Determine the base URL for redirects
-        base_url = "https://pimp-my-case.vercel.app"  # Production Frontend URL
+        base_url = "https://pimpmycase.shop"  # New Hostinger Production URL
         
         # Create checkout session
         session = stripe.checkout.Session.create(

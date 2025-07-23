@@ -1,0 +1,50 @@
+name: Deploy Admin Dashboard to Hostinger
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'admin-dashboard/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./admin-dashboard
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './admin-dashboard/package-lock.json'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build application
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://pimpmycase.onrender.com
+          
+      - name: Deploy to Hostinger
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          ARGS: "-rlgoDzvc -i --delete"
+          SOURCE: "admin-dashboard/dist/"
+          REMOTE_HOST: ${{ secrets.HOSTINGER_HOST }}
+          REMOTE_USER: ${{ secrets.HOSTINGER_USERNAME }}
+          TARGET: "/domains/pimpmycase.shop/public_html/admin/"
+          EXCLUDE: "/dist/, /node_modules/"
+          SCRIPT_BEFORE: |
+            whoami
+            ls -al
+          SCRIPT_AFTER: |
+            echo "Admin dashboard deployed successfully to admin.pimpmycase.shop"
+            ls -al /domains/pimpmycase.shop/public_html/admin/

@@ -9,6 +9,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
-  }
+    assetsDir: 'assets',
+    sourcemap: false,
+    minify: true,
+  },
+  base: '/',  // Important for subdomain hosting
 })
