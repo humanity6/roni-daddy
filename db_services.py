@@ -413,39 +413,3 @@ class ColorService:
         return color
 
 
-class ChineseAPIQueueService:
-    """Service for Chinese API queue operations"""
-    
-    @staticmethod
-    def add_to_queue(db: Session, order_id: str, action: str, payload: Dict[str, Any]) -> ChineseAPIQueue:
-        """Add item to Chinese API queue"""
-        queue_item = ChineseAPIQueue(
-            order_id=order_id,
-            action=action,
-            payload=payload
-        )
-        db.add(queue_item)
-        db.commit()
-        db.refresh(queue_item)
-        return queue_item
-    
-    @staticmethod
-    def update_queue_item(db: Session, queue_id: str, status: str, response: Optional[Dict] = None, error_message: Optional[str] = None) -> Optional[ChineseAPIQueue]:
-        """Update queue item status"""
-        queue_item = db.query(ChineseAPIQueue).filter(ChineseAPIQueue.id == queue_id).first()
-        if queue_item:
-            queue_item.status = status
-            if response:
-                queue_item.response = response
-            if error_message:
-                queue_item.error_message = error_message
-            if status in ['success', 'failed']:
-                queue_item.completed_at = datetime.utcnow()
-            db.commit()
-            db.refresh(queue_item)
-        return queue_item
-    
-    @staticmethod
-    def get_pending_queue_items(db: Session, limit: int = 100) -> List[ChineseAPIQueue]:
-        """Get pending queue items for processing"""
-        return db.query(ChineseAPIQueue).filter(ChineseAPIQueue.status == 'pending').order_by(ChineseAPIQueue.created_at).limit(limit).all()
