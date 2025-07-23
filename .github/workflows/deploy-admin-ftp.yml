@@ -40,6 +40,9 @@ jobs:
           password: ${{ secrets.HOSTINGER_PASSWORD }}
           local-dir: ./admin-dashboard/dist/
           server-dir: /domains/pimpmycase.shop/public_html/admin/
+          protocol: ftp
+          port: 21
+          timeout: 60000
           exclude: |
             **/.git*
             **/.git*/**
