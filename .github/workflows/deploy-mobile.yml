@@ -42,6 +42,7 @@ jobs:
           REMOTE_USER: ${{ secrets.HOSTINGER_USERNAME }}
           TARGET: "/domains/pimpmycase.shop/public_html/"
           EXCLUDE: "/dist/, /node_modules/"
+          SSH_CMD_ARGS: "-p 65002" 
           SCRIPT_BEFORE: |
             whoami
             ls -al
