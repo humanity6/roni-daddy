@@ -632,7 +632,7 @@ async def reset_database_endpoint():
 async def init_database_endpoint():
     """Initialize database with sample data - for production setup"""
     try:
-        from init_db import init_brands, init_phone_models, init_templates, init_fonts, init_colors, init_vending_machine
+        from init_db import init_brands, init_phone_models, init_templates, init_fonts, init_colors, init_vending_machines
         
         # Create all tables first (safe to call multiple times)
         print("Creating/verifying database tables...")
@@ -649,8 +649,8 @@ async def init_database_endpoint():
         init_fonts()
         print("Initializing colors...")
         init_colors()
-        print("Initializing vending machine...")
-        init_vending_machine()
+        print("Initializing vending machines...")
+        init_vending_machines()
         
         return {
             "success": True,
@@ -661,7 +661,7 @@ async def init_database_endpoint():
                 "templates (5 basic + 4 AI templates)",
                 "fonts (16 fonts including Google fonts)",
                 "colors (12 background + 11 text colors)",
-                "default vending machine"
+                "test vending machines (5 machines)"
             ]
         }
         
