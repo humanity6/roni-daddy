@@ -474,12 +474,12 @@ def init_vending_machines():
 
 def main():
     """Initialize the entire database"""
-    print("🚀 Initializing database...")
+    print("Initializing database...")
     
     # Create all tables
-    print("📊 Creating database tables...")
+    print("Creating database tables...")
     create_tables()
-    print("✅ Database tables created")
+    print("Database tables created")
     
     # Initialize data
     init_brands()
@@ -489,7 +489,7 @@ def main():
     init_colors()
     init_vending_machines()
     
-    print("🎉 Database initialization complete!")
+    print("Database initialization complete!")
 
 if __name__ == "__main__":
     main()
