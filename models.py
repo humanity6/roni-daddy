@@ -127,6 +127,46 @@ class VendingMachine(Base):
 
     # Relationships
     orders = relationship("Order", back_populates="vending_machine")
+    sessions = relationship("VendingMachineSession", back_populates="vending_machine", cascade="all, delete-orphan")
+
+class VendingMachineSession(Base):
+    """Active sessions between vending machines and user web sessions"""
+    __tablename__ = "vending_machine_sessions"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String(200), unique=True, nullable=False)  # Format: VM001_20240123_143022_ABC123
+    machine_id = Column(String, ForeignKey("vending_machines.id"), nullable=False)
+    
+    # Session state
+    status = Column(String(50), default="active")  # active, designing, payment_pending, payment_completed, expired, cancelled
+    user_progress = Column(String(50), default="started")  # started, brand_selected, design_complete, payment_reached
+    
+    # QR and session data
+    qr_data = Column(JSON)  # Original QR parameters
+    user_agent = Column(String(500))  # Browser/device info
+    ip_address = Column(String(45))  # IPv4/IPv6 address
+    
+    # Order association
+    order_id = Column(String, ForeignKey("orders.id"))  # Links to created order
+    
+    # Payment details
+    payment_method = Column(String(50))  # 'app', 'vending_machine', None
+    payment_amount = Column(DECIMAL(10, 2))  # Final order amount
+    payment_confirmed_at = Column(DateTime(timezone=True))
+    
+    # Timing
+    expires_at = Column(DateTime(timezone=True), nullable=False)  # Session expiration
+    last_activity = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Additional session metadata
+    session_data = Column(JSON)  # Store user selections, progress, etc.
+    error_log = Column(JSON)  # Track any errors during session
+    
+    # Relationships
+    vending_machine = relationship("VendingMachine", back_populates="sessions")
+    order = relationship("Order")
 
 class Order(Base):
     """Customer orders"""

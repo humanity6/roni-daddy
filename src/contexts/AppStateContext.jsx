@@ -9,6 +9,17 @@ const initialState = {
   sessionId: null,
   qrSession: false,
   
+  // Vending Machine Session
+  vendingMachineSession: {
+    isVendingMachine: false,
+    machineId: null,
+    sessionId: null,
+    location: null,
+    machineInfo: null,
+    sessionStatus: null,
+    expiresAt: null
+  },
+  
   // User selections
   brand: null,
   model: null,
@@ -55,7 +66,9 @@ const ACTIONS = {
   SET_QUEUE_POSITION: 'SET_QUEUE_POSITION',
   SET_ERROR: 'SET_ERROR',
   SET_LOADING: 'SET_LOADING',
-  RESET_STATE: 'RESET_STATE'
+  RESET_STATE: 'RESET_STATE',
+  SET_VENDING_MACHINE_SESSION: 'SET_VENDING_MACHINE_SESSION',
+  UPDATE_VENDING_SESSION_STATUS: 'UPDATE_VENDING_SESSION_STATUS'
 }
 
 // Reducer
@@ -168,6 +181,25 @@ const appStateReducer = (state, action) => {
         aiCredits: 4
       }
     
+    case ACTIONS.SET_VENDING_MACHINE_SESSION:
+      return {
+        ...state,
+        vendingMachineSession: {
+          ...state.vendingMachineSession,
+          ...action.payload
+        }
+      }
+    
+    case ACTIONS.UPDATE_VENDING_SESSION_STATUS:
+      return {
+        ...state,
+        vendingMachineSession: {
+          ...state.vendingMachineSession,
+          sessionStatus: action.payload.status,
+          ...action.payload
+        }
+      }
+    
     case 'LOAD_STATE':
       return {
         ...action.payload,
@@ -192,6 +224,9 @@ export const AppStateProvider = ({ children }) => {
   useEffect(() => {
     const sessionId = searchParams.get('session')
     const qrSession = searchParams.has('qr')
+    const machineId = searchParams.get('machine_id')
+    const vendingSessionId = searchParams.get('session_id')
+    const location = searchParams.get('location')
     
     if (sessionId || qrSession) {
       dispatch({
@@ -199,7 +234,64 @@ export const AppStateProvider = ({ children }) => {
         payload: { sessionId, qrSession }
       })
     }
+    
+    // Handle vending machine QR parameters
+    if (qrSession && machineId && vendingSessionId) {
+      const vendingMachineData = {
+        isVendingMachine: true,
+        machineId,
+        sessionId: vendingSessionId,
+        location,
+        sessionStatus: 'qr_scanned'
+      }
+      
+      dispatch({
+        type: ACTIONS.SET_VENDING_MACHINE_SESSION,
+        payload: vendingMachineData
+      })
+      
+      // Register user with vending machine session
+      registerWithVendingMachine(vendingSessionId, machineId, location)
+    }
   }, [searchParams])
+  
+  // Function to register user with vending machine session
+  const registerWithVendingMachine = async (sessionId, machineId, location) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${sessionId}/register-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          machine_id: machineId,
+          session_id: sessionId,
+          location,
+          user_agent: navigator.userAgent,
+          ip_address: null // Could be determined on backend
+        })
+      })
+      
+      if (response.ok) {
+        const sessionData = await response.json()
+        dispatch({
+          type: ACTIONS.SET_VENDING_MACHINE_SESSION,
+          payload: {
+            ...sessionData.machine_info,
+            sessionStatus: 'registered',
+            expiresAt: sessionData.expires_at,
+            userProgress: sessionData.user_progress
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Failed to register with vending machine session:', error)
+      dispatch({
+        type: ACTIONS.SET_ERROR,
+        payload: 'Failed to connect to vending machine. Please try scanning the QR code again.'
+      })
+    }
+  }
 
   // Persist state to localStorage
   useEffect(() => {
@@ -316,6 +408,16 @@ export const AppStateProvider = ({ children }) => {
     
     resetState: () => dispatch({
       type: ACTIONS.RESET_STATE
+    }),
+    
+    setVendingMachineSession: (sessionData) => dispatch({
+      type: ACTIONS.SET_VENDING_MACHINE_SESSION,
+      payload: sessionData
+    }),
+    
+    updateVendingSessionStatus: (statusData) => dispatch({
+      type: ACTIONS.UPDATE_VENDING_SESSION_STATUS,
+      payload: statusData
     })
   }
 

@@ -391,24 +391,88 @@ def init_colors():
         db.close()
 
 
-def init_vending_machine():
-    """Initialize default vending machine"""
+def init_vending_machines():
+    """Initialize test vending machines for Chinese manufacturers"""
     db = SessionLocal()
     try:
-        existing = db.query(VendingMachine).filter(VendingMachine.name == "Machine 1").first()
-        if not existing:
-            machine = VendingMachine(
-                name="Machine 1",
-                location="Default Location",
-                chinese_device_id="TEST_DEVICE_001",
-                qr_config={"base_url": "https://pimp-my-case.vercel.app"},
-                is_active=True
-            )
-            db.add(machine)
-            db.commit()
-            print("✅ Default vending machine initialized")
+        vending_machines_data = [
+            {
+                "id": "VM001",
+                "name": "Test Mall Kiosk 1",
+                "location": "Westfield Shopping Centre - Level 2",
+                "chinese_device_id": "TEST_DEVICE_001",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 30,
+                    "max_concurrent_sessions": 5
+                },
+                "is_active": True,
+                "description": "Primary test machine for API integration testing"
+            },
+            {
+                "id": "VM002", 
+                "name": "Test Mall Kiosk 2",
+                "location": "Stratford Shopping Centre - Ground Floor",
+                "chinese_device_id": "TEST_DEVICE_002",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 30,
+                    "max_concurrent_sessions": 5
+                },
+                "is_active": True,
+                "description": "Secondary test machine for load testing"
+            },
+            {
+                "id": "VM_LONDON_01",
+                "name": "London Oxford Street Station",
+                "location": "Oxford Street Underground Station - Platform Level",
+                "chinese_device_id": "LONDON_DEVICE_001",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 25,
+                    "max_concurrent_sessions": 10
+                },
+                "is_active": True,
+                "description": "High-traffic location test machine"
+            },
+            {
+                "id": "VM_TEST_MANUFACTURER",
+                "name": "Chinese Manufacturer Test Unit",
+                "location": "API Testing Environment",
+                "chinese_device_id": "MANUFACTURER_TEST_001",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 60,
+                    "max_concurrent_sessions": 3
+                },
+                "is_active": True,
+                "description": "Dedicated test machine for Chinese manufacturer API integration"
+            },
+            {
+                "id": "VM_DEMO",
+                "name": "Demo Presentation Machine",
+                "location": "Sales Demo Environment",
+                "chinese_device_id": "DEMO_DEVICE_001",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 15,
+                    "max_concurrent_sessions": 2
+                },
+                "is_active": True,
+                "description": "Machine for sales demonstrations and client presentations"
+            }
+        ]
+
+        for machine_data in vending_machines_data:
+            existing = db.query(VendingMachine).filter(VendingMachine.id == machine_data["id"]).first()
+            if not existing:
+                machine = VendingMachine(**machine_data)
+                db.add(machine)
+
+        db.commit()
+        print("✅ Test vending machines initialized (5 machines)")
     except Exception as e:
-        print(f"❌ Error initializing vending machine: {e}")
+        print(f"❌ Error initializing vending machines: {e}")
         db.rollback()
     finally:
         db.close()
@@ -428,7 +492,7 @@ def main():
     init_templates()
     init_fonts()
     init_colors()
-    init_vending_machine()
+    init_vending_machines()
     
     print("🎉 Database initialization complete!")
 

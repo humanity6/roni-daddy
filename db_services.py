@@ -413,3 +413,113 @@ class ColorService:
         return color
 
 
+class VendingMachineSessionService:
+    """Service for vending machine session operations"""
+    
+    @staticmethod
+    def create_session(db: Session, session_data: dict) -> 'VendingMachineSession':
+        """Create a new vending machine session"""
+        from models import VendingMachineSession
+        session = VendingMachineSession(**session_data)
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return session
+    
+    @staticmethod
+    def get_session_by_id(db: Session, session_id: str) -> Optional['VendingMachineSession']:
+        """Get session by session ID"""
+        from models import VendingMachineSession
+        return db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+    
+    @staticmethod
+    def update_session_progress(db: Session, session_id: str, progress: str, session_data: dict = None) -> Optional['VendingMachineSession']:
+        """Update session progress and data"""
+        from models import VendingMachineSession
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if session:
+            session.user_progress = progress
+            session.last_activity = datetime.utcnow()
+            if session_data:
+                current_data = session.session_data or {}
+                current_data.update(session_data)
+                session.session_data = current_data
+            db.commit()
+            db.refresh(session)
+        return session
+    
+    @staticmethod
+    def update_session_status(db: Session, session_id: str, status: str) -> Optional['VendingMachineSession']:
+        """Update session status"""
+        from models import VendingMachineSession
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if session:
+            session.status = status
+            session.last_activity = datetime.utcnow()
+            db.commit()
+            db.refresh(session)
+        return session
+    
+    @staticmethod
+    def link_session_to_order(db: Session, session_id: str, order_id: str) -> Optional['VendingMachineSession']:
+        """Link session to an order"""
+        from models import VendingMachineSession
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if session:
+            session.order_id = order_id
+            session.last_activity = datetime.utcnow()
+            db.commit()
+            db.refresh(session)
+        return session
+    
+    @staticmethod
+    def get_active_sessions(db: Session, machine_id: str = None) -> List['VendingMachineSession']:
+        """Get all active sessions, optionally filtered by machine"""
+        from models import VendingMachineSession
+        query = db.query(VendingMachineSession).filter(VendingMachineSession.status.in_(['active', 'designing', 'payment_pending']))
+        if machine_id:
+            query = query.filter(VendingMachineSession.machine_id == machine_id)
+        return query.order_by(VendingMachineSession.created_at.desc()).all()
+    
+    @staticmethod
+    def cleanup_expired_sessions(db: Session) -> int:
+        """Clean up expired sessions"""
+        from models import VendingMachineSession
+        current_time = datetime.utcnow()
+        expired_sessions = db.query(VendingMachineSession).filter(
+            VendingMachineSession.expires_at < current_time,
+            VendingMachineSession.status.in_(['active', 'designing', 'payment_pending'])
+        ).all()
+        
+        count = 0
+        for session in expired_sessions:
+            session.status = 'expired'
+            session.last_activity = current_time
+            count += 1
+        
+        if count > 0:
+            db.commit()
+        
+        return count
+    
+    @staticmethod
+    def get_session_stats(db: Session, machine_id: str = None) -> dict:
+        """Get session statistics"""
+        from models import VendingMachineSession
+        query = db.query(VendingMachineSession)
+        if machine_id:
+            query = query.filter(VendingMachineSession.machine_id == machine_id)
+        
+        total_sessions = query.count()
+        active_sessions = query.filter(VendingMachineSession.status == 'active').count()
+        completed_sessions = query.filter(VendingMachineSession.status == 'payment_completed').count()
+        expired_sessions = query.filter(VendingMachineSession.status == 'expired').count()
+        
+        return {
+            "total_sessions": total_sessions,
+            "active_sessions": active_sessions,
+            "completed_sessions": completed_sessions,
+            "expired_sessions": expired_sessions,
+            "completion_rate": (completed_sessions / total_sessions * 100) if total_sessions > 0 else 0
+        }
+

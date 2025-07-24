@@ -311,10 +311,6 @@ created → received → queued → printing → quality_check → packaging →
 - Response times are monitored
 - Error rates are tracked
 
-### Support
-For technical issues or questions:
-- **Email:** [Contact information to be provided]
-- **Documentation:** This document will be updated as needed
 
 ---
 
@@ -322,7 +318,7 @@ For technical issues or questions:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2.0.0 | 2024-01-15 | Initial API documentation for Chinese manufacturers |
+| 2.0.0 | 2025-07-24 | Initial API documentation for Chinese manufacturers |
 
 ---
 

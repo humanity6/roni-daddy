@@ -3,13 +3,19 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { fonts as availableFonts } from '../utils/fontManager'
 import { getTemplatePrice } from '../config/templatePricing'
 import { useState } from 'react'
+import { useAppState } from '../contexts/AppStateContext'
 
 const PaymentScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { state: appState } = useAppState()
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState(null)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null)
+  
+  // Get vending machine session info
+  const { vendingMachineSession } = appState
+  const isVendingMachine = vendingMachineSession?.isVendingMachine || false
 
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
@@ -184,16 +190,49 @@ const PaymentScreen = () => {
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
       
-      // TODO: Integrate with Chinese vending machine payment system
-      // For now, simulate the vending machine payment flow
-      
-      // Navigate to a waiting screen for vending machine payment
-      navigate('/vending-payment-waiting', { 
-        state: { 
-          orderData,
-          price: effectivePrice 
-        } 
-      })
+      // If in vending machine mode, send order summary to vending machine
+      if (isVendingMachine && vendingMachineSession?.sessionId) {
+        const orderSummaryResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/order-summary`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            session_id: vendingMachineSession.sessionId,
+            order_data: orderData,
+            payment_amount: effectivePrice,
+            currency: 'GBP'
+          })
+        })
+        
+        if (!orderSummaryResponse.ok) {
+          throw new Error('Failed to send order to vending machine')
+        }
+        
+        const summaryResult = await orderSummaryResponse.json()
+        console.log('Order summary sent to vending machine:', summaryResult)
+        
+        // Show message to return to vending machine for payment
+        alert(`Order ready! Please return to the vending machine to pay £${effectivePrice.toFixed(2)}`)
+        
+        // Navigate to waiting screen with vending machine context
+        navigate('/vending-payment-waiting', { 
+          state: { 
+            orderData,
+            price: effectivePrice,
+            vendingMachineSession,
+            isVendingMachine: true
+          } 
+        })
+      } else {
+        // Regular flow for non-vending machine users
+        navigate('/vending-payment-waiting', { 
+          state: { 
+            orderData,
+            price: effectivePrice 
+          } 
+        })
+      }
       
     } catch (error) {
       console.error('Vending machine payment error:', error)
@@ -399,6 +438,23 @@ const PaymentScreen = () => {
               </p>
             </div>
           </div>
+          
+          {/* Vending Machine Indicator */}
+          {isVendingMachine && (
+            <div className="mt-4 px-6 py-3 bg-green-100 border-2 border-green-300 rounded-xl">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <p className="text-green-800 font-semibold">
+                  Connected to {vendingMachineSession?.machineInfo?.name || 'Vending Machine'}
+                </p>
+              </div>
+              {vendingMachineSession?.location && (
+                <p className="text-green-700 text-sm text-center mt-1">
+                  Location: {vendingMachineSession.location}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Payment Method Selection */}
@@ -458,8 +514,17 @@ const PaymentScreen = () => {
             className="text-gray-500 text-lg"
             style={{ fontFamily: 'PoppinsLight, Poppins, sans-serif' }}
           >
-            Choose <span className="font-semibold">Pay on App</span> for card payment
-            <br />or <span className="font-semibold">Pay via Machine</span> to use the vending machine.
+            {isVendingMachine ? (
+              <>
+                You scanned the QR code from a <span className="font-semibold">vending machine</span>.
+                <br />Choose <span className="font-semibold">Pay via Machine</span> to pay at the machine, or <span className="font-semibold">Pay on App</span> for card payment.
+              </>
+            ) : (
+              <>
+                Choose <span className="font-semibold">Pay on App</span> for card payment
+                <br />or <span className="font-semibold">Pay via Machine</span> to use the vending machine.
+              </>
+            )}
           </p>
         </div>
       </div>
