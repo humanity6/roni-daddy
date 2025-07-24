@@ -33,6 +33,7 @@ class PhoneModel(Base):
     brand_id = Column(String, ForeignKey("brands.id"), nullable=False)
     name = Column(String(200), nullable=False)  # "iPhone 15 Pro Max"
     display_name = Column(String(200), nullable=False)  # Display version
+    chinese_model_id = Column(String(100))  # Chinese manufacturer's internal model ID
     price = Column(DECIMAL(10, 2), nullable=False, default=19.99)
     stock = Column(Integer, default=0)
     is_available = Column(Boolean, default=True)

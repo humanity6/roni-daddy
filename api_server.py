@@ -16,7 +16,7 @@ import json
 import requests
 import stripe
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from database import get_db, create_tables
 from api_routes import router
 from db_services import OrderService, OrderImageService, BrandService, PhoneModelService, TemplateService
@@ -1193,7 +1193,7 @@ async def register_user_with_session(
         if not security_manager.validate_machine_id(request.machine_id):
             raise HTTPException(status_code=400, detail="Invalid machine ID format")
         
-        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        session = db.query(VendingMachineSession).options(joinedload(VendingMachineSession.vending_machine)).filter(VendingMachineSession.session_id == session_id).first()
         if not session:
             security_manager.record_failed_attempt(security_info["client_ip"])
             raise HTTPException(status_code=404, detail="Session not found")

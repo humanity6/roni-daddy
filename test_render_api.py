@@ -152,6 +152,58 @@ class RenderAPITester:
             self.log_test("Chinese Print Command", False, f"Error: {str(e)}")
             return False
     
+    def test_chinese_phone_models(self) -> bool:
+        """Test Chinese API phone models endpoint"""
+        try:
+            response = self.session.get(f"{self.base_url}/api/chinese/phone-models")
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                model_count = data.get('total_models', 0)
+                device_count = len(data.get('device_mappings', {}))
+                details += f", Models: {model_count}, Devices: {device_count}"
+            
+            self.log_test("Chinese Phone Models", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Chinese Phone Models", False, f"Error: {str(e)}")
+            return False
+    
+    def test_chinese_device_heartbeat(self) -> bool:
+        """Test Chinese API device heartbeat"""
+        try:
+            test_data = {
+                "device_id": "TEST_DEVICE_001",
+                "status": "online",
+                "timestamp": datetime.now().isoformat(),
+                "system_info": {
+                    "version": "1.0.0",
+                    "free_space_mb": 1024,
+                    "temperature_c": 35
+                }
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/chinese/device-heartbeat",
+                json=test_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                details += f", Device Status: {data.get('machine_status')}, Active Sessions: {data.get('active_sessions')}"
+            
+            self.log_test("Chinese Device Heartbeat", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Chinese Device Heartbeat", False, f"Error: {str(e)}")
+            return False
+    
     def test_vending_session_creation(self) -> Optional[str]:
         """Test vending machine session creation and return session_id"""
         try:

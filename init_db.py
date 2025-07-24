@@ -139,11 +139,14 @@ def init_phone_models():
                 model_id = f"{brand_id}-{model_data['name'].lower().replace(' ', '-')}"
                 existing = db.query(PhoneModel).filter(PhoneModel.id == model_id).first()
                 if not existing:
+                    # Generate Chinese model ID for manufacturer integration
+                    chinese_id = f"CN_{brand_id.upper()}_{model_data['display_order']:03d}"
                     phone_model = PhoneModel(
                         id=model_id,
                         brand_id=brand_id,
                         name=model_data["name"],
                         display_name=model_data["name"],
+                        chinese_model_id=chinese_id,
                         price=19.99,
                         stock=100,
                         is_available=True,
