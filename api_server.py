@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Req
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
+from contextlib import asynccontextmanager
 import openai
 import base64
 import io
@@ -11,6 +12,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 import time
+import secrets
+import traceback
 from typing import Optional, List
 import json
 import requests
@@ -21,7 +24,7 @@ from database import get_db, create_tables
 from api_routes import router
 from db_services import OrderService, OrderImageService, BrandService, PhoneModelService, TemplateService
 from models import PhoneModel, Template, VendingMachine, VendingMachineSession
-from datetime import datetime
+from datetime import datetime, timezone
 from security_middleware import (
     validate_session_security, 
     validate_machine_security, 
@@ -34,7 +37,17 @@ load_dotenv()  # Current directory
 load_dotenv("image gen/.env")  # Image gen subdirectory
 load_dotenv(".env")  # Explicit current directory
 
-app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup"""
+    try:
+        create_tables()
+        print("Database tables created/verified")
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+    yield
+
+app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0", lifespan=lifespan)
 
 # Include the new API routes
 app.include_router(router)
@@ -162,16 +175,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=400,
         content={"detail": f"Validation error: {exc.errors()}"}
     )
-
-# Database startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    try:
-        create_tables()
-        print("Database tables created/verified")
-    except Exception as e:
-        print(f"Database initialization error: {e}")
 
 # Initialize OpenAI client
 def get_openai_client():
@@ -1044,7 +1047,6 @@ async def create_vending_session(
         
         # Generate unique session ID with enhanced randomness
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        import secrets
         random_suffix = secrets.token_hex(4).upper()
         session_id = f"{machine_id}_{timestamp}_{random_suffix}"
         
@@ -1198,8 +1200,15 @@ async def register_user_with_session(
             security_manager.record_failed_attempt(security_info["client_ip"])
             raise HTTPException(status_code=404, detail="Session not found")
         
-        # Check if session has expired
-        if datetime.utcnow() > session.expires_at:
+        # Check if session has expired - handle timezone comparison
+        current_time = datetime.utcnow()
+        expires_at = session.expires_at
+        
+        # Convert timezone-aware datetime to naive for comparison if needed
+        if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+            
+        if current_time > expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Validate machine ID matches session machine

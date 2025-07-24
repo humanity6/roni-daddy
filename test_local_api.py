@@ -25,7 +25,7 @@ class LocalAPITester:
         
     def log_test(self, test_name: str, success: bool, details: str = "", category: str = "TEST"):
         """Log test result with enhanced formatting"""
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = "PASS" if success else "FAIL"
         timestamp = datetime.now().strftime("%H:%M:%S")
         result = f"[{timestamp}] {status} {test_name}"
         if details:
@@ -38,7 +38,7 @@ class LocalAPITester:
             print(f"\033[91m{result}\033[0m")  # Red
             
         if self.verbose and not success:
-            print(f"    💡 Debug info: {details}")
+            print(f"    Debug info: {details}")
         
         self.test_results.append({
             "test": test_name,
