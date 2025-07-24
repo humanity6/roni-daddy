@@ -147,7 +147,8 @@ def init_phone_models():
                         price=19.99,
                         stock=100,
                         is_available=True,
-                        display_order=model_data["display_order"]
+                        display_order=model_data["display_order"],
+                        release_year=2024
                     )
                     db.add(phone_model)
 
@@ -399,66 +400,61 @@ def init_vending_machines():
                 "id": "VM001",
                 "name": "Test Mall Kiosk 1",
                 "location": "Westfield Shopping Centre - Level 2",
-                "chinese_device_id": "TEST_DEVICE_001",
                 "qr_config": {
                     "base_url": "https://pimpmycase.shop",
                     "session_timeout_minutes": 30,
-                    "max_concurrent_sessions": 5
+                    "max_concurrent_sessions": 5,
+                    "chinese_device_id": "TEST_DEVICE_001"
                 },
-                "is_active": True,
-                "description": "Primary test machine for API integration testing"
+                "is_active": True
             },
             {
                 "id": "VM002", 
                 "name": "Test Mall Kiosk 2",
                 "location": "Stratford Shopping Centre - Ground Floor",
-                "chinese_device_id": "TEST_DEVICE_002",
                 "qr_config": {
                     "base_url": "https://pimpmycase.shop",
                     "session_timeout_minutes": 30,
-                    "max_concurrent_sessions": 5
+                    "max_concurrent_sessions": 5,
+                    "chinese_device_id": "TEST_DEVICE_002"
                 },
-                "is_active": True,
-                "description": "Secondary test machine for load testing"
+                "is_active": True
             },
             {
                 "id": "VM_LONDON_01",
                 "name": "London Oxford Street Station",
                 "location": "Oxford Street Underground Station - Platform Level",
-                "chinese_device_id": "LONDON_DEVICE_001",
                 "qr_config": {
                     "base_url": "https://pimpmycase.shop",
                     "session_timeout_minutes": 25,
-                    "max_concurrent_sessions": 10
+                    "max_concurrent_sessions": 10,
+                    "chinese_device_id": "LONDON_DEVICE_001"
                 },
-                "is_active": True,
-                "description": "High-traffic location test machine"
+                "is_active": True
             },
             {
                 "id": "VM_TEST_MANUFACTURER",
                 "name": "Chinese Manufacturer Test Unit",
                 "location": "API Testing Environment",
-                "chinese_device_id": "MANUFACTURER_TEST_001",
                 "qr_config": {
                     "base_url": "https://pimpmycase.shop",
                     "session_timeout_minutes": 60,
-                    "max_concurrent_sessions": 3
+                    "max_concurrent_sessions": 3,
+                    "chinese_device_id": "MANUFACTURER_TEST_001"
                 },
-                "is_active": True,
-                "description": "Dedicated test machine for Chinese manufacturer API integration"
+                "is_active": True
             },
             {
                 "id": "VM_DEMO",
                 "name": "Demo Presentation Machine",
                 "location": "Sales Demo Environment",
-                "chinese_device_id": "DEMO_DEVICE_001",
                 "qr_config": {
                     "base_url": "https://pimpmycase.shop",
                     "session_timeout_minutes": 15,
-                    "max_concurrent_sessions": 2
+                    "max_concurrent_sessions": 2,
+                    "chinese_device_id": "DEMO_DEVICE_001"
                 },
-                "is_active": True,
-                "description": "Machine for sales demonstrations and client presentations"
+                "is_active": True
             }
         ]
 
