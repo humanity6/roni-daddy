@@ -2,7 +2,6 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Req
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
-from contextlib import asynccontextmanager
 import openai
 import base64
 import io
@@ -12,19 +11,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 import uuid
 import time
-import secrets
-import traceback
 from typing import Optional, List
 import json
 import requests
 import stripe
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session, joinedload
 from database import get_db, create_tables
 from api_routes import router
 from db_services import OrderService, OrderImageService, BrandService, PhoneModelService, TemplateService
 from models import PhoneModel, Template, VendingMachine, VendingMachineSession
-from datetime import datetime, timezone
+from datetime import datetime
 from security_middleware import (
     validate_session_security, 
     validate_machine_security, 
@@ -37,17 +34,7 @@ load_dotenv()  # Current directory
 load_dotenv("image gen/.env")  # Image gen subdirectory
 load_dotenv(".env")  # Explicit current directory
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize database on startup"""
-    try:
-        create_tables()
-        print("Database tables created/verified")
-    except Exception as e:
-        print(f"Database initialization error: {e}")
-    yield
-
-app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0")
 
 # Include the new API routes
 app.include_router(router)
@@ -97,7 +84,9 @@ app.add_middleware(
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
 # JWT Configuration
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'fallback-secret-change-in-production')
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
+if not JWT_SECRET_KEY:
+    raise ValueError("JWT_SECRET_KEY environment variable is required for production")
 
 # Pydantic models for payment requests
 class CheckoutSessionRequest(BaseModel):
@@ -121,6 +110,39 @@ class OrderStatusUpdateRequest(BaseModel):
     estimated_completion: Optional[str] = None
     chinese_order_id: Optional[str] = None
     notes: Optional[str] = None
+    
+    @validator('order_id')
+    def validate_order_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Order ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Order ID too long')
+        return v.strip()
+    
+    @validator('status')
+    def validate_status(cls, v):
+        valid_statuses = ['pending', 'printing', 'printed', 'completed', 'failed', 'cancelled']
+        if v not in valid_statuses:
+            raise ValueError(f'Status must be one of: {valid_statuses}')
+        return v
+    
+    @validator('queue_number')
+    def validate_queue_number(cls, v):
+        if v and len(v) > 50:
+            raise ValueError('Queue number too long')
+        return v
+    
+    @validator('chinese_order_id')
+    def validate_chinese_order_id(cls, v):
+        if v and len(v) > 100:
+            raise ValueError('Chinese order ID too long')
+        return v
+    
+    @validator('notes')
+    def validate_notes(cls, v):
+        if v and len(v) > 500:
+            raise ValueError('Notes too long (max 500 characters)')
+        return v
 
 class PrintCommandRequest(BaseModel):
     order_id: str
@@ -128,6 +150,53 @@ class PrintCommandRequest(BaseModel):
     phone_model: str
     customer_info: dict
     priority: Optional[int] = 1
+    
+    @validator('order_id')
+    def validate_order_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Order ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Order ID too long')
+        return v.strip()
+    
+    @validator('image_urls')
+    def validate_image_urls(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError('At least one image URL is required')
+        if len(v) > 20:
+            raise ValueError('Too many image URLs (max 20)')
+        
+        for url in v:
+            if not url or len(url.strip()) == 0:
+                raise ValueError('Image URL cannot be empty')
+            if len(url) > 500:
+                raise ValueError('Image URL too long')
+            if not (url.startswith('http://') or url.startswith('https://')):
+                raise ValueError('Image URL must start with http:// or https://')
+        
+        return [url.strip() for url in v]
+    
+    @validator('phone_model')
+    def validate_phone_model(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Phone model cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Phone model name too long')
+        return v.strip()
+    
+    @validator('customer_info')
+    def validate_customer_info(cls, v):
+        if not isinstance(v, dict):
+            raise ValueError('Customer info must be a dictionary')
+        if len(json.dumps(v)) > 2000:
+            raise ValueError('Customer info too large')
+        return v
+    
+    @validator('priority')
+    def validate_priority(cls, v):
+        if v is not None and (v < 1 or v > 10):
+            raise ValueError('Priority must be between 1 and 10')
+        return v
 
 # Pydantic models for vending machine API communication
 class CreateSessionRequest(BaseModel):
@@ -175,6 +244,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=400,
         content={"detail": f"Validation error: {exc.errors()}"}
     )
+
+# Database startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    try:
+        create_tables()
+        print("Database tables created/verified")
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
 # Initialize OpenAI client
 def get_openai_client():
@@ -914,7 +993,23 @@ async def receive_order_status_update(
         # Validate order exists
         order = OrderService.get_order_by_id(db, request.order_id)
         if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
+            raise HTTPException(status_code=404, detail=f"Order not found: {request.order_id}")
+        
+        # Validate status transition is valid
+        current_status = order.status
+        valid_transitions = {
+            'pending': ['printing', 'failed', 'cancelled'],
+            'printing': ['printed', 'failed', 'cancelled'],
+            'printed': ['completed', 'failed'],
+            'print_command_sent': ['printing', 'failed', 'cancelled'],
+            'paid': ['print_command_sent', 'printing', 'failed', 'cancelled']
+        }
+        
+        if current_status in valid_transitions and request.status not in valid_transitions[current_status]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid status transition from '{current_status}' to '{request.status}'. Valid transitions: {valid_transitions[current_status]}"
+            )
         
         # Prepare update data
         update_data = {
@@ -951,58 +1046,55 @@ async def send_print_command(
     request: PrintCommandRequest,
     db: Session = Depends(get_db)
 ):
-    """Send print command to Chinese manufacturers (placeholder for future implementation)"""
+    """Send print command to Chinese manufacturers"""
     try:
-        # Check if this is a test order (starts with TEST_)
-        if request.order_id.startswith("TEST_"):
-            # Handle test orders without requiring database validation
-            print_command_data = {
-                "order_id": request.order_id,
-                "image_urls": request.image_urls,
-                "phone_model": request.phone_model,
-                "customer_info": request.customer_info,
-                "priority": request.priority,
-                "timestamp": datetime.utcnow().isoformat(),
-                "test_mode": True
-            }
-            
-            return {
-                "success": True,
-                "message": "Test print command processed successfully",
-                "order_id": request.order_id,
-                "command_id": f"CMD_TEST_{int(time.time())}",
-                "status": "test_sent",
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        
-        # Validate order exists for real orders
+        # Validate order exists
         order = OrderService.get_order_by_id(db, request.order_id)
         if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
+            raise HTTPException(status_code=404, detail=f"Order not found: {request.order_id}")
         
-        # For now, this is a placeholder endpoint
-        # In the future, this would integrate with Chinese manufacturer APIs
+        # Validate order is in correct state for printing
+        if order.status in ['cancelled', 'failed']:
+            raise HTTPException(status_code=400, detail=f"Cannot send print command for order with status: {order.status}")
+        
+        # Validate order has required data
+        if not order.phone_model:
+            raise HTTPException(status_code=400, detail="Order is missing phone model information")
+        
+        # Prepare print command data for Chinese manufacturers
         print_command_data = {
             "order_id": request.order_id,
             "image_urls": request.image_urls,
             "phone_model": request.phone_model,
             "customer_info": request.customer_info,
             "priority": request.priority,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "order_details": {
+                "brand": order.brand.name if order.brand else None,
+                "model": order.phone_model.name if order.phone_model else None,
+                "template": order.template.name if order.template else None,
+                "total_amount": float(order.total_amount),
+                "currency": order.currency
+            }
         }
         
         # Update order status to indicate print command was sent
         OrderService.update_order_status(db, request.order_id, "print_command_sent", {
-            "print_command_data": print_command_data
+            "print_command_data": print_command_data,
+            "sent_to_manufacturer_at": datetime.utcnow().isoformat()
         })
+        
+        # Generate unique command ID for tracking
+        command_id = f"CMD_{request.order_id}_{int(time.time())}"
         
         return {
             "success": True,
-            "message": "Print command sent successfully",
+            "message": "Print command sent successfully to Chinese manufacturer",
             "order_id": request.order_id,
-            "command_id": f"CMD_{int(time.time())}",
+            "command_id": command_id,
             "status": "sent",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "print_command_data": print_command_data
         }
         
     except HTTPException:
@@ -1047,6 +1139,7 @@ async def create_vending_session(
         
         # Generate unique session ID with enhanced randomness
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        import secrets
         random_suffix = secrets.token_hex(4).upper()
         session_id = f"{machine_id}_{timestamp}_{random_suffix}"
         
@@ -1200,15 +1293,8 @@ async def register_user_with_session(
             security_manager.record_failed_attempt(security_info["client_ip"])
             raise HTTPException(status_code=404, detail="Session not found")
         
-        # Check if session has expired - handle timezone comparison
-        current_time = datetime.utcnow()
-        expires_at = session.expires_at
-        
-        # Convert timezone-aware datetime to naive for comparison if needed
-        if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
-            expires_at = expires_at.replace(tzinfo=None)
-            
-        if current_time > expires_at:
+        # Check if session has expired
+        if datetime.utcnow() > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Validate machine ID matches session machine
@@ -1390,17 +1476,132 @@ async def confirm_vending_machine_payment(
         # Decrement machine session count as payment is complete
         security_manager.decrement_machine_sessions(session.machine_id)
         
-        db.commit()
-        
-        # TODO: Trigger order processing and send to Chinese API for printing
+        # Create order from session data after payment confirmation
+        order_id = None
+        try:
+            if session_data.get("order_summary"):
+                order_summary = session_data["order_summary"]
+                
+                # Extract order details from session data
+                brand_name = order_summary.get("brand", "")
+                model_name = order_summary.get("model", "")
+                template_id = order_summary.get("template", {}).get("id", "")
+                
+                # Look up entities from database
+                brand = BrandService.get_brand_by_name(db, brand_name) if brand_name else None
+                if not brand:
+                    raise HTTPException(status_code=400, detail=f"Brand '{brand_name}' not found")
+                
+                model = PhoneModelService.get_model_by_name(db, model_name, brand.id) if model_name else None
+                if not model:
+                    raise HTTPException(status_code=400, detail=f"Model '{model_name}' not found for brand '{brand_name}'")
+                
+                template = TemplateService.get_template_by_id(db, template_id) if template_id else None
+                if not template:
+                    raise HTTPException(status_code=400, detail=f"Template '{template_id}' not found")
+                
+                # Create order data
+                order_data = {
+                    "session_id": session_id,
+                    "brand_id": brand.id,
+                    "model_id": model.id,
+                    "template_id": template.id,
+                    "user_data": order_summary,
+                    "total_amount": request.payment_amount,
+                    "currency": session_data.get("currency", "GBP"),
+                    "status": "paid",
+                    "payment_status": "paid",
+                    "payment_method": "vending_machine",
+                    "paid_at": datetime.utcnow(),
+                    "vending_transaction_id": transaction_id,
+                    "vending_session_id": session_id
+                }
+                
+                # Create the order
+                order = OrderService.create_order(db, order_data)
+                order_id = order.id
+                
+                # Update session with order ID
+                session.order_id = order_id
+                session_data["order_id"] = order_id
+                session.session_data = session_data
+                
+                db.commit()
+                
+                # Send print command to Chinese manufacturers
+                try:
+                    # Prepare image URLs from order data
+                    image_urls = []
+                    if order_summary.get("designImage"):
+                        # Store design image and get URL
+                        design_image = order_summary["designImage"]
+                        if design_image.startswith("data:image"):
+                            # Save base64 image and create URL
+                            timestamp = int(time.time())
+                            filename = f"vending_order_{order_id}_{timestamp}.png"
+                            generated_dir = ensure_directories()
+                            file_path = generated_dir / filename
+                            
+                            # Convert base64 to image file
+                            import base64
+                            _, base64_data = design_image.split(',', 1)
+                            image_bytes = base64.b64decode(base64_data)
+                            
+                            with open(file_path, 'wb') as f:
+                                f.write(image_bytes)
+                            
+                            # Create full URL for Chinese API
+                            image_url = f"https://pimpmycase.onrender.com/image/{filename}"
+                            image_urls.append(image_url)
+                        else:
+                            image_urls.append(design_image)
+                    
+                    if not image_urls:
+                        print(f"⚠️ No images found for order {order_id}, skipping print command")
+                    else:
+                        # Create print command request
+                        print_request = PrintCommandRequest(
+                            order_id=order_id,
+                            image_urls=image_urls,
+                            phone_model=f"{brand_name} {model_name}",
+                            customer_info={
+                                "vending_machine_id": session.machine_id,
+                                "session_id": session_id,
+                                "transaction_id": transaction_id,
+                                "payment_method": payment_method
+                            },
+                            priority=1
+                        )
+                        
+                        # Send print command
+                        await send_print_command(print_request, db)
+                        print(f"✅ Print command sent for order {order_id}")
+                        
+                except Exception as print_error:
+                    print(f"⚠️ Failed to send print command for order {order_id}: {print_error}")
+                    # Don't fail the payment confirmation if print command fails
+                    OrderService.update_order_status(db, order_id, "payment_completed_print_failed", {
+                        "print_error": str(print_error),
+                        "print_error_at": datetime.utcnow().isoformat()
+                    })
+                
+            else:
+                print(f"⚠️ No order summary found in session {session_id}, cannot create order")
+                
+        except Exception as order_error:
+            print(f"⚠️ Failed to create order for session {session_id}: {order_error}")
+            # Don't fail the payment confirmation if order creation fails
+            db.rollback()
+            db.commit()  # Commit the session updates without the order
         
         return {
             "success": True,
-            "message": "Payment confirmed successfully",
+            "message": "Payment confirmed successfully and order created",
             "session_id": session_id,
             "transaction_id": transaction_id,
+            "order_id": order_id,
             "status": "payment_completed",
-            "next_steps": "Order will be sent for printing",
+            "next_steps": "Order has been sent for printing" if order_id else "Payment confirmed, but order creation failed",
             "security_validated": True
         }
         
@@ -1449,6 +1650,70 @@ async def validate_session_security_endpoint(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Session validation failed: {str(e)}")
+
+@app.get("/api/vending/session/{session_id}/order-info")
+async def get_vending_order_info(
+    session_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get order information for vending machine payment processing"""
+    try:
+        # Security validation
+        security_info = validate_session_security(http_request, session_id)
+        
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            security_manager.record_failed_attempt(security_info["client_ip"])
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if session has expired
+        if datetime.utcnow() > session.expires_at:
+            raise HTTPException(status_code=410, detail="Session has expired")
+        
+        # Check if session has order information
+        if not session.session_data or not session.session_data.get("order_summary"):
+            raise HTTPException(status_code=400, detail="No order information available for this session")
+        
+        order_summary = session.session_data["order_summary"]
+        
+        # Extract key order information for vending machine display
+        order_info = {
+            "session_id": session_id,
+            "order_summary": {
+                "brand": order_summary.get("brand", ""),
+                "model": order_summary.get("model", ""),
+                "template": order_summary.get("template", {}),
+                "color": order_summary.get("color", ""),
+                "inputText": order_summary.get("inputText", ""),
+                "selectedFont": order_summary.get("selectedFont", ""),
+                "selectedTextColor": order_summary.get("selectedTextColor", "")
+            },
+            "payment_amount": session.payment_amount,
+            "currency": session.session_data.get("currency", "GBP"),
+            "machine_info": {
+                "id": session.machine_id,
+                "location": session.qr_data.get("location") if session.qr_data else None
+            },
+            "session_status": {
+                "status": session.status,
+                "user_progress": session.user_progress,
+                "expires_at": session.expires_at.isoformat(),
+                "last_activity": session.last_activity.isoformat()
+            },
+            "security_validated": True
+        }
+        
+        # Update last activity
+        session.last_activity = datetime.utcnow()
+        db.commit()
+        
+        return order_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get order info: {str(e)}")
 
 @app.delete("/api/vending/session/{session_id}")
 async def cleanup_vending_session(
@@ -1609,50 +1874,20 @@ async def process_payment_success(
             else:
                 raise HTTPException(status_code=404, detail="Order not found")
         else:
-            # Try to lookup brand, model, and template IDs, with fallbacks
+            # Validate that brand, model, and template exist in database
             brand = BrandService.get_brand_by_name(db, brand_name)
             if not brand:
-                # Create a default brand if it doesn't exist
-                brand_data = {
-                    "name": brand_name,
-                    "display_name": brand_name.upper(),
-                    "is_available": True
-                }
-                brand = BrandService.create_brand(db, brand_data)
+                raise HTTPException(status_code=400, detail=f"Brand '{brand_name}' not found in database")
             
             model = PhoneModelService.get_model_by_name(db, model_name, brand.id)
             if not model:
-                # Create a default model if it doesn't exist
-                model_data = {
-                    "brand_id": brand.id,
-                    "name": model_name,
-                    "display_name": model_name,
-                    "price": session.amount_total / 100,
-                    "is_available": True
-                }
-                model = PhoneModel(**model_data)
-                db.add(model)
-                db.commit()
-                db.refresh(model)
+                raise HTTPException(status_code=400, detail=f"Model '{model_name}' not found for brand '{brand_name}'")
             
             template = TemplateService.get_template_by_id(db, template_name)
             if not template:
-                # Create a default template if it doesn't exist
-                template_data = {
-                    "id": template_name,
-                    "name": template_name.title(),
-                    "description": f"Auto-created template for {template_name}",
-                    "is_active": True,
-                    "category": "basic",
-                    "price": session.amount_total / 100,
-                    "display_price": f"£{session.amount_total / 100:.2f}"
-                }
-                template = Template(**template_data)
-                db.add(template)
-                db.commit()
-                db.refresh(template)
+                raise HTTPException(status_code=400, detail=f"Template '{template_name}' not found in database")
             
-            # Create new order if none exists
+            # Create new order
             order_data = {
                 "stripe_session_id": request.session_id,
                 "stripe_payment_intent_id": session.payment_intent,

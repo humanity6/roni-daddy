@@ -161,7 +161,51 @@ When user chooses "Pay via Machine", you'll receive order details:
 }
 ```
 
-### 4. Confirm Payment
+### 4. Get Order Information
+
+**Endpoint:** `GET /api/vending/session/{session_id}/order-info`
+
+**Purpose:** Fetch detailed order information for vending machine payment processing
+
+**Response:**
+```json
+{
+  "session_id": "VM001_20250123_143022_A1B2C3",
+  "order_summary": {
+    "brand": "iPhone",
+    "model": "iPhone 15 Pro",
+    "template": {
+      "id": "retro-remix",
+      "name": "Retro Remix"
+    },
+    "color": "Natural Titanium",
+    "inputText": "My Custom Text",
+    "selectedFont": "Arial",
+    "selectedTextColor": "#ffffff"
+  },
+  "payment_amount": 19.99,
+  "currency": "GBP",
+  "machine_info": {
+    "id": "VM001",
+    "location": "Mall Level 2"
+  },
+  "session_status": {
+    "status": "active",
+    "user_progress": "payment_pending",
+    "expires_at": "2025-01-23T15:00:22.000Z",
+    "last_activity": "2025-01-23T14:45:30.000Z"
+  },
+  "security_validated": true
+}
+```
+
+**Example cURL:**
+```bash
+curl -X GET "https://pimpmycase.onrender.com/api/vending/session/VM001_20250123_143022_A1B2C3/order-info" \
+  -H "Content-Type: application/json"
+```
+
+### 5. Confirm Payment
 
 **Endpoint:** `POST /api/vending/session/{session_id}/confirm-payment`
 
@@ -192,7 +236,7 @@ When user chooses "Pay via Machine", you'll receive order details:
 }
 ```
 
-### 5. Session Cleanup
+### 6. Session Cleanup
 
 **Endpoint:** `DELETE /api/vending/session/{session_id}`
 
@@ -243,8 +287,8 @@ Use this to clean up expired or cancelled sessions.
    - If "Pay on App" → Normal Stripe flow, order sent for printing
 
 ### Phase 4: Vending Machine Payment
-7. **Receive order summary** (if user chose vending machine payment)
-   - Your machine receives order details via your API endpoint
+7. **Fetch order information** (if user chose vending machine payment)
+   - Get order details using `/api/vending/session/{session_id}/order-info`
    - Display order summary: "iPhone 15 Pro Case - £19.99"
    - Show payment options (card/cash/contactless)
 
@@ -253,7 +297,7 @@ Use this to clean up expired or cancelled sessions.
    - On successful payment, confirm with PimpMyCase API
 
 9. **Order completion**
-   - PimpMyCase automatically sends order for printing
+   - PimpMyCase automatically creates order and sends to Chinese manufacturers for printing
    - Display success message: "Order confirmed! Your case is being printed."
 
 ---

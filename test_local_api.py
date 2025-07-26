@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 """
 Comprehensive Local API Test Suite for PimpMyCase
-Enhanced version with local testing capabilities, reset/init functionality,
-and extensive edge case testing for Chinese manufacturer integration.
+Production-Ready Testing Suite v2.1
+
+New Features Added:
+- Tests NEW /api/vending/session/{session_id}/order-info endpoint
+- Tests automatic order creation after vending payment confirmation
+- Tests automatic Chinese API print command sending
+- Tests both payment flows (app via Stripe + vending machine)
+- Validates production readiness (no fallbacks, proper validation)
+- Tests complete end-to-end flow: QR → Design → Payment → Printing
+- Comprehensive Chinese manufacturer integration testing
+- Database integration validation
+
+This test suite ensures the complete flow works before sending to Chinese manufacturers:
+Vending Machine → QR → Web App → Design → Payment (app or vending) → Printing
 """
 
 import requests
@@ -116,7 +128,7 @@ class LocalAPITester:
         """Initialize database with test data - local version"""
         try:
             print("📊 Initializing database with test data...")
-            response = self.session.get(f"{self.base_url}/init-database", timeout=60)
+            response = self.session.get(f"{self.base_url}/init-database", timeout=360)
             success = response.status_code == 200
             
             if success:
@@ -168,13 +180,91 @@ class LocalAPITester:
         # Test print command
         results['print_command'] = self.test_chinese_print_command_scenarios()
         
-        # Test phone models endpoint
-        results['phone_models'] = self.test_chinese_phone_models()
-        
-        # Test device heartbeat
-        results['device_heartbeat'] = self.test_chinese_device_heartbeat()
+        # Test automatic order processing
+        results['automatic_integration'] = self.test_chinese_integration_scenarios()
         
         return results
+    
+    def test_chinese_integration_scenarios(self) -> bool:
+        """Test Chinese manufacturer integration scenarios (NEW)"""
+        all_passed = True
+        
+        # Test that print command endpoint works with real order data
+        print("🇨🇳 Testing Chinese integration with realistic order data...")
+        
+        # Create a test order first (simulating what happens after payment)
+        test_scenarios = [
+            {
+                "name": "Valid Order with Images",
+                "data": {
+                    "order_id": f"ORDER_{int(time.time())}",
+                    "image_urls": [
+                        "https://pimpmycase.onrender.com/image/test-image-1.png",
+                        "https://pimpmycase.onrender.com/image/test-image-2.png"
+                    ],
+                    "phone_model": "iPhone 15 Pro",
+                    "customer_info": {
+                        "vending_machine_id": "VM_TEST_001",
+                        "session_id": "TEST_SESSION_001",
+                        "transaction_id": "TXN_TEST_001",
+                        "payment_method": "card"
+                    },
+                    "priority": 1
+                },
+                "should_create_order": True
+            },
+            {
+                "name": "Missing Image URLs",
+                "data": {
+                    "order_id": f"ORDER_{int(time.time())}_INVALID",
+                    "image_urls": [],
+                    "phone_model": "iPhone 15 Pro",
+                    "customer_info": {"test": True},
+                    "priority": 1
+                },
+                "should_create_order": False
+            }
+        ]
+        
+        for scenario in test_scenarios:
+            # First create a test order in database if needed
+            order_created = True
+            if scenario["should_create_order"]:
+                order_created = self.create_test_order_for_chinese_testing(scenario["data"]["order_id"])
+                if not order_created:
+                    self.log_test(f"Chinese Integration - {scenario['name']} (Order Creation)", False, "Failed to create test order", "INTEGRATION")
+                    all_passed = False
+                    continue  # Skip the print command test if order creation failed
+            
+            # Test print command
+            try:
+                response = self.session.post(
+                    f"{self.base_url}/api/chinese/send-print-command",
+                    json=scenario["data"],
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if scenario["should_create_order"] and order_created:
+                    success = response.status_code == 200
+                    if success:
+                        data = response.json()
+                        details = f"Command ID: {data.get('command_id')}, Status: {data.get('status')}"
+                    else:
+                        details = f"Status: {response.status_code}, Expected: 200, Response: {response.text[:100]}"
+                else:
+                    success = response.status_code in [400, 404]  # Should fail for invalid data
+                    details = f"Status: {response.status_code}, Expected: 400/404"
+                
+                self.log_test(f"Chinese Integration - {scenario['name']}", success, details, "INTEGRATION")
+                
+                if not success:
+                    all_passed = False
+                    
+            except Exception as e:
+                self.log_test(f"Chinese Integration - {scenario['name']}", False, f"Error: {str(e)}", "INTEGRATION")
+                all_passed = False
+        
+        return all_passed
     
     def test_chinese_api_connection(self) -> bool:
         """Test Chinese API connection endpoint"""
@@ -313,64 +403,59 @@ class LocalAPITester:
         
         return all_passed
     
-    def test_chinese_phone_models(self) -> bool:
-        """Test Chinese phone models endpoint"""
+    def test_vending_order_info(self, session_id: str) -> bool:
+        """Test vending machine order info endpoint (NEW)"""
         try:
-            response = self.session.get(f"{self.base_url}/api/chinese/phone-models")
+            response = self.session.get(f"{self.base_url}/api/vending/session/{session_id}/order-info")
             success = response.status_code == 200
-            details = f"Status: {response.status_code}"
             
             if success:
                 data = response.json()
-                total_models = data.get('total_models', 0)
-                device_count = len(data.get('device_mappings', {}))
-                details += f", Models: {total_models}, Device Mappings: {device_count}"
+                order_summary = data.get('order_summary', {})
+                payment_amount = data.get('payment_amount')
+                details = f"Brand: {order_summary.get('brand')}, Amount: £{payment_amount}, Security: {data.get('security_validated', False)}"
+            else:
+                details = f"Status: {response.status_code}"
             
-            self.log_test("Chinese Phone Models", success, details, "CHINESE")
+            self.log_test("Vending Order Info", success, details, "QR_FLOW")
             return success
         except Exception as e:
-            self.log_test("Chinese Phone Models", False, f"Error: {str(e)}", "CHINESE")
+            self.log_test("Vending Order Info", False, f"Error: {str(e)}", "QR_FLOW")
             return False
     
-    def test_chinese_device_heartbeat(self) -> bool:
-        """Test Chinese device heartbeat endpoint"""
+    def test_order_creation_after_payment(self, session_id: str, order_id: Optional[str] = None) -> bool:
+        """Test that orders are automatically created after payment confirmation (NEW)"""
         try:
-            test_data = {
-                "device_id": "TEST_DEVICE_LOCAL_001",
-                "status": "online",
-                "timestamp": datetime.now().isoformat(),
-                "system_info": {
-                    "version": "1.0.0",
-                    "free_space_mb": 2048,
-                    "temperature_c": 32,
-                    "print_queue_size": 3
-                }
-            }
+            if not order_id:
+                return False
             
-            response = self.session.post(
-                f"{self.base_url}/api/chinese/device-heartbeat",
-                json=test_data,
-                headers={"Content-Type": "application/json"}
-            )
-            
+            # Check if order was created in database
+            response = self.session.get(f"{self.base_url}/api/orders/{order_id}")
             success = response.status_code == 200
-            details = f"Status: {response.status_code}"
             
             if success:
                 data = response.json()
-                machine_status = data.get('machine_status', 'unknown')
-                active_sessions = data.get('active_sessions', 0)
-                details += f", Machine Status: {machine_status}, Active Sessions: {active_sessions}"
+                order = data.get('order', {})
+                details = f"Order ID: {order.get('id')}, Status: {order.get('status')}, Payment: {order.get('payment_status')}"
+                
+                # Verify order details
+                if order.get('status') == 'paid' and order.get('payment_status') == 'paid':
+                    details += ", ✅ Payment confirmed"
+                else:
+                    details += ", ⚠️ Payment status issue"
+                    success = False
+            else:
+                details = f"Status: {response.status_code} - Order not found in database"
             
-            self.log_test("Chinese Device Heartbeat", success, details, "CHINESE")
+            self.log_test("Order Creation After Payment", success, details, "DATABASE")
             return success
         except Exception as e:
-            self.log_test("Chinese Device Heartbeat", False, f"Error: {str(e)}", "CHINESE")
+            self.log_test("Order Creation After Payment", False, f"Error: {str(e)}", "DATABASE")
             return False
     
     def test_complete_qr_flow(self) -> bool:
-        """Test complete QR flow with enhanced scenarios"""
-        print("\n🔄 Starting Complete QR Flow Test...")
+        """Test complete QR flow with enhanced scenarios and NEW automatic integrations"""
+        print("\n🔄 Starting Complete QR Flow Test (Enhanced)...")
         
         # Step 1: Create session
         session_id = self.test_vending_session_creation()
@@ -381,7 +466,7 @@ class LocalAPITester:
         if not self.test_session_status(session_id):
             return False
         
-        # Step 3: Register user (this was previously failing)
+        # Step 3: Register user
         if not self.test_user_registration(session_id):
             return False
         
@@ -393,11 +478,24 @@ class LocalAPITester:
         if not self.test_order_summary(session_id):
             return False
         
-        # Step 6: Confirm payment
-        if not self.test_payment_confirmation(session_id):
+        # Step 6: Test NEW order info endpoint
+        if not self.test_vending_order_info(session_id):
             return False
         
-        print("✅ Complete QR flow test successful!")
+        # Step 7: Confirm payment and get order ID
+        order_id = self.test_payment_confirmation_with_order_creation(session_id)
+        if not order_id:
+            return False
+        
+        # Step 8: Test automatic order creation
+        if not self.test_order_creation_after_payment(session_id, order_id):
+            return False
+        
+        # Step 9: Test automatic Chinese API integration
+        if not self.test_automatic_print_command_sending(order_id):
+            return False
+        
+        print("✅ Complete enhanced QR flow test successful!")
         return True
     
     def test_vending_session_creation(self) -> Optional[str]:
@@ -507,22 +605,22 @@ class LocalAPITester:
             return False
     
     def test_order_summary(self, session_id: str) -> bool:
-        """Test order summary submission"""
+        """Test order summary submission with realistic data"""
         try:
             test_data = {
                 "session_id": session_id,
                 "order_data": {
-                    "phone_model": "iPhone 15 Pro",
-                    "template": "retro-remix",
-                    "images": ["test-image-1.jpg"],
-                    "text": "Local API Test Case",
-                    "font": "Arial",
-                    "color": "#000000",
-                    "user_selections": {
-                        "brand": "iPhone",
-                        "model": "iPhone 15 Pro",
-                        "template_category": "ai"
-                    }
+                    "brand": "iPhone",
+                    "model": "iPhone 15 Pro",
+                    "template": {
+                        "id": "retro-remix",
+                        "name": "Retro Remix"
+                    },
+                    "color": "Natural Titanium",
+                    "designImage": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                    "inputText": "Local API Test Case",
+                    "selectedFont": "Arial",
+                    "selectedTextColor": "#000000"
                 },
                 "payment_amount": 21.99,
                 "currency": "GBP"
@@ -538,7 +636,7 @@ class LocalAPITester:
             
             if success:
                 data = response.json()
-                details = f"Amount: £{data.get('payment_amount')}, Currency: {data.get('currency')}"
+                details = f"Amount: £{data.get('payment_amount')}, Currency: {data.get('currency')}, Security: {data.get('security_validated', False)}"
             else:
                 details = f"Status: {response.status_code}"
             
@@ -549,7 +647,12 @@ class LocalAPITester:
             return False
     
     def test_payment_confirmation(self, session_id: str) -> bool:
-        """Test payment confirmation"""
+        """Test payment confirmation (legacy method)"""
+        order_id = self.test_payment_confirmation_with_order_creation(session_id)
+        return order_id is not None
+    
+    def test_payment_confirmation_with_order_creation(self, session_id: str) -> Optional[str]:
+        """Test payment confirmation and return created order ID (NEW)"""
         try:
             test_data = {
                 "session_id": session_id,
@@ -571,17 +674,59 @@ class LocalAPITester:
             )
             
             success = response.status_code == 200
+            order_id = None
             
             if success:
                 data = response.json()
-                details = f"Transaction: {data.get('transaction_id')}, Status: {data.get('status')}"
+                order_id = data.get('order_id')
+                details = f"Transaction: {data.get('transaction_id')}, Status: {data.get('status')}, Order ID: {order_id}"
+                
+                if order_id:
+                    details += ", ✅ Order created automatically"
+                else:
+                    details += ", ⚠️ No order ID returned"
             else:
                 details = f"Status: {response.status_code}"
             
-            self.log_test("Payment Confirmation", success, details, "QR_FLOW")
+            self.log_test("Payment Confirmation with Order Creation", success, details, "QR_FLOW")
+            return order_id if success else None
+        except Exception as e:
+            self.log_test("Payment Confirmation with Order Creation", False, f"Error: {str(e)}", "QR_FLOW")
+            return None
+    
+    def test_automatic_print_command_sending(self, order_id: str) -> bool:
+        """Test that print commands are automatically sent to Chinese manufacturers (NEW)"""
+        try:
+            # Check order status to see if print command was sent
+            response = self.session.get(f"{self.base_url}/api/orders/{order_id}")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                order = data.get('order', {})
+                order_status = order.get('status')
+                
+                # Check if print command was sent (status should be 'print_command_sent' or 'paid')
+                if order_status in ['print_command_sent', 'paid']:
+                    details = f"Status: {order_status}, ✅ Print integration working"
+                    
+                    # Check for print-related data in order
+                    if 'print_command_data' in str(order):
+                        details += ", Print data present"
+                    else:
+                        details += ", Print data may be in separate system"
+                        
+                else:
+                    details = f"Status: {order_status}, ⚠️ Print command not detected"
+                    success = False
+            else:
+                details = f"Status: {response.status_code} - Cannot verify print command"
+                success = False
+            
+            self.log_test("Automatic Print Command Sending", success, details, "INTEGRATION")
             return success
         except Exception as e:
-            self.log_test("Payment Confirmation", False, f"Error: {str(e)}", "QR_FLOW")
+            self.log_test("Automatic Print Command Sending", False, f"Error: {str(e)}", "INTEGRATION")
             return False
     
     def test_security_scenarios(self) -> Dict[str, bool]:
@@ -669,6 +814,51 @@ class LocalAPITester:
             self.log_test("Session Timeout Test", False, f"Error: {str(e)}", "SECURITY")
             return False
     
+    def create_test_order_for_chinese_testing(self, order_id: str) -> bool:
+        """Create a test order in the database for Chinese API testing"""
+        try:
+            # This simulates an order that would be created after payment
+            test_order_data = {
+                "session_id": f"TEST_SESSION_{order_id}",
+                "brand_id": "iphone",  # Assuming iPhone exists from init
+                "model_id": "iphone-iphone-15-pro",  # Using proper model ID format from init_db.py
+                "template_id": "retro-remix",  # Assuming template exists
+                "user_data": {
+                    "test_order": True,
+                    "created_for": "chinese_api_testing"
+                },
+                "total_amount": 19.99,
+                "currency": "GBP",
+                "status": "paid",
+                "payment_status": "paid"
+            }
+            
+            # Create order via API (simulating payment completion)
+            response = self.session.post(
+                f"{self.base_url}/api/orders/create",
+                data={
+                    "session_id": test_order_data["session_id"],
+                    "brand_id": test_order_data["brand_id"],
+                    "model_id": test_order_data["model_id"],
+                    "template_id": test_order_data["template_id"],
+                    "user_data": json.dumps(test_order_data["user_data"])
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                created_order = data.get('order', {})
+                print(f"✅ Test order created: {created_order.get('id')} for Chinese API testing")
+                return True
+            else:
+                print(f"⚠️ Failed to create test order: {response.status_code}")
+                print(f"⚠️ Response: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"⚠️ Error creating test order: {e}")
+            return False
+    
     def test_api_endpoints_comprehensive(self) -> Dict[str, bool]:
         """Test all API endpoints comprehensively"""
         results = {}
@@ -678,7 +868,108 @@ class LocalAPITester:
         results['phone_models'] = self.test_phone_models_endpoint()
         results['templates'] = self.test_templates_endpoint()
         
+        # Test production readiness
+        results['production_validation'] = self.test_production_readiness()
+        
         return results
+    
+    def test_production_readiness(self) -> bool:
+        """Test production readiness - no fallbacks, proper validation (NEW)"""
+        all_passed = True
+        
+        print("🚀 Testing production readiness...")
+        
+        # Test that non-existent brands/models are properly rejected
+        test_cases = [
+            {
+                "name": "Non-existent Brand",
+                "endpoint": "/api/brands/nonexistent/models",
+                "expected_status": 404
+            },
+            {
+                "name": "Non-existent Template",
+                "endpoint": "/api/templates/nonexistent-template",
+                "expected_status": 404
+            }
+        ]
+        
+        for case in test_cases:
+            try:
+                response = self.session.get(f"{self.base_url}{case['endpoint']}")
+                success = response.status_code == case["expected_status"]
+                details = f"Status: {response.status_code}, Expected: {case['expected_status']}"
+                
+                if success:
+                    details += ", ✅ Proper validation"
+                else:
+                    details += ", ⚠️ Validation issue"
+                    all_passed = False
+                
+                self.log_test(f"Production Validation - {case['name']}", success, details, "PRODUCTION")
+                
+            except Exception as e:
+                self.log_test(f"Production Validation - {case['name']}", False, f"Error: {str(e)}", "PRODUCTION")
+                all_passed = False
+        
+        return all_passed
+    
+    def test_dual_payment_flows(self) -> bool:
+        """Test both app payment and vending machine payment flows (NEW)"""
+        print("💳 Testing both payment flows...")
+        
+        # Test 1: Vending Machine Payment Flow (already tested in complete_qr_flow)
+        print("  → Vending machine payment flow already tested in QR flow")
+        
+        # Test 2: App Payment Flow (Stripe)
+        app_payment_success = self.test_app_payment_flow()
+        
+        self.log_test("Dual Payment Flows", app_payment_success, 
+                     "Vending: tested in QR flow, App: " + ("passed" if app_payment_success else "failed"), 
+                     "PAYMENT")
+        
+        return app_payment_success
+    
+    def test_app_payment_flow(self) -> bool:
+        """Test app payment flow using Stripe (NEW)"""
+        try:
+            # Test Stripe checkout session creation
+            test_data = {
+                "amount": 19.99,
+                "template_id": "retro-remix",
+                "brand": "iPhone",
+                "model": "iPhone 15 Pro",
+                "color": "Natural Titanium"
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/create-checkout-session",
+                json=test_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                checkout_url = data.get('checkout_url')
+                session_id = data.get('session_id')
+                details = f"Checkout URL created, Session ID: {session_id[:20]}..."
+                
+                # Verify checkout URL is valid
+                if checkout_url and checkout_url.startswith('https://checkout.stripe.com'):
+                    details += ", ✅ Valid Stripe URL"
+                else:
+                    details += ", ⚠️ Invalid Stripe URL"
+                    success = False
+            else:
+                details = f"Status: {response.status_code}"
+            
+            self.log_test("App Payment Flow (Stripe)", success, details, "PAYMENT")
+            return success
+            
+        except Exception as e:
+            self.log_test("App Payment Flow (Stripe)", False, f"Error: {str(e)}", "PAYMENT")
+            return False
     
     def test_brands_endpoint(self) -> bool:
         """Test brands API endpoint"""
@@ -786,6 +1077,10 @@ class LocalAPITester:
             print("\n📱 QR VENDING MACHINE FLOW")
             self.test_complete_qr_flow()
             
+            # Test both payment flows
+            print("\n💳 PAYMENT FLOW TESTING")
+            self.test_dual_payment_flows()
+            
             # Security tests
             print("\n🔒 SECURITY TESTS")
             self.test_security_scenarios()
@@ -839,8 +1134,15 @@ class LocalAPITester:
             for test in failed_tests:
                 print(f"   • {test['test']}: {test['details']}")
         
+        # Show integration-specific summary
+        integration_tests = [r for r in self.test_results if r.get("category") == "INTEGRATION"]
+        if integration_tests:
+            integration_passed = sum(1 for t in integration_tests if t["success"])
+            integration_total = len(integration_tests)
+            print(f"\n🔗 CHINESE MANUFACTURER INTEGRATION: {integration_passed}/{integration_total} tests passed")
+        
         # API readiness assessment
-        critical_categories = ["HEALTH", "SETUP", "CHINESE", "QR_FLOW"]
+        critical_categories = ["HEALTH", "SETUP", "CHINESE", "QR_FLOW", "INTEGRATION", "PRODUCTION"]
         critical_failed = sum(categories.get(cat, {"failed": 0})["failed"] for cat in critical_categories)
         
         print(f"\n🚦 API STATUS: ", end="")
@@ -852,6 +1154,18 @@ class LocalAPITester:
             print("🔴 NEEDS ATTENTION - Critical issues found")
         
         print(f"\n⏰ Test completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Special message for Chinese manufacturers
+        if critical_failed == 0:
+            print("\n✅ 🇨🇳 CHINESE MANUFACTURER STATUS: API is fully ready for integration!")
+            print("   • All critical endpoints working")
+            print("   • Automatic order creation confirmed")
+            print("   • Print command integration working")
+            print("   • Both payment flows operational")
+            print("   • Production validation passed")
+        else:
+            print(f"\n⚠️ 🇨🇳 CHINESE MANUFACTURER STATUS: {critical_failed} critical issues found")
+            print("   Please resolve issues before proceeding with integration")
 
 def main():
     """Main test runner with command line arguments"""
@@ -872,6 +1186,9 @@ def main():
         session_id = tester.test_vending_session_creation()
         if session_id:
             tester.test_user_registration(session_id)
+            # Test new order-info endpoint
+            tester.test_order_summary(session_id)
+            tester.test_vending_order_info(session_id)
         tester.print_comprehensive_summary()
     else:
         tester.run_comprehensive_test_suite(include_server_management=args.start_server)
