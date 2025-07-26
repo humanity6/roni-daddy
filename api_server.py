@@ -2,19 +2,10 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Req
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
-import openai
-import base64
-import io
 from PIL import Image
-import os
 from pathlib import Path
 from dotenv import load_dotenv
-import uuid
-import time
 from typing import Optional, List
-import json
-import requests
-import stripe
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session, joinedload
 from database import get_db, create_tables
@@ -28,6 +19,17 @@ from security_middleware import (
     validate_payment_security,
     security_manager
 )
+import openai
+import base64
+import io
+import os
+import uuid
+import time
+import json
+import requests
+import stripe
+import secrets
+import traceback
 
 # Load environment variables - check multiple locations
 load_dotenv()  # Current directory
@@ -111,7 +113,8 @@ class OrderStatusUpdateRequest(BaseModel):
     chinese_order_id: Optional[str] = None
     notes: Optional[str] = None
     
-    @validator('order_id')
+    @field_validator('order_id')
+    @classmethod
     def validate_order_id(cls, v):
         if not v or len(v.strip()) == 0:
             raise ValueError('Order ID cannot be empty')
@@ -119,26 +122,30 @@ class OrderStatusUpdateRequest(BaseModel):
             raise ValueError('Order ID too long')
         return v.strip()
     
-    @validator('status')
+    @field_validator('status')
+    @classmethod
     def validate_status(cls, v):
         valid_statuses = ['pending', 'printing', 'printed', 'completed', 'failed', 'cancelled']
         if v not in valid_statuses:
             raise ValueError(f'Status must be one of: {valid_statuses}')
         return v
     
-    @validator('queue_number')
+    @field_validator('queue_number')
+    @classmethod
     def validate_queue_number(cls, v):
         if v and len(v) > 50:
             raise ValueError('Queue number too long')
         return v
     
-    @validator('chinese_order_id')
+    @field_validator('chinese_order_id')
+    @classmethod
     def validate_chinese_order_id(cls, v):
         if v and len(v) > 100:
             raise ValueError('Chinese order ID too long')
         return v
     
-    @validator('notes')
+    @field_validator('notes')
+    @classmethod
     def validate_notes(cls, v):
         if v and len(v) > 500:
             raise ValueError('Notes too long (max 500 characters)')
@@ -151,7 +158,8 @@ class PrintCommandRequest(BaseModel):
     customer_info: dict
     priority: Optional[int] = 1
     
-    @validator('order_id')
+    @field_validator('order_id')
+    @classmethod
     def validate_order_id(cls, v):
         if not v or len(v.strip()) == 0:
             raise ValueError('Order ID cannot be empty')
@@ -159,7 +167,8 @@ class PrintCommandRequest(BaseModel):
             raise ValueError('Order ID too long')
         return v.strip()
     
-    @validator('image_urls')
+    @field_validator('image_urls')
+    @classmethod
     def validate_image_urls(cls, v):
         if not v or len(v) == 0:
             raise ValueError('At least one image URL is required')
@@ -176,7 +185,8 @@ class PrintCommandRequest(BaseModel):
         
         return [url.strip() for url in v]
     
-    @validator('phone_model')
+    @field_validator('phone_model')
+    @classmethod
     def validate_phone_model(cls, v):
         if not v or len(v.strip()) == 0:
             raise ValueError('Phone model cannot be empty')
@@ -184,7 +194,8 @@ class PrintCommandRequest(BaseModel):
             raise ValueError('Phone model name too long')
         return v.strip()
     
-    @validator('customer_info')
+    @field_validator('customer_info')
+    @classmethod
     def validate_customer_info(cls, v):
         if not isinstance(v, dict):
             raise ValueError('Customer info must be a dictionary')
@@ -192,7 +203,8 @@ class PrintCommandRequest(BaseModel):
             raise ValueError('Customer info too large')
         return v
     
-    @validator('priority')
+    @field_validator('priority')
+    @classmethod
     def validate_priority(cls, v):
         if v is not None and (v < 1 or v > 10):
             raise ValueError('Priority must be between 1 and 10')
