@@ -521,6 +521,34 @@ def init_vending_machines():
                     "chinese_device_id": "DEMO_DEVICE_001"
                 },
                 "is_active": True
+            },
+            {
+                "id": "10HKNTDOH2BA",
+                "name": "Chinese Developer Debug Machine",
+                "location": "Developer Testing Environment - Hong Kong",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 120,
+                    "max_concurrent_sessions": 10,
+                    "chinese_device_id": "HK_DEBUG_001",
+                    "debug_mode": True,
+                    "flexible_session_format": True
+                },
+                "is_active": True
+            },
+            {
+                "id": "CN_DEBUG_01",
+                "name": "Chinese API Debug Unit 01",
+                "location": "China API Testing Environment",
+                "qr_config": {
+                    "base_url": "https://pimpmycase.shop",
+                    "session_timeout_minutes": 180,
+                    "max_concurrent_sessions": 20,
+                    "chinese_device_id": "CN_API_DEBUG_001",
+                    "debug_mode": True,
+                    "flexible_session_format": True
+                },
+                "is_active": True
             }
         ]
 
@@ -531,7 +559,7 @@ def init_vending_machines():
                 db.add(machine)
 
         db.commit()
-        print("✅ Test vending machines initialized (5 machines)")
+        print("✅ Test vending machines initialized (7 machines)")
     except Exception as e:
         print(f"❌ Error initializing vending machines: {e}")
         db.rollback()

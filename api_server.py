@@ -1057,18 +1057,85 @@ async def test_chinese_connection(http_request: Request):
         
         return {
             "status": "success",
-            "message": "Connection successful",
-            "api_version": "2.0.0",
+            "message": "Chinese manufacturer API connection successful",
+            "api_version": "2.1.0",
             "timestamp": datetime.now(timezone.utc).isoformat(),
+            "client_ip": security_info.get("client_ip"),
+            "security_level": "relaxed_chinese_partner",
+            "debug_info": {
+                "rate_limit": "500 requests/minute",
+                "authentication": "not_required",
+                "session_validation": "flexible_format_supported"
+            },
+            "available_machine_ids": [
+                "VM_TEST_MANUFACTURER",
+                "10HKNTDOH2BA", 
+                "CN_DEBUG_01",
+                "VM001",
+                "VM002"
+            ],
+            "session_format": "MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM",
+            "session_example": "10HKNTDOH2BA_20250729_143022_A1B2C3",
             "endpoints": {
-                "status_update": "/api/chinese/order-status-update",
-                "test_connection": "/api/chinese/test-connection"
+                "test_connection": "/api/chinese/test-connection",
+                "pay_status": "/api/chinese/order/payStatus",
+                "payment_check": "/api/chinese/payment/{third_id}/status",
+                "equipment_info": "/api/chinese/equipment/{equipment_id}/info",
+                "stock_status": "/api/chinese/models/stock-status",
+                "vending_session_status": "/api/vending/session/{session_id}/status"
             }
         }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Test connection failed: {str(e)}")
+
+@app.get("/api/chinese/debug/session-validation/{session_id}")
+async def debug_session_validation(
+    session_id: str,
+    http_request: Request
+):
+    """Debug endpoint for Chinese developers to test session ID validation"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        client_ip = security_info.get("client_ip")
+        
+        # Test session ID format validation
+        from security_middleware import security_manager
+        is_chinese_request = security_manager.is_chinese_partner_request("/api/chinese/", client_ip)
+        is_valid = security_manager.validate_session_id_format(session_id, is_chinese_partner=is_chinese_request)
+        
+        # Parse session ID components if possible
+        session_parts = session_id.split('_') if '_' in session_id else []
+        
+        return {
+            "session_id": session_id,
+            "is_valid": is_valid,
+            "is_chinese_partner": is_chinese_request,
+            "client_ip": client_ip,
+            "validation_details": {
+                "length": len(session_id),
+                "parts_count": len(session_parts),
+                "parts": session_parts if len(session_parts) <= 10 else session_parts[:10],
+                "expected_format": "MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM",
+                "example_valid": "10HKNTDOH2BA_20250729_143022_A1B2C3"
+            },
+            "suggestions": [
+                "Ensure machine ID uses alphanumeric characters, underscores, or hyphens",
+                "Use 8-digit date format: YYYYMMDD (e.g., 20250729)",
+                "Use 6-digit time format: HHMMSS (e.g., 143022)",
+                "Random part should be 6-8 alphanumeric characters"
+            ] if not is_valid else ["Session ID format is valid!"]
+        }
+        
+    except Exception as e:
+        return {
+            "session_id": session_id,
+            "is_valid": False,
+            "error": str(e),
+            "debug_hint": "Check if session ID follows format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM"
+        }
 
 @app.post("/api/chinese/order-status-update")
 async def receive_order_status_update(

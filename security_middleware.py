@@ -30,10 +30,17 @@ class SecurityManager:
         # Valid session ID pattern
         self.session_id_pattern = re.compile(r'^[A-Z0-9_]+_\d{8}_\d{6}_[A-F0-9]{8}$')
         
-    def validate_session_id_format(self, session_id: str) -> bool:
+    def validate_session_id_format(self, session_id: str, is_chinese_partner: bool = False) -> bool:
         """Validate session ID follows expected format"""
         if not session_id or len(session_id) > 200:
             return False
+        
+        # Relaxed validation for Chinese partners to handle format variations
+        if is_chinese_partner:
+            # Allow more flexible formats: MACHINE_YYYYMMDD_HHMMSS_RANDOM or MACHINE_YYYYMDD_HHMMSS_RANDOM
+            chinese_pattern = re.compile(r'^[A-Z0-9_-]+_\d{7,8}_\d{5,6}_[A-Z0-9]{6,8}$', re.IGNORECASE)
+            return bool(chinese_pattern.match(session_id))
+        
         return bool(self.session_id_pattern.match(session_id))
     
     def validate_machine_id(self, machine_id: str) -> bool:
@@ -265,8 +272,11 @@ def validate_session_security(request: Request, session_id: str) -> Dict[str, An
     is_chinese_request = security_manager.is_chinese_partner_request(request_path, client_ip)
     
     # Basic validations (relaxed for Chinese partners)
-    if not is_chinese_request and not security_manager.validate_session_id_format(session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID format")
+    if not security_manager.validate_session_id_format(session_id, is_chinese_partner=is_chinese_request):
+        if is_chinese_request:
+            raise HTTPException(status_code=400, detail="Invalid session ID format - use format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM (e.g., VM001_20250729_143022_A1B2C3)")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid session ID format")
     
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")

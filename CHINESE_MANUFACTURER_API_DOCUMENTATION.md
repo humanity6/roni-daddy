@@ -513,6 +513,103 @@ interface PrintCommandRequest {
 curl -X GET "https://pimpmycase.onrender.com/api/chinese/test-connection"
 ```
 
+**Expected Response:**
+```json
+{
+  "status": "success",
+  "message": "Chinese manufacturer API connection successful",
+  "api_version": "2.1.0",  
+  "client_ip": "your.ip.address",
+  "security_level": "relaxed_chinese_partner",
+  "debug_info": {
+    "rate_limit": "500 requests/minute",
+    "authentication": "not_required",
+    "session_validation": "flexible_format_supported"
+  },
+  "available_machine_ids": [
+    "VM_TEST_MANUFACTURER",
+    "10HKNTDOH2BA", 
+    "CN_DEBUG_01",
+    "VM001",
+    "VM002"
+  ],
+  "session_format": "MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM",
+  "session_example": "10HKNTDOH2BA_20250729_143022_A1B2C3"
+}
+```
+
+---
+
+## 🔧 Debugging Guide for Chinese Developers
+
+### Machine IDs for Testing
+
+Use these pre-configured machine IDs for testing:
+
+| Machine ID | Purpose | Location | Timeout |
+|------------|---------|----------|---------|
+| `VM_TEST_MANUFACTURER` | Basic testing | API Testing Environment | 60 min |
+| `10HKNTDOH2BA` | Debug testing | Hong Kong Debug Environment | 120 min |
+| `CN_DEBUG_01` | API integration | China API Testing Environment | 180 min |
+| `VM001` | Production-like testing | Mall Kiosk Simulation | 30 min |
+| `VM002` | Production-like testing | Mall Kiosk Simulation | 30 min |
+
+### Session ID Format Requirements
+
+**Correct Format:** `MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM`
+
+**Examples:**
+- ✅ `10HKNTDOH2BA_20250729_143022_A1B2C3` 
+- ✅ `VM_TEST_MANUFACTURER_20250729_173422_XYZ789`
+- ✅ `CN_DEBUG_01_20250730_093542_DEF456`
+- ❌ `10HKNTDOH2BA_2025729_093542_A1B2C3` (incorrect date format)
+- ❌ `VM001_20250123_143022_A1B2C3?qr=true` (contains query parameters)
+
+### Debug Session ID Validation
+
+**Endpoint:** `GET /api/chinese/debug/session-validation/{session_id}`
+
+**Example:**
+```bash
+curl -X GET "https://pimpmycase.onrender.com/api/chinese/debug/session-validation/10HKNTDOH2BA_20250729_143022_A1B2C3"
+```
+
+**Response:**
+```json
+{
+  "session_id": "10HKNTDOH2BA_20250729_143022_A1B2C3",
+  "is_valid": true,
+  "is_chinese_partner": true,
+  "client_ip": "61.140.95.219",
+  "validation_details": {
+    "length": 38,
+    "parts_count": 4,
+    "parts": ["10HKNTDOH2BA", "20250729", "143022", "A1B2C3"],
+    "expected_format": "MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM",
+    "example_valid": "10HKNTDOH2BA_20250729_143022_A1B2C3"
+  },
+  "suggestions": ["Session ID format is valid!"]
+}
+```
+
+### Common Issues & Solutions
+
+#### Issue 1: 400 Bad Request - Invalid session ID format
+**Problem:** Session ID doesn't match the expected pattern
+**Solution:** Use the debug endpoint to validate your session ID format
+
+#### Issue 2: Date format errors  
+**Problem:** Using `2025729` instead of `20250729`
+**Solution:** Always use 8-digit date format: `YYYYMMDD`
+
+#### Issue 3: Query parameters in session ID
+**Problem:** Including `?qr=true&machine_id=...` in the session ID
+**Solution:** Session ID should only contain the core identifier, not URL parameters
+
+#### Issue 4: Case sensitivity
+**Problem:** Using lowercase characters in random part
+**Solution:** Chinese partners support flexible case sensitivity, both upper and lower case work
+
 ### Step 2: Test Payment Status Update
 ```bash
 curl -X POST "https://pimpmycase.onrender.com/api/chinese/order/payStatus" \
@@ -602,13 +699,6 @@ Print Command Received → Access UK Image URLs → Download with Secure Tokens 
 ---
 
 ## Recent Bug Fixes & Improvements (v2.1.0)
-
-### 🐛 Fixed Issues:
-- **Database foreign key constraints** - Fixed Order model creation with proper validation
-- **Timezone handling** - Resolved datetime comparison issues for session management
-- **Missing sample orders** - Added automatic test order creation for Chinese integration testing
-- **Validation status codes** - Fixed 422 vs 400 status code consistency
-- **Import errors** - Resolved missing model imports causing endpoint failures
 
 ### 🔧 Technical Improvements:
 - **Modern FastAPI lifespan** - Updated from deprecated `@app.on_event` to `@asynccontextmanager`
