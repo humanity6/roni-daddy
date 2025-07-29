@@ -37,9 +37,35 @@ class SecurityManager:
         
         # Relaxed validation for Chinese partners to handle format variations
         if is_chinese_partner:
-            # Allow more flexible formats: MACHINE_YYYYMMDD_HHMMSS_RANDOM or MACHINE_YYYYMDD_HHMMSS_RANDOM
-            chinese_pattern = re.compile(r'^[A-Z0-9_-]+_\d{7,8}_\d{5,6}_[A-Z0-9]{6,8}$', re.IGNORECASE)
-            return bool(chinese_pattern.match(session_id))
+            # Strict checks first - these should always fail
+            if '?' in session_id or '&' in session_id or '=' in session_id:
+                return False
+            
+            # Check for lowercase (reject for now, can be made more flexible later)
+            if session_id != session_id.upper():
+                return False
+            
+            # Split into parts for detailed validation
+            parts = session_id.split('_')
+            if len(parts) != 4:
+                return False
+            
+            machine_id, date_part, time_part, random_part = parts
+            
+            # Validate each part
+            if not re.match(r'^[A-Z0-9-]+$', machine_id):  # Machine ID: alphanumeric and hyphens
+                return False
+            
+            if len(date_part) not in [7, 8] or not date_part.isdigit():  # Date: 7 or 8 digits
+                return False
+            
+            if len(time_part) != 6 or not time_part.isdigit():  # Time: exactly 6 digits
+                return False
+            
+            if len(random_part) < 6 or len(random_part) > 8 or not re.match(r'^[A-Z0-9]+$', random_part):
+                return False
+            
+            return True
         
         return bool(self.session_id_pattern.match(session_id))
     
