@@ -394,6 +394,69 @@ def init_colors():
         db.close()
 
 
+def init_sample_orders():
+    """Initialize sample orders with Chinese partner fields for testing"""
+    db = SessionLocal()
+    try:
+        sample_orders_data = [
+            {
+                "id": "ORDER_CHINESE_TEST_001",
+                "session_id": "VM001_20250129_143022_ABC123",
+                "brand_id": "iphone",
+                "model_id": "iphone-iphone-15-pro",
+                "template_id": "retro-remix",
+                "user_data": {
+                    "test_order": True,
+                    "chinese_integration": True
+                },
+                "total_amount": 21.99,
+                "currency": "GBP",
+                "status": "paid",
+                "payment_status": "paid",
+                "third_party_payment_id": "TEST_THIRD_ID_001",
+                "chinese_payment_id": "CN_PAY_001",
+                "chinese_payment_status": 3,  # Paid
+                "chinese_order_id": "CN_ORDER_001",
+                "machine_id": "VM_TEST_MANUFACTURER"
+            },
+            {
+                "id": "ORDER_CHINESE_TEST_002", 
+                "session_id": "VM002_20250129_143523_DEF456",
+                "brand_id": "samsung",
+                "model_id": "samsung-galaxy-s24-ultra",
+                "template_id": "funny-toon",
+                "user_data": {
+                    "test_order": True,
+                    "chinese_integration": True
+                },
+                "total_amount": 21.99,
+                "currency": "GBP",
+                "status": "printing",
+                "payment_status": "paid",
+                "third_party_payment_id": "TEST_THIRD_ID_002",
+                "chinese_payment_id": "CN_PAY_002",
+                "chinese_payment_status": 3,  # Paid
+                "chinese_order_id": "CN_ORDER_002",
+                "queue_number": "Q123",
+                "notes": "Test order for Chinese manufacturer integration",
+                "machine_id": "VM_TEST_MANUFACTURER"
+            }
+        ]
+
+        for order_data in sample_orders_data:
+            existing = db.query(Order).filter(Order.id == order_data["id"]).first()
+            if not existing:
+                order = Order(**order_data)
+                db.add(order)
+
+        db.commit()
+        print("✅ Sample orders with Chinese fields initialized (2 orders)")
+    except Exception as e:
+        print(f"❌ Error initializing sample orders: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 def init_vending_machines():
     """Initialize test vending machines for Chinese manufacturers"""
     db = SessionLocal()
@@ -491,6 +554,7 @@ def main():
     init_fonts()
     init_colors()
     init_vending_machines()
+    init_sample_orders()  # Add sample orders with Chinese fields
     
     print("Database initialization complete!")
 

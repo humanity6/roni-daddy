@@ -1,6 +1,6 @@
 """New API routes for database-driven phone case platform"""
 
-from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from db_services import *
@@ -8,6 +8,7 @@ from models import *
 from typing import Optional, List, Dict, Any
 import json
 from decimal import Decimal
+from security_middleware import validate_chinese_api_security, security_manager
 
 # Create API router
 router = APIRouter()
@@ -581,9 +582,17 @@ async def update_order_status(
 
 # Admin endpoints
 @router.get("/api/admin/orders")
-async def get_recent_orders(limit: int = 50, db: Session = Depends(get_db)):
+async def get_recent_orders(limit: int = 50, request: Request = None, db: Session = Depends(get_db)):
     """Get recent orders for admin dashboard"""
     try:
+        # Allow relaxed security for Chinese partners accessing admin endpoints
+        if request:
+            client_ip = security_manager.get_client_ip(request)
+            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
+            if is_chinese_request:
+                # Use relaxed validation for Chinese partners
+                validate_chinese_api_security(request)
+        
         orders = OrderService.get_recent_orders(db, limit)
         return {
             "success": True,
@@ -597,6 +606,9 @@ async def get_recent_orders(limit: int = 50, db: Session = Depends(get_db)):
                     "total_amount": float(order.total_amount),
                     "status": order.status,
                     "payment_status": order.payment_status,
+                    "chinese_payment_id": getattr(order, 'chinese_payment_id', None),
+                    "third_party_payment_id": getattr(order, 'third_party_payment_id', None),
+                    "chinese_payment_status": getattr(order, 'chinese_payment_status', None),
                     "queue_number": order.queue_number,
                     "created_at": order.created_at.isoformat(),
                     "completed_at": order.completed_at.isoformat() if order.completed_at else None,
@@ -606,7 +618,7 @@ async def get_recent_orders(limit: int = 50, db: Session = Depends(get_db)):
                             "image_path": img.image_path,
                             "image_type": img.image_type,
                             "ai_params": img.ai_params,
-                            "chinese_image_url": img.chinese_image_url,
+                            "chinese_image_url": getattr(img, 'chinese_image_url', None),
                             "created_at": img.created_at.isoformat()
                         }
                         for img in order.images
@@ -616,18 +628,28 @@ async def get_recent_orders(limit: int = 50, db: Session = Depends(get_db)):
             ]
         }
     except Exception as e:
+        print(f"Admin orders error: {str(e)}")  # Log for debugging
         raise HTTPException(status_code=500, detail=f"Failed to get orders: {str(e)}")
 
 @router.get("/api/admin/stats")
-async def get_order_stats(db: Session = Depends(get_db)):
+async def get_order_stats(request: Request = None, db: Session = Depends(get_db)):
     """Get order statistics for admin dashboard"""
     try:
+        # Allow relaxed security for Chinese partners accessing admin endpoints
+        if request:
+            client_ip = security_manager.get_client_ip(request)
+            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
+            if is_chinese_request:
+                # Use relaxed validation for Chinese partners
+                validate_chinese_api_security(request)
+        
         stats = OrderService.get_order_stats(db)
         return {
             "success": True,
             "stats": stats
         }
     except Exception as e:
+        print(f"Admin stats error: {str(e)}")  # Log for debugging
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
 @router.put("/api/admin/models/{model_id}/stock")

@@ -63,6 +63,10 @@ class SecurityManager:
     
     def is_rate_limited(self, identifier: str, max_requests: int = 10, window_minutes: int = 1) -> bool:
         """Check if identifier is rate limited"""
+        # Chinese API endpoints get higher rate limits
+        if 'chinese' in identifier.lower():
+            max_requests = max_requests * 10  # 10x higher limit for Chinese endpoints
+        
         now = time.time()
         window_start = now - (window_minutes * 60)
         
@@ -219,6 +223,35 @@ class SecurityManager:
             return True
         except ValueError:
             return False
+    
+    def is_chinese_partner_request(self, request_path: str, client_ip: str = None) -> bool:
+        """Check if this is a Chinese partner request that should have relaxed security"""
+        chinese_endpoints = [
+            '/api/chinese/',
+            '/api/admin/orders', 
+            '/api/admin/stats',
+            '/order/payStatus'
+        ]
+        
+        # Check if path contains Chinese endpoints
+        for endpoint in chinese_endpoints:
+            if endpoint in request_path:
+                return True
+        
+        # Known Chinese IP ranges (can be expanded)
+        chinese_ip_ranges = [
+            '223.123.4.37',  # Example from error logs
+            '119.23.',       # Common Chinese IP prefix
+            '101.132.',      # Common Chinese IP prefix
+            '47.95.',        # Common Chinese IP prefix
+        ]
+        
+        if client_ip:
+            for ip_range in chinese_ip_ranges:
+                if client_ip.startswith(ip_range):
+                    return True
+        
+        return False
 
 # Global security manager instance
 security_manager = SecurityManager()
@@ -226,28 +259,35 @@ security_manager = SecurityManager()
 def validate_session_security(request: Request, session_id: str) -> Dict[str, Any]:
     """Comprehensive session security validation"""
     client_ip = security_manager.get_client_ip(request)
+    request_path = str(request.url.path)
     
-    # Basic validations
-    if not security_manager.validate_session_id_format(session_id):
+    # Check if this is a Chinese partner request
+    is_chinese_request = security_manager.is_chinese_partner_request(request_path, client_ip)
+    
+    # Basic validations (relaxed for Chinese partners)
+    if not is_chinese_request and not security_manager.validate_session_id_format(session_id):
         raise HTTPException(status_code=400, detail="Invalid session ID format")
     
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")
     
-    # Security checks
-    if security_manager.is_ip_blocked(client_ip):
-        raise HTTPException(status_code=429, detail="IP address temporarily blocked")
-    
-    if security_manager.is_rate_limited(client_ip, max_requests=30, window_minutes=1):
-        security_manager.record_failed_attempt(client_ip)
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
-    
-    if not security_manager.validate_session_activity(session_id):
-        raise HTTPException(status_code=429, detail="Session activity limit exceeded")
+    # Skip most security checks for Chinese partners
+    if not is_chinese_request:
+        # Security checks
+        if security_manager.is_ip_blocked(client_ip):
+            raise HTTPException(status_code=429, detail="IP address temporarily blocked")
+        
+        if security_manager.is_rate_limited(client_ip, max_requests=30, window_minutes=1):
+            security_manager.record_failed_attempt(client_ip)
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+        
+        if not security_manager.validate_session_activity(session_id):
+            raise HTTPException(status_code=429, detail="Session activity limit exceeded")
     
     return {
         "client_ip": client_ip,
         "validated": True,
+        "chinese_partner": is_chinese_request,
         "timestamp": datetime.utcnow().isoformat()
     }
 
@@ -291,5 +331,25 @@ def validate_payment_security(request: Request, amount: float, session_id: str) 
         "client_ip": client_ip,
         "amount": amount,
         "validated": True,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+def validate_chinese_api_security(request: Request) -> Dict[str, Any]:
+    """Minimal security validation for Chinese partner API endpoints"""
+    client_ip = security_manager.get_client_ip(request)
+    
+    # Very basic IP validation only
+    if not security_manager.is_valid_ip_address(client_ip):
+        raise HTTPException(status_code=400, detail="Invalid IP address")
+    
+    # Only rate limit if it's excessive (very high threshold for Chinese partners)
+    if security_manager.is_rate_limited(f"chinese:{client_ip}", max_requests=500, window_minutes=1):
+        raise HTTPException(status_code=429, detail="Excessive request rate")
+    
+    return {
+        "client_ip": client_ip,
+        "validated": True,
+        "chinese_partner": True,
+        "security_level": "relaxed",
         "timestamp": datetime.utcnow().isoformat()
     }

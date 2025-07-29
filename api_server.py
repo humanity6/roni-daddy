@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Request
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -8,15 +9,17 @@ from dotenv import load_dotenv
 from typing import Optional, List
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc
 from database import get_db, create_tables
 from api_routes import router
 from db_services import OrderService, OrderImageService, BrandService, PhoneModelService, TemplateService
-from models import PhoneModel, Template, VendingMachine, VendingMachineSession
-from datetime import datetime
+from models import PhoneModel, Template, VendingMachine, VendingMachineSession, Order, OrderImage
+from datetime import datetime, timezone
 from security_middleware import (
     validate_session_security, 
     validate_machine_security, 
     validate_payment_security,
+    validate_chinese_api_security,
     security_manager
 )
 import openai
@@ -36,7 +39,18 @@ load_dotenv()  # Current directory
 load_dotenv("image gen/.env")  # Image gen subdirectory
 load_dotenv(".env")  # Explicit current directory
 
-app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0")
+# Database lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize database on startup"""
+    try:
+        create_tables()
+        print("Database tables created/verified")
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+    yield
+
+app = FastAPI(title="PimpMyCase API - Database Edition", version="2.0.0", lifespan=lifespan)
 
 # Include the new API routes
 app.include_router(router)
@@ -247,25 +261,37 @@ class QRParametersRequest(BaseModel):
     user_agent: Optional[str] = None
     ip_address: Optional[str] = None
 
+# Chinese payment status API models
+class ChinesePayStatusRequest(BaseModel):
+    third_id: str
+    status: int
+    
+    @field_validator('third_id')
+    @classmethod
+    def validate_third_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Third party payment ID cannot be empty')
+        if len(v) > 200:
+            raise ValueError('Third party payment ID too long')
+        return v.strip()
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        # Chinese payment status: 1=waiting, 2=paying, 3=paid, 4=failed, 5=abnormal
+        if v not in [1, 2, 3, 4, 5]:
+            raise ValueError('Status must be 1 (waiting), 2 (paying), 3 (paid), 4 (failed), or 5 (abnormal)')
+        return v
+
 # Exception handler for validation errors
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print(f"Validation error for {request.url}: {exc.errors()}")
     print(f"Request body: {await request.body()}")
     return JSONResponse(
-        status_code=400,
+        status_code=422,
         content={"detail": f"Validation error: {exc.errors()}"}
     )
-
-# Database startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    try:
-        create_tables()
-        print("Database tables created/verified")
-    except Exception as e:
-        print(f"Database initialization error: {e}")
 
 # Initialize OpenAI client
 def get_openai_client():
@@ -626,7 +652,7 @@ async def generate_image_gpt_image_1(prompt: str, reference_image: Optional[str]
         raise HTTPException(status_code=500, detail=f"AI generation failed: {error_msg}")
 
 def save_generated_image(base64_data: str, template_id: str) -> tuple:
-    """Save generated image and return path and filename"""
+    """Save generated image and return path and filename with UK hosting URL"""
     try:
         image_bytes = base64.b64decode(base64_data)
         
@@ -644,6 +670,30 @@ def save_generated_image(base64_data: str, template_id: str) -> tuple:
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving image: {str(e)}")
+
+def generate_uk_download_url(filename: str) -> str:
+    """Generate UK-hosted download URL for Chinese partners"""
+    base_url = "https://pimpmycase.onrender.com"  # UK-hosted Render deployment
+    return f"{base_url}/image/{filename}"
+
+def generate_secure_download_token(filename: str, expiry_hours: int = 24) -> str:
+    """Generate secure download token for image access"""
+    import hmac
+    import hashlib
+    
+    # Use JWT secret as signing key
+    secret_key = JWT_SECRET_KEY
+    timestamp = str(int(time.time() + (expiry_hours * 3600)))  # Expiry timestamp
+    
+    # Create signature
+    message = f"{filename}:{timestamp}"
+    signature = hmac.new(
+        secret_key.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return f"{timestamp}:{signature}"
 
 @app.get("/")
 async def root():
@@ -726,7 +776,7 @@ async def reset_database_endpoint():
 async def init_database_endpoint():
     """Initialize database with sample data - for production setup"""
     try:
-        from init_db import init_brands, init_phone_models, init_templates, init_fonts, init_colors, init_vending_machines
+        from init_db import init_brands, init_phone_models, init_templates, init_fonts, init_colors, init_vending_machines, init_sample_orders
         
         # Create all tables first (safe to call multiple times)
         print("Creating/verifying database tables...")
@@ -745,6 +795,8 @@ async def init_database_endpoint():
         init_colors()
         print("Initializing vending machines...")
         init_vending_machines()
+        print("Initializing sample orders...")
+        init_sample_orders()
         
         return {
             "success": True,
@@ -755,7 +807,8 @@ async def init_database_endpoint():
                 "templates (5 basic + 4 AI templates)",
                 "fonts (16 fonts including Google fonts)",
                 "colors (12 background + 11 text colors)",
-                "test vending machines (5 machines)"
+                "test vending machines (5 machines)",
+                "sample orders with Chinese fields (2 test orders)"
             ]
         }
         
@@ -941,13 +994,39 @@ async def generate_image(
 # All Chinese API endpoints removed - now using database-driven architecture
 
 @app.get("/image/{filename}")
-async def get_image(filename: str):
-    """Serve generated image"""
+async def get_image_with_auth(filename: str, token: str = None):
+    """Serve generated image with optional token validation for Chinese partners"""
     generated_dir = ensure_directories()
     file_path = generated_dir / filename
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
+    
+    # If token provided, validate it
+    if token:
+        try:
+            timestamp_str, signature = token.split(':', 1)
+            timestamp = int(timestamp_str)
+            
+            # Check if token has expired
+            if time.time() > timestamp:
+                raise HTTPException(status_code=403, detail="Download token expired")
+            
+            # Verify signature
+            import hmac
+            import hashlib
+            message = f"{filename}:{timestamp_str}"
+            expected_signature = hmac.new(
+                JWT_SECRET_KEY.encode(),
+                message.encode(),
+                hashlib.sha256
+            ).hexdigest()
+            
+            if not hmac.compare_digest(signature, expected_signature):
+                raise HTTPException(status_code=403, detail="Invalid download token")
+                
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=403, detail="Malformed download token")
     
     return FileResponse(file_path)
 
@@ -973,18 +1052,14 @@ async def get_template_styles(template_id: str):
 async def test_chinese_connection(http_request: Request):
     """Test endpoint for Chinese manufacturers to verify API connectivity"""
     try:
-        # Apply rate limiting to prevent abuse
-        client_ip = http_request.client.host if http_request.client else "127.0.0.1"
-        
-        # Rate limit: 30 requests per minute for test endpoint
-        if security_manager.is_rate_limited(f"test_connection:{client_ip}", max_requests=30, window_minutes=1):
-            raise HTTPException(status_code=429, detail="Rate limit exceeded for test connection")
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
         
         return {
             "status": "success",
             "message": "Connection successful",
             "api_version": "2.0.0",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "endpoints": {
                 "status_update": "/api/chinese/order-status-update",
                 "test_connection": "/api/chinese/test-connection"
@@ -1045,7 +1120,7 @@ async def receive_order_status_update(
             "message": "Order status updated successfully",
             "order_id": request.order_id,
             "status": request.status,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
         
     except HTTPException:
@@ -1080,7 +1155,7 @@ async def send_print_command(
             "phone_model": request.phone_model,
             "customer_info": request.customer_info,
             "priority": request.priority,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "order_details": {
                 "brand": order.brand.name if order.brand else None,
                 "model": order.phone_model.name if order.phone_model else None,
@@ -1093,7 +1168,7 @@ async def send_print_command(
         # Update order status to indicate print command was sent
         OrderService.update_order_status(db, request.order_id, "print_command_sent", {
             "print_command_data": print_command_data,
-            "sent_to_manufacturer_at": datetime.utcnow().isoformat()
+            "sent_to_manufacturer_at": datetime.now(timezone.utc).isoformat()
         })
         
         # Generate unique command ID for tracking
@@ -1105,7 +1180,7 @@ async def send_print_command(
             "order_id": request.order_id,
             "command_id": command_id,
             "status": "sent",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "print_command_data": print_command_data
         }
         
@@ -1113,6 +1188,549 @@ async def send_print_command(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send print command: {str(e)}")
+
+@app.post("/api/chinese/order/payStatus")
+async def receive_payment_status_update(
+    request: ChinesePayStatusRequest,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Receive payment status updates from Chinese systems - matches their API specification"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        print(f"Chinese payment status update from {security_info['client_ip']}: {request.third_id} -> status {request.status}")
+        # Find order by third_party_payment_id
+        order = db.query(Order).filter(Order.third_party_payment_id == request.third_id).first()
+        
+        if not order:
+            # If order not found by third_id, just record the payment status without creating an order
+            # This allows Chinese system to send payment status before order creation
+            # The payment status will be linked when the actual order is created
+            return {
+                "msg": "Payment status received - order will be created when details are available",
+                "code": 200,
+                "third_id": request.third_id,
+                "status": request.status,
+                "note": "Payment status logged, awaiting order creation"
+            }
+        
+        # Update existing order with payment status
+        order.chinese_payment_status = request.status
+        order.updated_at = datetime.now(timezone.utc)
+        
+        # Map Chinese payment status to our internal status
+        status_mapping = {
+            1: "pending",      # Waiting for payment
+            2: "processing",   # Payment processing
+            3: "paid",         # Payment successful
+            4: "failed",       # Payment failed
+            5: "error"         # Payment abnormal
+        }
+        
+        # Update payment status based on Chinese status
+        if request.status == 3:  # Paid
+            order.payment_status = "paid"
+            order.paid_at = datetime.now(timezone.utc)
+            order.status = "paid"
+            
+            # Trigger print command for paid orders
+            try:
+                if order.images:  # If order has images, send to print
+                    image_urls = [f"https://pimpmycase.onrender.com/image/{img.image_path.split('/')[-1]}" 
+                                for img in order.images]
+                    
+                    print_request = PrintCommandRequest(
+                        order_id=order.id,
+                        image_urls=image_urls,
+                        phone_model=f"{order.brand.name if order.brand else 'Unknown'} {order.phone_model.name if order.phone_model else 'Model'}",
+                        customer_info={
+                            "third_party_payment_id": request.third_id,
+                            "chinese_payment_status": request.status
+                        },
+                        priority=1
+                    )
+                    
+                    # Send print command
+                    await send_print_command(print_request, db)
+                    print(f"✅ Print command sent for paid order {order.id}")
+                    
+            except Exception as print_error:
+                print(f"⚠️ Failed to send print command for order {order.id}: {print_error}")
+                # Don't fail the payment confirmation if print command fails
+                
+        elif request.status == 4:  # Failed
+            order.payment_status = "failed"
+            order.status = "payment_failed"
+        elif request.status == 5:  # Abnormal
+            order.payment_status = "failed"
+            order.status = "payment_error"
+        
+        db.commit()
+        
+        return {
+            "msg": "Payment status updated successfully",
+            "code": 200,
+            "order_id": order.id,
+            "status": request.status
+        }
+        
+    except Exception as e:
+        print(f"Payment status update error: {str(e)}")
+        # Return 200 with error message as Chinese API expects this format
+        return {
+            "msg": f"Payment status update failed: {str(e)}",
+            "code": 500
+        }
+
+@app.get("/api/chinese/payment/{third_id}/status")
+async def get_payment_status(
+    third_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get real-time payment status for Chinese partners"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        # Find order by third_party_payment_id
+        order = db.query(Order).filter(Order.third_party_payment_id == third_id).first()
+        
+        if not order:
+            return {
+                "success": False,
+                "error": "Payment record not found",
+                "third_id": third_id,
+                "status": 1  # Default to waiting
+            }
+        
+        return {
+            "success": True,
+            "third_id": third_id,
+            "status": order.chinese_payment_status,
+            "order_id": order.id,
+            "payment_status": order.payment_status,
+            "total_amount": float(order.total_amount),
+            "currency": order.currency,
+            "created_at": order.created_at.isoformat(),
+            "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+            "paid_at": order.paid_at.isoformat() if order.paid_at else None
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "third_id": third_id
+        }
+
+@app.get("/api/chinese/equipment/{equipment_id}/info")
+async def get_equipment_info(
+    equipment_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get equipment information and status for Chinese partners"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Look up vending machine by equipment_id
+        machine = db.query(VendingMachine).filter(VendingMachine.id == equipment_id).first()
+        
+        if not machine:
+            return {
+                "success": False,
+                "error": "Equipment not found",
+                "equipment_id": equipment_id
+            }
+        
+        # Get recent orders for this machine
+        recent_orders = db.query(Order).filter(Order.machine_id == equipment_id).order_by(desc(Order.created_at)).limit(10).all()
+        
+        return {
+            "success": True,
+            "equipment_id": equipment_id,
+            "equipment_info": {
+                "id": machine.id,
+                "name": machine.name,
+                "location": machine.location,
+                "is_active": machine.is_active,
+                "last_heartbeat": machine.last_heartbeat.isoformat() if machine.last_heartbeat else None,
+                "created_at": machine.created_at.isoformat(),
+                "status": "online" if machine.is_active else "offline"
+            },
+            "recent_orders": [
+                {
+                    "id": order.id,
+                    "status": order.status,
+                    "payment_status": order.payment_status,
+                    "total_amount": float(order.total_amount),
+                    "created_at": order.created_at.isoformat()
+                }
+                for order in recent_orders
+            ]
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "equipment_id": equipment_id
+        }
+
+@app.post("/api/chinese/equipment/{equipment_id}/stock")
+async def update_equipment_stock(
+    equipment_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Update stock quantities for specific equipment"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Get request body
+        body = await http_request.json()
+        
+        updated_models = []
+        
+        # Update stock for each model in the request
+        for model_update in body.get('stock_updates', []):
+            model_id = model_update.get('model_id')
+            new_stock = model_update.get('stock', 0)
+            
+            if not model_id:
+                continue
+                
+            # Find model by chinese_model_id or regular id
+            model = db.query(PhoneModel).filter(
+                (PhoneModel.chinese_model_id == model_id) | (PhoneModel.id == model_id)
+            ).first()
+            
+            if model:
+                old_stock = model.stock
+                model.stock = max(0, new_stock)  # Ensure stock is not negative
+                model.updated_at = datetime.now(timezone.utc)
+                
+                updated_models.append({
+                    "model_id": model.id,
+                    "chinese_model_id": model.chinese_model_id,
+                    "name": model.name,
+                    "old_stock": old_stock,
+                    "new_stock": model.stock
+                })
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "equipment_id": equipment_id,
+            "updated_models": updated_models,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "equipment_id": equipment_id
+        }
+
+@app.get("/api/chinese/models/stock-status")
+async def get_stock_status(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get real-time stock status for all phone models"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Get all phone models with their stock levels
+        models = db.query(PhoneModel).options(joinedload(PhoneModel.brand)).filter(PhoneModel.is_available == True).all()
+        
+        stock_data = []
+        for model in models:
+            stock_data.append({
+                "model_id": model.id,
+                "chinese_model_id": model.chinese_model_id,
+                "name": model.name,
+                "brand": model.brand.name if model.brand else "Unknown",
+                "stock": model.stock,
+                "price": float(model.price),
+                "is_available": model.is_available and model.stock > 0,
+                "updated_at": model.updated_at.isoformat() if model.updated_at else model.created_at.isoformat()
+            })
+        
+        return {
+            "success": True,
+            "models": stock_data,
+            "total_models": len(stock_data),
+            "in_stock_models": len([m for m in stock_data if m["stock"] > 0]),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/chinese/print/trigger")
+async def trigger_print_job(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Trigger printing after payment completion"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Get request body
+        body = await http_request.json()
+        order_id = body.get('order_id')
+        
+        if not order_id:
+            return {
+                "success": False,
+                "error": "Order ID is required"
+            }
+        
+        # Find the order
+        order = db.query(Order).options(
+            joinedload(Order.images),
+            joinedload(Order.brand),
+            joinedload(Order.phone_model)
+        ).filter(Order.id == order_id).first()
+        
+        if not order:
+            return {
+                "success": False,
+                "error": "Order not found",
+                "order_id": order_id
+            }
+        
+        # Check if order is paid
+        if order.payment_status != "paid":
+            return {
+                "success": False,
+                "error": "Order not paid yet",
+                "order_id": order_id,
+                "payment_status": order.payment_status
+            }
+        
+        # Generate image URLs for printing
+        image_urls = []
+        if order.images:
+            for img in order.images:
+                if img.image_path:
+                    # Generate full URL for Chinese API
+                    filename = img.image_path.split('/')[-1]
+                    image_url = f"https://pimpmycase.onrender.com/image/{filename}"
+                    image_urls.append(image_url)
+                    
+                    # Update chinese_image_url for tracking
+                    img.chinese_image_url = image_url
+        
+        # Update order status to indicate print job triggered
+        order.status = "print_job_triggered" 
+        order.updated_at = datetime.now(timezone.utc)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "print_job_id": f"PRINT_{order_id}_{int(datetime.now(timezone.utc).timestamp())}",
+            "image_urls": image_urls,
+            "phone_model": f"{order.brand.name if order.brand else 'Unknown'} {order.phone_model.name if order.phone_model else 'Model'}",
+            "status": "triggered",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.get("/api/chinese/print/{order_id}/status")
+async def get_print_status(
+    order_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Check printing progress for an order"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Find the order
+        order = db.query(Order).filter(Order.id == order_id).first()
+        
+        if not order:
+            return {
+                "success": False,
+                "error": "Order not found",
+                "order_id": order_id
+            }
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "status": order.status,
+            "payment_status": order.payment_status,
+            "queue_number": order.queue_number,
+            "estimated_completion": order.estimated_completion.isoformat() if order.estimated_completion else None,
+            "notes": order.notes,
+            "created_at": order.created_at.isoformat(),
+            "updated_at": order.updated_at.isoformat() if order.updated_at else None
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "order_id": order_id
+        }
+
+@app.get("/api/chinese/order/{order_id}/download-links")
+async def get_order_download_links(
+    order_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get UK-hosted download links for order images"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Find the order with images
+        order = db.query(Order).options(joinedload(Order.images)).filter(Order.id == order_id).first()
+        
+        if not order:
+            return {
+                "success": False,
+                "error": "Order not found",
+                "order_id": order_id
+            }
+        
+        download_links = []
+        
+        for img in order.images:
+            if img.image_path:
+                filename = img.image_path.split('/')[-1]
+                download_url = generate_uk_download_url(filename)
+                secure_token = generate_secure_download_token(filename, expiry_hours=48)  # 48 hour expiry for Chinese partners
+                
+                # Update chinese_image_url in database
+                img.chinese_image_url = download_url
+                
+                download_links.append({
+                    "image_id": img.id,
+                    "image_type": img.image_type,
+                    "download_url": download_url,
+                    "secure_download_url": f"{download_url}?token={secure_token}",
+                    "filename": filename,
+                    "expiry_hours": 48,
+                    "created_at": img.created_at.isoformat()
+                })
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "order_id": order_id,
+            "download_links": download_links,
+            "total_images": len(download_links),
+            "uk_hosting": True,
+            "base_url": "https://pimpmycase.onrender.com",
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "order_id": order_id
+        }
+
+@app.get("/api/chinese/images/batch-download")
+async def get_batch_download_links(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get batch download links for multiple orders"""
+    try:
+        # Use relaxed security for Chinese partners
+        security_info = validate_chinese_api_security(http_request)
+        
+        # Get request parameters
+        query_params = dict(http_request.query_params)
+        order_ids = query_params.get('order_ids', '').split(',')
+        order_ids = [oid.strip() for oid in order_ids if oid.strip()]
+        
+        if not order_ids:
+            return {
+                "success": False,
+                "error": "No order IDs provided. Use ?order_ids=id1,id2,id3"
+            }
+        
+        batch_downloads = []
+        
+        for order_id in order_ids:
+            order = db.query(Order).options(joinedload(Order.images)).filter(Order.id == order_id).first()
+            
+            if not order:
+                batch_downloads.append({
+                    "order_id": order_id,
+                    "success": False,
+                    "error": "Order not found"
+                })
+                continue
+            
+            order_links = []
+            for img in order.images:
+                if img.image_path:
+                    filename = img.image_path.split('/')[-1]
+                    download_url = generate_uk_download_url(filename)
+                    secure_token = generate_secure_download_token(filename, expiry_hours=48)
+                    
+                    # Update chinese_image_url in database
+                    img.chinese_image_url = download_url
+                    
+                    order_links.append({
+                        "image_id": img.id,
+                        "download_url": download_url,
+                        "secure_download_url": f"{download_url}?token={secure_token}",
+                        "filename": filename
+                    })
+            
+            batch_downloads.append({
+                "order_id": order_id,
+                "success": True,
+                "images": order_links,
+                "image_count": len(order_links)
+            })
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "batch_downloads": batch_downloads,
+            "total_orders": len(order_ids),
+            "successful_orders": len([bd for bd in batch_downloads if bd["success"]]),
+            "uk_hosting": True,
+            "base_url": "https://pimpmycase.onrender.com",
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 # Vending Machine Session Management APIs
 @app.post("/api/vending/create-session")
@@ -1150,14 +1768,14 @@ async def create_vending_session(
             raise HTTPException(status_code=429, detail="Machine session limit exceeded")
         
         # Generate unique session ID with enhanced randomness
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         import secrets
         random_suffix = secrets.token_hex(4).upper()
         session_id = f"{machine_id}_{timestamp}_{random_suffix}"
         
         # Calculate expiration time
         from datetime import timedelta
-        expires_at = datetime.utcnow() + timedelta(minutes=timeout_minutes)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
         
         # Create session record with security info
         session = VendingMachineSession(
@@ -1167,8 +1785,8 @@ async def create_vending_session(
             user_progress="started",
             expires_at=expires_at,
             ip_address=security_info["client_ip"],
-            created_at=datetime.utcnow(),
-            last_activity=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            last_activity=datetime.now(timezone.utc),
             qr_data={
                 "machine_id": machine_id,
                 "location": location,
@@ -1232,7 +1850,7 @@ async def get_session_status(
         
         # Check if session has expired
         # Handle timezone-aware datetime comparison
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         expires_at = session.expires_at
         
         # Convert timezone-aware datetime to naive for comparison if needed
@@ -1247,7 +1865,7 @@ async def get_session_status(
         
         # Update last activity for active sessions
         if session.status in ["active", "designing", "payment_pending"]:
-            session.last_activity = datetime.utcnow()
+            session.last_activity = datetime.now(timezone.utc)
             db.commit()
         
         # Helper function to safely format datetime
@@ -1306,7 +1924,7 @@ async def register_user_with_session(
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Check if session has expired
-        if datetime.utcnow() > session.expires_at:
+        if datetime.now(timezone.utc) > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Validate machine ID matches session machine
@@ -1320,14 +1938,14 @@ async def register_user_with_session(
         
         # Update session with user info
         session.user_progress = "qr_scanned"
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         session.user_agent = user_agent
         session.ip_address = security_info["client_ip"]  # Use validated IP from security check
         
         # Update session data with security tracking
         session_data = session.session_data or {}
         session_data.update({
-            "qr_scanned_at": datetime.utcnow().isoformat(),
+            "qr_scanned_at": datetime.now(timezone.utc).isoformat(),
             "user_agent": user_agent,
             "ip_address": security_info["client_ip"],
             "location": location,
@@ -1379,7 +1997,7 @@ async def send_order_summary_to_vending_machine(
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Check if session has expired
-        if datetime.utcnow() > session.expires_at:
+        if datetime.now(timezone.utc) > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Validate session state
@@ -1394,7 +2012,7 @@ async def send_order_summary_to_vending_machine(
         # Update session with order details
         session.user_progress = "payment_pending"
         session.payment_amount = request.payment_amount
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         
         # Store order summary in session data with security info
         session_data = session.session_data or {}
@@ -1402,7 +2020,7 @@ async def send_order_summary_to_vending_machine(
             "order_summary": request.order_data,
             "payment_amount": request.payment_amount,
             "currency": currency,
-            "payment_requested_at": datetime.utcnow().isoformat(),
+            "payment_requested_at": datetime.now(timezone.utc).isoformat(),
             "order_security_info": security_info
         })
         session.session_data = session_data
@@ -1446,7 +2064,7 @@ async def confirm_vending_machine_payment(
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Check if session has expired
-        if datetime.utcnow() > session.expires_at:
+        if datetime.now(timezone.utc) > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Validate session state
@@ -1470,13 +2088,13 @@ async def confirm_vending_machine_payment(
         # Update session with payment confirmation
         session.status = "payment_completed"
         session.payment_method = "vending_machine"
-        session.payment_confirmed_at = datetime.utcnow()
-        session.last_activity = datetime.utcnow()
+        session.payment_confirmed_at = datetime.now(timezone.utc)
+        session.last_activity = datetime.now(timezone.utc)
         
         # Store payment details with security info
         session_data = session.session_data or {}
         session_data.update({
-            "payment_confirmed_at": datetime.utcnow().isoformat(),
+            "payment_confirmed_at": datetime.now(timezone.utc).isoformat(),
             "payment_method": payment_method,
             "transaction_id": transaction_id,
             "payment_data": request.payment_data or {},
@@ -1524,7 +2142,7 @@ async def confirm_vending_machine_payment(
                     "status": "paid",
                     "payment_status": "paid",
                     "payment_method": "vending_machine",
-                    "paid_at": datetime.utcnow(),
+                    "paid_at": datetime.now(timezone.utc),
                     "vending_transaction_id": transaction_id,
                     "vending_session_id": session_id
                 }
@@ -1594,7 +2212,7 @@ async def confirm_vending_machine_payment(
                     # Don't fail the payment confirmation if print command fails
                     OrderService.update_order_status(db, order_id, "payment_completed_print_failed", {
                         "print_error": str(print_error),
-                        "print_error_at": datetime.utcnow().isoformat()
+                        "print_error_at": datetime.now(timezone.utc).isoformat()
                     })
                 
             else:
@@ -1639,7 +2257,7 @@ async def validate_session_security_endpoint(
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Check session health
-        is_expired = datetime.utcnow() > session.expires_at
+        is_expired = datetime.now(timezone.utc) > session.expires_at
         is_active = session.status in ["active", "designing", "payment_pending"]
         
         return {
@@ -1655,7 +2273,7 @@ async def validate_session_security_endpoint(
                 "last_activity": session.last_activity.isoformat()
             },
             "security_info": security_info,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     except HTTPException:
@@ -1680,7 +2298,7 @@ async def get_vending_order_info(
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Check if session has expired
-        if datetime.utcnow() > session.expires_at:
+        if datetime.now(timezone.utc) > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Check if session has order information
@@ -1717,7 +2335,7 @@ async def get_vending_order_info(
         }
         
         # Update last activity
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         db.commit()
         
         return order_info
@@ -1740,7 +2358,7 @@ async def cleanup_vending_session(
         
         # Update status to cancelled and keep record for audit
         session.status = "cancelled"
-        session.last_activity = datetime.utcnow()
+        session.last_activity = datetime.now(timezone.utc)
         
         db.commit()
         
@@ -1880,7 +2498,7 @@ async def process_payment_success(
                 order.stripe_session_id = request.session_id
                 order.stripe_payment_intent_id = session.payment_intent
                 order.payment_status = "paid"
-                order.paid_at = datetime.utcnow()
+                order.paid_at = datetime.now(timezone.utc)
                 order.status = "paid"
                 db.commit()
             else:
@@ -1904,7 +2522,7 @@ async def process_payment_success(
                 "stripe_session_id": request.session_id,
                 "stripe_payment_intent_id": session.payment_intent,
                 "payment_status": "paid",
-                "paid_at": datetime.utcnow(),
+                "paid_at": datetime.now(timezone.utc),
                 "status": "paid",
                 "total_amount": session.amount_total / 100,
                 "currency": session.currency.upper(),

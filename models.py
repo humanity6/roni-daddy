@@ -196,6 +196,14 @@ class Order(Base):
     paid_at = Column(DateTime(timezone=True))
     queue_number = Column(String(50))  # Queue number for vending machine display
     
+    # Chinese payment tracking
+    third_party_payment_id = Column(String(200))  # Chinese third_id from payStatus API
+    chinese_payment_id = Column(String(200))  # Chinese payment transaction ID
+    chinese_payment_status = Column(Integer, default=1)  # 1=waiting, 2=paying, 3=paid, 4=failed, 5=abnormal
+    chinese_order_id = Column(String(200))  # Chinese manufacturer's order ID
+    estimated_completion = Column(DateTime(timezone=True))  # Manufacturing completion estimate
+    notes = Column(Text)  # Additional notes from Chinese manufacturer
+    
     # Machine info
     machine_id = Column(String, ForeignKey("vending_machines.id"))
     
@@ -220,6 +228,7 @@ class OrderImage(Base):
     image_path = Column(String(500), nullable=False)  # Path to stored image
     image_type = Column(String(50), default="generated")  # generated, uploaded, final
     ai_params = Column(JSON)  # AI generation parameters used
+    chinese_image_url = Column(String(500))  # Download URL for Chinese partners
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

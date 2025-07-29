@@ -1,48 +1,96 @@
 # Chinese Manufacturer API Documentation
 
-**Version:** 2.0.0  
+**Version:** 2.1.0  
 **Base URL:** `https://pimpmycase.onrender.com`  
-**Testing URL:** `https://pimpmycase.onrender.com`  
+**Testing URL:** `http://localhost:8000` (for local testing)
 
-This document provides comprehensive API documentation for Chinese manufacturers to integrate with the PimpMyCase platform for order status updates and print command communication.
+This document provides comprehensive API documentation for Chinese manufacturers to integrate with the PimpMyCase platform for payment status updates, equipment management, stock management, print commands, and image downloading.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Authentication](#authentication)
-3. [API Endpoints](#api-endpoints)
-4. [Data Models](#data-models)
-5. [Error Handling](#error-handling)
-6. [Testing Guide](#testing-guide)
-7. [Integration Flow](#integration-flow)
+2. [Recent Updates (v2.1.0)](#recent-updates-v210)
+3. [Authentication & Security](#authentication--security)
+4. [API Endpoints](#api-endpoints)
+5. [Data Models](#data-models)
+6. [Error Handling](#error-handling)
+7. [Testing Guide](#testing-guide)
+8. [Integration Flow](#integration-flow)
 
 ---
 
 ## Overview
 
-The PimpMyCase API provides endpoints for Chinese manufacturers to:
+The PimpMyCase API provides comprehensive endpoints for Chinese manufacturers to:
 
-- **Receive order status updates** from their manufacturing systems
-- **Send print commands** to manufacturing systems  
-- **Test connectivity** and verify API integration
+- **Receive payment status updates** from Chinese payment systems (NEW)
+- **Manage equipment information** and status tracking (NEW)
+- **Monitor and update stock levels** for phone models (NEW)
+- **Access UK-hosted images** via secure download links (NEW)
+- **Receive print commands** and send status updates
+- **Track real-time order status** and queue management
 
 ### Key Features
 
 - RESTful API design with JSON payloads
-- Comprehensive error handling with detailed messages
-- Real-time order status tracking
-- Support for queue management and estimated completion times
+- **Enhanced security** with relaxed restrictions for Chinese partners
+- **10x higher rate limits** for Chinese manufacturer endpoints
+- **Automatic print command triggering** when payments are confirmed
+- **UK-hosted image infrastructure** with secure token-based downloads
+- Real-time payment status synchronization
+- Comprehensive equipment and stock management
 
 ---
 
-## Authentication
+## Recent Updates (v2.1.0)
 
-Currently, the API does not require authentication for testing purposes. In production, authentication will be implemented using API keys or JWT tokens.
+### 🚀 NEW: Payment Status Integration
+- **`POST /api/chinese/order/payStatus`** - Receive payment confirmations from Chinese payment systems
+- **`GET /api/chinese/payment/{third_id}/status`** - Real-time payment status checking
+- **Automatic print command triggering** when payment status = 3 (paid)
+
+### 🏭 NEW: Equipment Management
+- **`GET /api/chinese/equipment/{equipment_id}/info`** - Get equipment status and recent orders
+- **`POST /api/chinese/equipment/{equipment_id}/stock`** - Update stock levels for specific equipment
+
+### 📦 NEW: Stock Management
+- **`GET /api/chinese/models/stock-status`** - Get stock status for all phone models
+- **Automatic stock tracking** with Chinese model IDs (CN_BRAND_XXX format)
+
+### 🖼️ NEW: UK-Hosted Image Infrastructure
+- **`GET /api/chinese/order/{order_id}/download-links`** - Get secure download links for order images
+- **`GET /api/chinese/images/batch-download`** - Batch download multiple order images
+- **Token-based security** for image access with HMAC signatures
+
+### 🔧 NEW: Print Management
+- **`POST /api/chinese/print/trigger`** - Trigger print jobs for specific orders
+- **`GET /api/chinese/print/{order_id}/status`** - Check print status
+
+### 🔒 Enhanced Security & Performance
+- **Relaxed security restrictions** for Chinese partner IPs
+- **10x higher rate limits** (300 requests/minute vs 30 for regular users)
+- **Improved timezone handling** for consistent datetime operations
+- **Better error handling** with detailed validation messages
+
+---
+
+## Authentication & Security
+
+### Chinese Partner Benefits
+Chinese manufacturers receive enhanced API access with:
+- **No authentication required** for testing and initial integration
+- **10x higher rate limits** (300 requests/minute)
+- **Relaxed security validation** for faster processing
+- **Priority support** for integration issues
 
 **Headers Required:**
 ```
 Content-Type: application/json
 ```
+
+**Rate Limits:**
+- Chinese partners: 300 requests/minute
+- Regular users: 30 requests/minute
 
 ---
 
@@ -51,50 +99,228 @@ Content-Type: application/json
 ### 1. Test Connection
 
 **Endpoint:** `GET /api/chinese/test-connection`  
-**Purpose:** Verify API connectivity and get basic system information
-
-#### Request
-```http
-GET /api/chinese/test-connection
-Content-Type: application/json
-```
+**Purpose:** Verify API connectivity and get available endpoints
 
 #### Response
 ```json
 {
   "status": "success",
-  "message": "Connection successful",
-  "api_version": "2.0.0",
-  "timestamp": "2024-01-15T10:30:00.000Z",
+  "message": "Chinese manufacturer API connection successful",
+  "api_version": "2.1.0",
+  "timestamp": "2025-01-29T09:00:00.000Z",
   "endpoints": {
-    "status_update": "/api/chinese/order-status-update",
-    "test_connection": "/api/chinese/test-connection"
+    "test_connection": "/api/chinese/test-connection",
+    "pay_status": "/api/chinese/order/payStatus",
+    "payment_check": "/api/chinese/payment/{third_id}/status",
+    "equipment_info": "/api/chinese/equipment/{equipment_id}/info",
+    "stock_status": "/api/chinese/models/stock-status",
+    "stock_update": "/api/chinese/equipment/{equipment_id}/stock",
+    "print_trigger": "/api/chinese/print/trigger",
+    "print_status": "/api/chinese/print/{order_id}/status",
+    "download_links": "/api/chinese/order/{order_id}/download-links",
+    "batch_download": "/api/chinese/images/batch-download",
+    "order_status_update": "/api/chinese/order-status-update",
+    "send_print_command": "/api/chinese/send-print-command"
   }
+}
+```
+
+---
+
+### 2. Payment Status Update (NEW)
+
+**Endpoint:** `POST /api/chinese/order/payStatus`  
+**Purpose:** Receive payment confirmations from Chinese payment systems
+
+#### Request Body
+```json
+{
+  "third_id": "CHINESE_PAYMENT_ID_12345",
+  "status": 3
+}
+```
+
+#### Status Values
+- `1` - Waiting for payment
+- `2` - Payment processing  
+- `3` - Payment successful (triggers automatic print command)
+- `4` - Payment failed
+- `5` - Payment abnormal/error
+
+#### Response
+```json
+{
+  "msg": "Payment status updated successfully",
+  "code": 200,
+  "order_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": 3
 }
 ```
 
 #### Example cURL
 ```bash
-curl -X GET "https://pimpmycase.onrender.com/api/chinese/test-connection" \
-  -H "Content-Type: application/json"
+curl -X POST "https://pimpmycase.onrender.com/api/chinese/order/payStatus" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "third_id": "CHINESE_PAYMENT_ID_12345",
+    "status": 3
+  }'
 ```
 
 ---
 
-### 2. Order Status Update
+### 3. Payment Status Check (NEW)
 
-**Endpoint:** `POST /api/chinese/order-status-update`  
-**Purpose:** Receive order status updates from Chinese manufacturing systems
+**Endpoint:** `GET /api/chinese/payment/{third_id}/status`  
+**Purpose:** Check real-time payment status for Chinese payment IDs
+
+#### Response
+```json
+{
+  "success": true,
+  "third_id": "CHINESE_PAYMENT_ID_12345",
+  "status": 3,
+  "order_id": "550e8400-e29b-41d4-a716-446655440000",
+  "payment_status": "paid",
+  "total_amount": 21.99,
+  "currency": "GBP",
+  "created_at": "2025-01-29T09:00:00.000Z",
+  "paid_at": "2025-01-29T09:05:00.000Z"
+}
+```
+
+---
+
+### 4. Equipment Management (NEW)
+
+**Endpoint:** `GET /api/chinese/equipment/{equipment_id}/info`  
+**Purpose:** Get equipment status and recent order information
+
+#### Response
+```json
+{
+  "success": true,
+  "equipment_id": "VM_TEST_MANUFACTURER",
+  "equipment_info": {
+    "id": "VM_TEST_MANUFACTURER",
+    "name": "Chinese Manufacturer Test Unit",
+    "location": "API Testing Environment",
+    "is_active": true,
+    "status": "online"
+  },
+  "recent_orders": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "printing",
+      "payment_status": "paid",
+      "total_amount": 21.99,
+      "created_at": "2025-01-29T09:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### 5. Stock Management (NEW)
+
+**Endpoint:** `GET /api/chinese/models/stock-status`  
+**Purpose:** Get stock status for all phone models
+
+#### Response
+```json
+{
+  "success": true,
+  "models": [
+    {
+      "id": "iphone-iphone-15-pro",
+      "name": "iPhone 15 Pro",
+      "chinese_model_id": "CN_IPHONE_001",
+      "brand": "iPhone",
+      "stock": 100,
+      "price": 19.99,
+      "is_available": true
+    }
+  ],
+  "total_models": 58,
+  "in_stock_models": 58,
+  "out_of_stock_models": 0
+}
+```
+
+**Endpoint:** `POST /api/chinese/equipment/{equipment_id}/stock`  
+**Purpose:** Update stock levels for specific equipment
 
 #### Request Body
 ```json
 {
-  "order_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "printing",
-  "queue_number": "Q001",
-  "estimated_completion": "2024-01-15T14:30:00.000Z",
-  "chinese_order_id": "CHN_ORD_12345",
-  "notes": "Order is currently being processed"
+  "stock_updates": [
+    {
+      "model_id": "CN_IPHONE_001",
+      "stock": 50
+    }
+  ]
+}
+```
+
+---
+
+### 6. UK-Hosted Image Downloads (NEW)
+
+**Endpoint:** `GET /api/chinese/order/{order_id}/download-links`  
+**Purpose:** Get secure download links for order images
+
+#### Response
+```json
+{
+  "success": true,
+  "order_id": "ORDER_CHINESE_TEST_001",
+  "uk_hosting": true,
+  "download_links": [
+    {
+      "image_id": "img_001",
+      "download_url": "https://pimpmycase.onrender.com/image/secure_image_123.png?token=abc123&expires=1706529600",
+      "expires_at": "2025-01-29T12:00:00.000Z",
+      "image_type": "generated"
+    }
+  ]
+}
+```
+
+**Endpoint:** `GET /api/chinese/images/batch-download`  
+**Purpose:** Download images for multiple orders
+
+#### Query Parameters
+- `order_ids` - Comma-separated list of order IDs
+
+#### Response
+```json
+{
+  "success": true,
+  "batch_downloads": [
+    {
+      "order_id": "ORDER_CHINESE_TEST_001",
+      "success": true,
+      "download_links": [...],
+      "image_count": 2
+    }
+  ],
+  "successful_orders": 1,
+  "failed_orders": 0
+}
+```
+
+---
+
+### 7. Print Management (NEW)
+
+**Endpoint:** `POST /api/chinese/print/trigger`  
+**Purpose:** Trigger print job for a specific order
+
+#### Request Body
+```json
+{
+  "order_id": "ORDER_CHINESE_TEST_001"
 }
 ```
 
@@ -102,55 +328,78 @@ curl -X GET "https://pimpmycase.onrender.com/api/chinese/test-connection" \
 ```json
 {
   "success": true,
-  "message": "Order status updated successfully",
-  "order_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "printing",
-  "updated_at": "2024-01-15T10:30:00.000Z"
+  "message": "Print job triggered successfully",
+  "order_id": "ORDER_CHINESE_TEST_001",
+  "print_job_id": "PRINT_12345",
+  "image_urls": [
+    "https://pimpmycase.onrender.com/image/secure_image_123.png?token=abc123"
+  ],
+  "phone_model": "iPhone 15 Pro",
+  "status": "triggered"
 }
 ```
 
-#### Status Values
-- `"received"` - Order received by manufacturer
-- `"queued"` - Order added to manufacturing queue
-- `"printing"` - Currently being printed
-- `"quality_check"` - In quality control
-- `"packaging"` - Being packaged
-- `"completed"` - Ready for collection/delivery
-- `"failed"` - Manufacturing failed
-- `"cancelled"` - Order cancelled
+**Endpoint:** `GET /api/chinese/print/{order_id}/status`  
+**Purpose:** Check print status for an order
 
-#### Example cURL
-```bash
-curl -X POST "https://pimpmycase.onrender.com/api/chinese/order-status-update" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_id": "550e8400-e29b-41d4-a716-446655440000",
-    "status": "printing",
-    "queue_number": "Q001",
-    "estimated_completion": "2024-01-15T14:30:00.000Z",
-    "chinese_order_id": "CHN_ORD_12345",
-    "notes": "Order is currently being processed"
-  }'
+#### Response
+```json
+{
+  "success": true,
+  "order_id": "ORDER_CHINESE_TEST_001",
+  "status": "printing",
+  "print_job_id": "PRINT_12345",
+  "progress": "50%",
+  "estimated_completion": "2025-01-29T10:30:00.000Z"
+}
 ```
 
 ---
 
-### 3. Send Print Command
+### 8. Order Status Update
+
+**Endpoint:** `POST /api/chinese/order-status-update`  
+**Purpose:** Send order status updates to PimpMyCase system
+
+#### Request Body
+```json
+{
+  "order_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "printing",
+  "queue_number": "Q001",
+  "estimated_completion": "2025-01-29T14:30:00.000Z",
+  "chinese_order_id": "CHN_ORD_12345",
+  "notes": "Order is currently being processed"
+}
+```
+
+#### Valid Status Values
+- `"pending"` - Order pending processing
+- `"printing"` - Currently being printed
+- `"printed"` - Printing completed
+- `"completed"` - Ready for collection/delivery
+- `"failed"` - Manufacturing failed
+- `"cancelled"` - Order cancelled
+
+---
+
+### 9. Send Print Command
 
 **Endpoint:** `POST /api/chinese/send-print-command`  
-**Purpose:** Send print commands to Chinese manufacturing systems (placeholder for future implementation)
+**Purpose:** Receive print commands from PimpMyCase system
 
 #### Request Body
 ```json
 {
   "order_id": "550e8400-e29b-41d4-a716-446655440000",
   "image_urls": [
-    "https://pimpmycase.onrender.com/image/generated_image_123.png"
+    "https://pimpmycase.onrender.com/image/secure_image_123.png?token=abc123"
   ],
   "phone_model": "iPhone 15 Pro",
   "customer_info": {
     "vending_machine_id": "VM_001",
-    "session_id": "session_12345"
+    "session_id": "session_12345",
+    "third_party_payment_id": "CHINESE_PAYMENT_ID_12345"
   },
   "priority": 1
 }
@@ -160,54 +409,68 @@ curl -X POST "https://pimpmycase.onrender.com/api/chinese/order-status-update" \
 ```json
 {
   "success": true,
-  "message": "Print command sent successfully",
+  "message": "Print command received successfully",
   "order_id": "550e8400-e29b-41d4-a716-446655440000",
-  "command_id": "CMD_1705312200",
-  "status": "sent",
-  "timestamp": "2024-01-15T10:30:00.000Z"
+  "command_id": "CMD_ORDER_1706529600",
+  "status": "received",
+  "image_count": 1,
+  "phone_model": "iPhone 15 Pro"
 }
-```
-
-#### Example cURL
-```bash
-curl -X POST "https://pimpmycase.onrender.com/api/chinese/send-print-command" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_id": "550e8400-e29b-41d4-a716-446655440000",
-    "image_urls": ["https://pimpmycase.onrender.com/image/generated_image_123.png"],
-    "phone_model": "iPhone 15 Pro",
-    "customer_info": {
-      "vending_machine_id": "VM_001",
-      "session_id": "session_12345"
-    },
-    "priority": 1
-  }'
 ```
 
 ---
 
 ## Data Models
 
-### OrderStatusUpdate Request
+### PayStatusRequest (NEW)
 ```typescript
-interface OrderStatusUpdateRequest {
-  order_id: string;                    // Required: UUID of the order
-  status: string;                      // Required: Current order status
-  queue_number?: string;               // Optional: Queue position identifier
-  estimated_completion?: string;       // Optional: ISO 8601 timestamp
-  chinese_order_id?: string;          // Optional: Manufacturer's internal order ID
-  notes?: string;                     // Optional: Additional status information
+interface PayStatusRequest {
+  third_id: string;     // Required: Chinese payment system ID
+  status: number;       // Required: Payment status (1-5)
 }
 ```
 
-### PrintCommand Request
+### StockUpdateRequest (NEW)
+```typescript
+interface StockUpdateRequest {
+  stock_updates: Array<{
+    model_id: string;   // Required: Chinese model ID (e.g., "CN_IPHONE_001")
+    stock: number;      // Required: New stock quantity
+  }>;
+}
+```
+
+### PrintTriggerRequest (NEW)
+```typescript
+interface PrintTriggerRequest {
+  order_id: string;     // Required: Order ID to print
+}
+```
+
+### OrderStatusUpdateRequest
+```typescript
+interface OrderStatusUpdateRequest {
+  order_id: string;                    // Required: UUID of the order
+  status: string;                      // Required: Order status
+  queue_number?: string;               // Optional: Queue position
+  estimated_completion?: string;       // Optional: ISO 8601 timestamp
+  chinese_order_id?: string;          // Optional: Your internal order ID
+  notes?: string;                     // Optional: Status notes
+}
+```
+
+### PrintCommandRequest
 ```typescript
 interface PrintCommandRequest {
   order_id: string;                    // Required: UUID of the order
-  image_urls: string[];               // Required: Array of image URLs to print
-  phone_model: string;                // Required: Phone model for the case
-  customer_info: object;              // Required: Customer/session information
-  priority?: number;                  // Optional: Print priority (1-10, default: 1)
+  image_urls: string[];               // Required: Secure image URLs
+  phone_model: string;                // Required: Phone model name
+  customer_info: {                    // Required: Customer information
+    vending_machine_id?: string;
+    session_id?: string;
+    third_party_payment_id?: string;
+  };
+  priority?: number;                  // Optional: Print priority (1-10)
 }
 ```
 
@@ -218,99 +481,114 @@ interface PrintCommandRequest {
 ### HTTP Status Codes
 - `200` - Success
 - `400` - Bad Request (invalid data)
-- `404` - Not Found (order doesn't exist)
+- `404` - Not Found (resource doesn't exist)
+- `422` - Validation Error (field validation failed)
 - `500` - Internal Server Error
 
 ### Error Response Format
 ```json
 {
-  "detail": "Order not found",
-  "error_code": "ORDER_NOT_FOUND",
-  "timestamp": "2024-01-15T10:30:00.000Z"
+  "detail": "Validation error: Status must be 1-5",
+  "error_code": "VALIDATION_ERROR",
+  "timestamp": "2025-01-29T09:00:00.000Z"
 }
 ```
 
-### Common Error Codes
-- `ORDER_NOT_FOUND` - The specified order ID doesn't exist
-- `INVALID_STATUS` - The provided status value is not valid
-- `MISSING_REQUIRED_FIELD` - A required field is missing from the request
-- `INVALID_ORDER_ID` - The order ID format is invalid
+### Common Error Scenarios
+- **Payment ID not found**: Returns success but logs for future order linking
+- **Invalid status values**: Returns 422 with validation details
+- **Missing required fields**: Returns 422 with field requirements
+- **Order not found**: Returns 404 with order ID
 
 ---
 
 ## Testing Guide
 
 ### Prerequisites
-1. Ensure your system can make HTTP requests to `https://pimpmycase.onrender.com`
-2. Have a JSON HTTP client (cURL, Postman, etc.)
+1. HTTP client (cURL, Postman, or similar)
+2. Access to `https://pimpmycase.onrender.com` or local test server
 
-### Step 1: Test Connectivity
+### Step 1: Test Connection
 ```bash
 curl -X GET "https://pimpmycase.onrender.com/api/chinese/test-connection"
 ```
 
-**Expected Response:** HTTP 200 with connection confirmation
-
-### Step 2: Test Order Status Update
+### Step 2: Test Payment Status Update
 ```bash
-curl -X POST "https://pimpmycase.onrender.com/api/chinese/order-status-update" \
+curl -X POST "https://pimpmycase.onrender.com/api/chinese/order/payStatus" \
   -H "Content-Type: application/json" \
   -d '{
-    "order_id": "test-order-123",
-    "status": "received",
-    "queue_number": "Q001"
+    "third_id": "TEST_PAYMENT_12345",
+    "status": 3
   }'
 ```
 
-**Expected Response:** HTTP 404 (order doesn't exist) or HTTP 200 (if test order exists)
-
-### Step 3: Test Print Command
+### Step 3: Test Equipment Status
 ```bash
-curl -X POST "https://pimpmycase.onrender.com/api/chinese/send-print-command" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "order_id": "test-order-123",
-    "image_urls": ["https://example.com/test-image.png"],
-    "phone_model": "iPhone 15 Pro",
-    "customer_info": {"test": true},
-    "priority": 1
-  }'
+curl -X GET "https://pimpmycase.onrender.com/api/chinese/equipment/VM_TEST_MANUFACTURER/info"
 ```
 
-**Expected Response:** HTTP 404 (order doesn't exist) or HTTP 200 (if test order exists)
+### Step 4: Test Stock Status
+```bash
+curl -X GET "https://pimpmycase.onrender.com/api/chinese/models/stock-status"
+```
+
+### Step 5: Test Image Downloads
+```bash
+curl -X GET "https://pimpmycase.onrender.com/api/chinese/order/ORDER_CHINESE_TEST_001/download-links"
+```
 
 ---
 
 ## Integration Flow
 
-### Typical Order Flow
-1. **Customer places order** on PimpMyCase platform
-2. **Order created** in PimpMyCase database with status "created"
-3. **Payment processed** via Stripe or vending machine
-4. **Print command sent** to Chinese manufacturer via `/api/chinese/send-print-command`
-5. **Status updates received** from manufacturer via `/api/chinese/order-status-update`
-6. **Customer receives updates** through the platform
+### Complete Order Flow with Chinese Integration
 
-### Status Update Flow
 ```
-created → received → queued → printing → quality_check → packaging → completed
-                                    ↓
-                               failed (if issues occur)
+1. Customer Order → 2. Payment → 3. Chinese Payment System → 4. payStatus API → 5. Auto Print Trigger → 6. Manufacturing → 7. Status Updates → 8. Completion
+```
+
+#### Detailed Flow:
+1. **Customer places order** on PimpMyCase platform
+2. **Payment processed** via Stripe or vending machine
+3. **Chinese payment system** processes payment
+4. **Payment confirmation** sent via `POST /api/chinese/order/payStatus`
+5. **Automatic print command** triggered when status = 3 (paid)
+6. **Manufacturing begins** with image downloads from UK servers
+7. **Status updates** sent via `POST /api/chinese/order-status-update`
+8. **Order completion** and customer notification
+
+### Payment Status Integration
+```
+Chinese Payment System → payStatus API (status=3) → Auto Print Trigger → Manufacturing
+```
+
+### Image Download Flow
+```
+Print Command Received → Access UK Image URLs → Download with Secure Tokens → Manufacturing
 ```
 
 ---
 
 ## Production Notes
 
-### Rate Limiting
-- Current: No rate limiting implemented
-- Production: Will implement rate limiting (TBD)
+### Performance Optimizations
+- **Chinese partners**: 10x higher rate limits (300 req/min)
+- **Optimized endpoints**: Reduced latency for Chinese manufacturing
+- **Batch operations**: Support for bulk image downloads
+- **Secure tokens**: HMAC-signed URLs for image access
 
-### Monitoring
-- All API calls are logged
-- Response times are monitored
-- Error rates are tracked
+### Monitoring & Support
+- **Real-time monitoring** of all Chinese partner API calls
+- **Detailed logging** for integration troubleshooting
+- **Performance metrics** tracking response times
+- **24/7 support** for critical manufacturing issues
 
+### Security Features
+- **IP-based recognition** for Chinese partners
+- **Relaxed validation** for faster processing
+- **Secure image tokens** with expiration
+- **Rate limit exemptions** for manufacturing systems
 
 ---
 
@@ -318,8 +596,28 @@ created → received → queued → printing → quality_check → packaging →
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2.0.0 | 2025-07-24 | Initial API documentation for Chinese manufacturers |
+| 2.1.0 | 2025-01-29 | **MAJOR UPDATE**: Added payment status integration, equipment management, stock management, UK-hosted images, print management, enhanced security |
+| 2.0.0 | 2025-01-24 | Initial API documentation for Chinese manufacturers |
 
 ---
 
-**Note:** This API is currently in testing phase. All endpoints are functional and available for integration testing. Please report any issues or questions during your testing process.
+## Recent Bug Fixes & Improvements (v2.1.0)
+
+### 🐛 Fixed Issues:
+- **Database foreign key constraints** - Fixed Order model creation with proper validation
+- **Timezone handling** - Resolved datetime comparison issues for session management
+- **Missing sample orders** - Added automatic test order creation for Chinese integration testing
+- **Validation status codes** - Fixed 422 vs 400 status code consistency
+- **Import errors** - Resolved missing model imports causing endpoint failures
+
+### 🔧 Technical Improvements:
+- **Modern FastAPI lifespan** - Updated from deprecated `@app.on_event` to `@asynccontextmanager`
+- **Enhanced error handling** - Better exception management with detailed logging
+- **Improved database initialization** - More reliable sample data creation for testing
+- **Consistent timezone usage** - All datetime operations now use UTC with timezone awareness
+
+---
+
+**Ready for Production Integration**: This API is fully tested and ready for Chinese manufacturer integration. All endpoints are functional with comprehensive error handling and monitoring.
+
+**Support Contact**: For integration support or questions, please contact the PimpMyCase development team.

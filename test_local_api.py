@@ -174,6 +174,21 @@ class LocalAPITester:
         # Test connection
         results['connection'] = self.test_chinese_api_connection()
         
+        # Test NEW order/payStatus endpoint
+        results['pay_status'] = self.test_chinese_pay_status_endpoint()
+        
+        # Test payment status checking
+        results['payment_status_check'] = self.test_chinese_payment_status_check()
+        
+        # Test equipment and stock management
+        results['equipment_management'] = self.test_chinese_equipment_management()
+        
+        # Test print management
+        results['print_management'] = self.test_chinese_print_management()
+        
+        # Test UK image hosting
+        results['image_hosting'] = self.test_chinese_image_hosting()
+        
         # Test order status updates with various scenarios
         results['order_status_valid'] = self.test_chinese_order_status_scenarios()
         
@@ -265,6 +280,251 @@ class LocalAPITester:
                 all_passed = False
         
         return all_passed
+    
+    def test_chinese_pay_status_endpoint(self) -> bool:
+        """Test NEW Chinese order/payStatus endpoint"""
+        try:
+            print("🇨🇳 Testing Chinese order/payStatus endpoint...")
+            
+            test_scenarios = [
+                {
+                    "name": "Valid Payment Status Update",
+                    "data": {
+                        "third_id": "TEST_THIRD_ID_001",
+                        "status": 3  # Paid
+                    },
+                    "expected_code": 200
+                },
+                {
+                    "name": "Payment Processing",
+                    "data": {
+                        "third_id": "TEST_THIRD_ID_NEW_001",
+                        "status": 2  # Paying
+                    },
+                    "expected_code": 200
+                },
+                {
+                    "name": "Payment Failed",
+                    "data": {
+                        "third_id": "TEST_THIRD_ID_FAILED_001",
+                        "status": 4  # Failed
+                    },
+                    "expected_code": 200
+                },
+                {
+                    "name": "Invalid Status",
+                    "data": {
+                        "third_id": "TEST_THIRD_ID_INVALID",
+                        "status": 99  # Invalid
+                    },
+                    "expected_code": 422  # Validation error
+                }
+            ]
+            
+            all_passed = True
+            for scenario in test_scenarios:
+                try:
+                    response = self.session.post(
+                        f"{self.base_url}/api/chinese/order/payStatus",
+                        json=scenario["data"],
+                        headers={"Content-Type": "application/json"}
+                    )
+                    
+                    success = response.status_code == scenario["expected_code"]
+                    if success and response.status_code == 200:
+                        data = response.json()
+                        details = f"Code: {data.get('code')}, Msg: {data.get('msg')}"
+                    else:
+                        details = f"Status: {response.status_code}, Expected: {scenario['expected_code']}"
+                    
+                    self.log_test(f"PayStatus - {scenario['name']}", success, details, "CHINESE")
+                    
+                    if not success:
+                        all_passed = False
+                        
+                except Exception as e:
+                    self.log_test(f"PayStatus - {scenario['name']}", False, f"Error: {str(e)}", "CHINESE")
+                    all_passed = False
+            
+            return all_passed
+        except Exception as e:
+            self.log_test("Chinese PayStatus Endpoint", False, f"Error: {str(e)}", "CHINESE")
+            return False
+    
+    def test_chinese_payment_status_check(self) -> bool:
+        """Test Chinese payment status checking endpoint"""
+        try:
+            # Test existing third_id
+            response = self.session.get(f"{self.base_url}/api/chinese/payment/TEST_THIRD_ID_001/status")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                details = f"Status: {data.get('status')}, Payment Status: {data.get('payment_status')}"
+            else:
+                details = f"Status: {response.status_code}"
+            
+            self.log_test("Chinese Payment Status Check", success, details, "CHINESE")
+            return success
+        except Exception as e:
+            self.log_test("Chinese Payment Status Check", False, f"Error: {str(e)}", "CHINESE")
+            return False
+    
+    def test_chinese_equipment_management(self) -> bool:
+        """Test Chinese equipment and stock management endpoints"""
+        try:
+            all_passed = True
+            
+            # Test equipment info
+            response = self.session.get(f"{self.base_url}/api/chinese/equipment/VM_TEST_MANUFACTURER/info")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                equipment_info = data.get('equipment_info', {})
+                recent_orders = data.get('recent_orders', [])
+                details = f"Equipment: {equipment_info.get('name')}, Orders: {len(recent_orders)}"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Equipment Info", success, details, "CHINESE")
+            
+            # Test stock status
+            response = self.session.get(f"{self.base_url}/api/chinese/models/stock-status")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                models = data.get('models', [])
+                in_stock = data.get('in_stock_models', 0)
+                details = f"Total Models: {len(models)}, In Stock: {in_stock}"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Stock Status", success, details, "CHINESE")
+            
+            # Test stock update
+            stock_update_data = {
+                "stock_updates": [
+                    {
+                        "model_id": "CN_IPHONE_001",
+                        "stock": 50
+                    }
+                ]
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/chinese/equipment/VM_TEST_MANUFACTURER/stock",
+                json=stock_update_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                updated_models = data.get('updated_models', [])
+                details = f"Updated {len(updated_models)} models"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Stock Update", success, details, "CHINESE")
+            
+            return all_passed
+        except Exception as e:
+            self.log_test("Chinese Equipment Management", False, f"Error: {str(e)}", "CHINESE")
+            return False
+    
+    def test_chinese_print_management(self) -> bool:
+        """Test Chinese print management endpoints"""
+        try:
+            all_passed = True
+            
+            # Test print trigger
+            print_data = {
+                "order_id": "ORDER_CHINESE_TEST_001"
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/chinese/print/trigger",
+                json=print_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                print_job_id = data.get('print_job_id')
+                image_urls = data.get('image_urls', [])
+                details = f"Job ID: {print_job_id}, Images: {len(image_urls)}"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Print Trigger", success, details, "CHINESE")
+            
+            # Test print status check
+            response = self.session.get(f"{self.base_url}/api/chinese/print/ORDER_CHINESE_TEST_001/status")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                order_status = data.get('status')
+                details = f"Order Status: {order_status}"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Print Status Check", success, details, "CHINESE")
+            
+            return all_passed
+        except Exception as e:
+            self.log_test("Chinese Print Management", False, f"Error: {str(e)}", "CHINESE")
+            return False
+    
+    def test_chinese_image_hosting(self) -> bool:
+        """Test UK-hosted image download links for Chinese partners"""
+        try:
+            all_passed = True
+            
+            # Test order download links
+            response = self.session.get(f"{self.base_url}/api/chinese/order/ORDER_CHINESE_TEST_001/download-links")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                download_links = data.get('download_links', [])
+                uk_hosting = data.get('uk_hosting', False)
+                details = f"Links: {len(download_links)}, UK Hosting: {uk_hosting}"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Order Download Links", success, details, "CHINESE")
+            
+            # Test batch download
+            response = self.session.get(f"{self.base_url}/api/chinese/images/batch-download?order_ids=ORDER_CHINESE_TEST_001,ORDER_CHINESE_TEST_002")
+            success = response.status_code == 200
+            
+            if success:
+                data = response.json()
+                batch_downloads = data.get('batch_downloads', [])
+                successful_orders = data.get('successful_orders', 0)
+                details = f"Batch Downloads: {len(batch_downloads)}, Successful: {successful_orders}"
+            else:
+                details = f"Status: {response.status_code}"
+                all_passed = False
+            
+            self.log_test("Batch Download Links", success, details, "CHINESE")
+            
+            return all_passed
+        except Exception as e:
+            self.log_test("Chinese Image Hosting", False, f"Error: {str(e)}", "CHINESE")
+            return False
     
     def test_chinese_api_connection(self) -> bool:
         """Test Chinese API connection endpoint"""
