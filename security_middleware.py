@@ -263,7 +263,8 @@ class SecurityManager:
             '/api/chinese/',
             '/api/admin/orders', 
             '/api/admin/stats',
-            '/order/payStatus'
+            '/order/payStatus',
+            '/api/vending/'
         ]
         
         # Check if path contains Chinese endpoints

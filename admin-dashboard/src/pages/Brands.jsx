@@ -57,16 +57,6 @@ const Brands = () => {
     }
   }
 
-  const updatePrice = async (modelId, newPrice) => {
-    try {
-      await adminApi.updateModelPrice(modelId, parseFloat(newPrice))
-      toast.success('Price updated successfully')
-      loadModels(selectedBrand.id) // Refresh models
-    } catch (error) {
-      console.error('Failed to update price:', error)
-      toast.error('Failed to update price')
-    }
-  }
 
   const handleStockChange = (modelId, value) => {
     const stock = parseInt(value)
@@ -75,25 +65,17 @@ const Brands = () => {
     }
   }
 
-  const handlePriceChange = (modelId, value) => {
-    const price = parseFloat(value)
-    if (price > 0) {
-      updatePrice(modelId, price)
-    }
-  }
 
   const startEditing = (model) => {
     setEditingModel({
       id: model.id,
-      stock: model.stock,
-      price: model.price
+      stock: model.stock
     })
   }
 
   const saveEditing = () => {
     if (editingModel) {
       updateStock(editingModel.id, editingModel.stock)
-      updatePrice(editingModel.id, editingModel.price)
       setEditingModel(null)
     }
   }
@@ -119,9 +101,29 @@ const Brands = () => {
         </button>
       </div>
 
+      {/* Mobile Brand Selector */}
+      <div className="lg:hidden mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select Brand</label>
+        <select
+          value={selectedBrand?.id || ''}
+          onChange={(e) => {
+            const brand = brands.find(b => b.id === e.target.value)
+            setSelectedBrand(brand)
+          }}
+          className="w-full input-field"
+        >
+          <option value="">Choose a brand...</option>
+          {brands.map((brand) => (
+            <option key={brand.id} value={brand.id}>
+              {brand.display_name} ({brand.is_available ? 'Available' : 'Unavailable'})
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Brands Sidebar */}
-        <div className="lg:col-span-1">
+        {/* Brands Sidebar - Desktop Only */}
+        <div className="hidden lg:block lg:col-span-1">
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Phone Brands</h3>
             <div className="space-y-2">
@@ -178,9 +180,6 @@ const Brands = () => {
                         Chinese Model ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Stock
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -211,23 +210,6 @@ const Brands = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
                             {model.chinese_model_id}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={editingModel.price}
-                                onChange={(e) => setEditingModel({
-                                  ...editingModel,
-                                  price: parseFloat(e.target.value) || 0
-                                })}
-                                className="w-20 px-2 py-1 text-sm border border-gray-300 rounded"
-                              />
-                            ) : (
-                              <span className="text-sm text-gray-900">£{model.price}</span>
-                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {isEditing ? (

@@ -258,6 +258,48 @@ class OrderService:
             'completed_orders': completed_orders,
             'failed_orders': failed_orders
         }
+    
+    @staticmethod
+    def get_template_analytics(db: Session) -> List[Dict[str, Any]]:
+        """Get template usage analytics for dashboard"""
+        from sqlalchemy import func
+        
+        result = db.query(
+            Template.name.label('template_name'),
+            func.count(Order.id).label('order_count')
+        ).join(
+            Order, Template.id == Order.template_id
+        ).group_by(
+            Template.id, Template.name
+        ).order_by(
+            func.count(Order.id).desc()
+        ).all()
+        
+        return [
+            {
+                'template_name': row.template_name,
+                'order_count': row.order_count
+            }
+            for row in result
+        ]
+    
+    @staticmethod 
+    def get_database_stats(db: Session) -> Dict[str, Any]:
+        """Get database statistics for admin dashboard"""
+        from models import Brand, PhoneModel, Template, Font, Color, OrderImage
+        
+        stats = {
+            'orders': db.query(Order).count(),
+            'brands': db.query(Brand).count(),
+            'phone_models': db.query(PhoneModel).count(),
+            'templates': db.query(Template).count(),
+            'fonts': db.query(Font).count(),
+            'colors': db.query(Color).count(),
+            'images': db.query(OrderImage).count(),
+            'final_images': db.query(OrderImage).filter(OrderImage.image_type == 'final').count()
+        }
+        
+        return stats
 
 class OrderImageService:
     """Service for order image operations"""
@@ -280,6 +322,18 @@ class OrderImageService:
     def get_order_images(db: Session, order_id: str) -> List[OrderImage]:
         """Get all images for an order"""
         return db.query(OrderImage).filter(OrderImage.order_id == order_id).order_by(OrderImage.created_at).all()
+    
+    @staticmethod
+    def get_all_images_with_orders(db: Session, limit: int = 100, image_type: Optional[str] = None) -> List[OrderImage]:
+        """Get all images with associated order data for admin dashboard"""
+        from sqlalchemy.orm import joinedload
+        
+        query = db.query(OrderImage).options(joinedload(OrderImage.order))
+        
+        if image_type and image_type != 'all':
+            query = query.filter(OrderImage.image_type == image_type)
+        
+        return query.order_by(OrderImage.created_at.desc()).limit(limit).all()
 
 class FontService:
     """Service for font operations"""

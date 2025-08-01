@@ -80,11 +80,11 @@ const Templates = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
         {templates.map((template) => {
           const isEditing = editingTemplate?.id === template.id
           return (
-            <div key={template.id} className="card">
+            <div key={template.id} className="card hover:shadow-md transition-shadow duration-200">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
                   <Palette className="h-6 w-6 text-primary-500 mr-3" />

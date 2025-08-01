@@ -9,9 +9,18 @@ from typing import Optional, List, Dict, Any
 import json
 from decimal import Decimal
 from security_middleware import validate_chinese_api_security, security_manager
+from pydantic import BaseModel
+
+# Pydantic models for request bodies
+class StockUpdateRequest(BaseModel):
+    stock: int
+
+class PriceUpdateRequest(BaseModel):
+    price: float
 
 # Create API router
 router = APIRouter()
+
 
 # Brand endpoints
 @router.get("/api/brands")
@@ -655,21 +664,15 @@ async def get_order_stats(request: Request = None, db: Session = Depends(get_db)
 @router.put("/api/admin/models/{model_id}/stock")
 async def update_model_stock(
     model_id: str,
-    stock: str = Form(...),
+    request: StockUpdateRequest,
     db: Session = Depends(get_db)
 ):
     """Update phone model stock"""
     try:
-        # Convert string to int and validate
-        try:
-            stock_int = int(stock)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Stock must be a valid integer")
-        
-        if stock_int < 0:
+        if request.stock < 0:
             raise HTTPException(status_code=400, detail="Stock cannot be negative")
         
-        model = PhoneModelService.update_stock(db, model_id, stock_int)
+        model = PhoneModelService.update_stock(db, model_id, request.stock)
         if not model:
             raise HTTPException(status_code=404, detail="Phone model not found")
         
@@ -686,41 +689,6 @@ async def update_model_stock(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update stock: {str(e)}")
-
-@router.put("/api/admin/models/{model_id}/price")
-async def update_model_price(
-    model_id: str,
-    price: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    """Update phone model price"""
-    try:
-        # Convert string to float and validate
-        try:
-            price_float = float(price)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Price must be a valid number")
-        
-        if price_float < 0:
-            raise HTTPException(status_code=400, detail="Price cannot be negative")
-        
-        model = PhoneModelService.update_price(db, model_id, price_float)
-        if not model:
-            raise HTTPException(status_code=404, detail="Phone model not found")
-        
-        return {
-            "success": True,
-            "model": {
-                "id": model.id,
-                "name": model.name,
-                "price": float(model.price),
-                "updated_at": model.updated_at.isoformat()
-            }
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update price: {str(e)}")
 
 # Phone model management endpoints
 @router.post("/api/admin/models")
@@ -895,6 +863,93 @@ async def update_template_price(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update template price: {str(e)}")
+
+@router.get("/api/admin/images")
+async def get_admin_images(
+    limit: int = 100,
+    image_type: Optional[str] = None,
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """Get all images for admin dashboard with order data"""
+    try:
+        # Allow relaxed security for Chinese partners accessing admin endpoints
+        if request:
+            client_ip = security_manager.get_client_ip(request)
+            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
+            if is_chinese_request:
+                validate_chinese_api_security(request)
+        
+        images = OrderImageService.get_all_images_with_orders(db, limit, image_type)
+        
+        return {
+            "success": True,
+            "images": [
+                {
+                    "id": img.id,
+                    "image_path": img.image_path,
+                    "image_type": img.image_type,
+                    "ai_params": img.ai_params,
+                    "chinese_image_url": img.chinese_image_url,
+                    "created_at": img.created_at.isoformat(),
+                    "order": {
+                        "id": img.order.id,
+                        "brand": img.order.brand.name if img.order.brand else "Unknown",
+                        "model": img.order.phone_model.name if img.order.phone_model else "Unknown",
+                        "template": img.order.template.name if img.order.template else "Unknown",
+                        "status": img.order.status,
+                        "total_amount": float(img.order.total_amount) if img.order.total_amount else 0,
+                        "created_at": img.order.created_at.isoformat()
+                    } if img.order else None
+                }
+                for img in images
+            ]
+        }
+    except Exception as e:
+        print(f"Admin images error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get images: {str(e)}")
+
+@router.get("/api/admin/template-analytics")
+async def get_template_analytics(request: Request = None, db: Session = Depends(get_db)):
+    """Get template usage analytics for admin dashboard"""
+    try:
+        # Allow relaxed security for Chinese partners accessing admin endpoints
+        if request:
+            client_ip = security_manager.get_client_ip(request)
+            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
+            if is_chinese_request:
+                validate_chinese_api_security(request)
+        
+        analytics = OrderService.get_template_analytics(db)
+        
+        return {
+            "success": True,
+            "analytics": analytics
+        }
+    except Exception as e:
+        print(f"Template analytics error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get template analytics: {str(e)}")
+
+@router.get("/api/admin/database-stats")
+async def get_database_stats(request: Request = None, db: Session = Depends(get_db)):
+    """Get database statistics for admin dashboard"""
+    try:
+        # Allow relaxed security for Chinese partners accessing admin endpoints
+        if request:
+            client_ip = security_manager.get_client_ip(request)
+            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
+            if is_chinese_request:
+                validate_chinese_api_security(request)
+        
+        stats = OrderService.get_database_stats(db)
+        
+        return {
+            "success": True,
+            "stats": stats
+        }
+    except Exception as e:
+        print(f"Database stats error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get database stats: {str(e)}")
 
 @router.post("/api/orders/{order_id}/images")
 async def add_order_image(

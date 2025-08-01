@@ -40,15 +40,16 @@ api.interceptors.response.use(
 export const adminApi = {
   // Dashboard stats
   getStats: () => api.get('/api/admin/stats'),
+  getTemplateAnalytics: () => api.get('/api/admin/template-analytics'),
   
   // Orders
   getOrders: (limit = 50) => api.get(`/api/admin/orders?limit=${limit}`),
   getOrder: (orderId) => api.get(`/api/orders/${orderId}`),
   updateOrderStatus: (orderId, status, chineseData = {}) => {
-    const formData = new FormData()
-    formData.append('status', status)
-    formData.append('chinese_data', JSON.stringify(chineseData))
-    return api.put(`/api/orders/${orderId}/status`, formData)
+    return api.put(`/api/orders/${orderId}/status`, {
+      status,
+      chinese_data: chineseData
+    })
   },
   
   // Brands
@@ -57,14 +58,11 @@ export const adminApi = {
   // Phone Models
   getModels: (brandId, includeUnavailable = true) => api.get(`/api/brands/${brandId}/models?include_unavailable=${includeUnavailable}`),
   updateModelStock: (modelId, stock) => {
-    const formData = new FormData()
-    formData.append('stock', stock)
-    return api.put(`/api/admin/models/${modelId}/stock`, formData)
+    return api.put(`/api/admin/models/${modelId}/stock`, { stock })
   },
-  updateModelPrice: (modelId, price) => {
-    const formData = new FormData()
-    formData.append('price', price)
-    return api.put(`/api/admin/models/${modelId}/price`, formData)
+  // Batch update for models
+  batchUpdateModels: (updates) => {
+    return api.put('/api/admin/models/batch', { updates })
   },
   createModel: (modelData) => {
     const formData = new FormData()
@@ -86,9 +84,11 @@ export const adminApi = {
   // Templates
   getTemplates: (includeInactive = true) => api.get(`/api/templates?include_inactive=${includeInactive}`),
   updateTemplatePrice: (templateId, price) => {
-    const formData = new FormData()
-    formData.append('price', price)
-    return api.put(`/api/admin/templates/${templateId}/price`, formData)
+    return api.put(`/api/admin/templates/${templateId}/price`, { price })
+  },
+  // Batch update for template prices
+  batchUpdateTemplatePrices: (updates) => {
+    return api.put('/api/admin/templates/batch-price', { updates })
   },
   
   // Fonts
@@ -140,12 +140,20 @@ export const adminApi = {
   
   // Health check
   getHealth: () => api.get('/health'),
+  getDatabaseStats: () => api.get('/api/admin/database-stats'),
   
   // Chinese API integration
   submitOrderToChinese: (orderId) => {
-    const formData = new FormData()
-    formData.append('order_id', orderId)
-    return api.post('/api/chinese/submit-order', formData)
+    return api.post('/api/chinese/submit-order', { order_id: orderId })
+  },
+  
+  // Images
+  getImages: (limit = 100, imageType = null) => {
+    const params = new URLSearchParams({ limit })
+    if (imageType && imageType !== 'all') {
+      params.append('image_type', imageType)
+    }
+    return api.get(`/api/admin/images?${params}`)
   },
   
   // Image serving
