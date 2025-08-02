@@ -8,7 +8,7 @@ from models import *
 from typing import Optional, List, Dict, Any
 import json
 from decimal import Decimal
-from security_middleware import validate_chinese_api_security, security_manager
+from security_middleware import validate_relaxed_api_security, security_manager
 from pydantic import BaseModel
 
 # Pydantic models for request bodies
@@ -594,13 +594,10 @@ async def update_order_status(
 async def get_recent_orders(limit: int = 50, request: Request = None, db: Session = Depends(get_db)):
     """Get recent orders for admin dashboard"""
     try:
-        # Allow relaxed security for Chinese partners accessing admin endpoints
+        # Apply relaxed security for all users accessing admin endpoints
         if request:
-            client_ip = security_manager.get_client_ip(request)
-            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
-            if is_chinese_request:
-                # Use relaxed validation for Chinese partners
-                validate_chinese_api_security(request)
+            # Use relaxed validation for all users
+            validate_relaxed_api_security(request)
         
         orders = OrderService.get_recent_orders(db, limit)
         return {
@@ -644,13 +641,10 @@ async def get_recent_orders(limit: int = 50, request: Request = None, db: Sessio
 async def get_order_stats(request: Request = None, db: Session = Depends(get_db)):
     """Get order statistics for admin dashboard"""
     try:
-        # Allow relaxed security for Chinese partners accessing admin endpoints
+        # Apply relaxed security for all users accessing admin endpoints
         if request:
-            client_ip = security_manager.get_client_ip(request)
-            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
-            if is_chinese_request:
-                # Use relaxed validation for Chinese partners
-                validate_chinese_api_security(request)
+            # Use relaxed validation for all users
+            validate_relaxed_api_security(request)
         
         stats = OrderService.get_order_stats(db)
         return {
@@ -873,12 +867,10 @@ async def get_admin_images(
 ):
     """Get all images for admin dashboard with order data"""
     try:
-        # Allow relaxed security for Chinese partners accessing admin endpoints
+        # Apply relaxed security for all users accessing admin endpoints
         if request:
-            client_ip = security_manager.get_client_ip(request)
-            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
-            if is_chinese_request:
-                validate_chinese_api_security(request)
+            # Use relaxed validation for all users
+            validate_relaxed_api_security(request)
         
         images = OrderImageService.get_all_images_with_orders(db, limit, image_type)
         
@@ -913,12 +905,10 @@ async def get_admin_images(
 async def get_template_analytics(request: Request = None, db: Session = Depends(get_db)):
     """Get template usage analytics for admin dashboard"""
     try:
-        # Allow relaxed security for Chinese partners accessing admin endpoints
+        # Apply relaxed security for all users accessing admin endpoints
         if request:
-            client_ip = security_manager.get_client_ip(request)
-            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
-            if is_chinese_request:
-                validate_chinese_api_security(request)
+            # Use relaxed validation for all users
+            validate_relaxed_api_security(request)
         
         analytics = OrderService.get_template_analytics(db)
         
@@ -934,12 +924,10 @@ async def get_template_analytics(request: Request = None, db: Session = Depends(
 async def get_database_stats(request: Request = None, db: Session = Depends(get_db)):
     """Get database statistics for admin dashboard"""
     try:
-        # Allow relaxed security for Chinese partners accessing admin endpoints
+        # Apply relaxed security for all users accessing admin endpoints
         if request:
-            client_ip = security_manager.get_client_ip(request)
-            is_chinese_request = security_manager.is_chinese_partner_request(str(request.url.path), client_ip)
-            if is_chinese_request:
-                validate_chinese_api_security(request)
+            # Use relaxed validation for all users
+            validate_relaxed_api_security(request)
         
         stats = OrderService.get_database_stats(db)
         

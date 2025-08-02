@@ -30,44 +30,41 @@ class SecurityManager:
         # Valid session ID pattern
         self.session_id_pattern = re.compile(r'^[A-Z0-9_]+_\d{8}_\d{6}_[A-F0-9]{8}$')
         
-    def validate_session_id_format(self, session_id: str, is_chinese_partner: bool = False) -> bool:
-        """Validate session ID follows expected format"""
+    def validate_session_id_format(self, session_id: str) -> bool:
+        """Validate session ID follows expected format with relaxed validation"""
         if not session_id or len(session_id) > 200:
             return False
         
-        # Relaxed validation for Chinese partners to handle format variations
-        if is_chinese_partner:
-            # Strict checks first - these should always fail
-            if '?' in session_id or '&' in session_id or '=' in session_id:
-                return False
-            
-            # Check for lowercase (reject for now, can be made more flexible later)
-            if session_id != session_id.upper():
-                return False
-            
-            # Split into parts for detailed validation
-            parts = session_id.split('_')
-            if len(parts) != 4:
-                return False
-            
-            machine_id, date_part, time_part, random_part = parts
-            
-            # Validate each part
-            if not re.match(r'^[A-Z0-9-]+$', machine_id):  # Machine ID: alphanumeric and hyphens
-                return False
-            
-            if len(date_part) not in [7, 8] or not date_part.isdigit():  # Date: 7 or 8 digits
-                return False
-            
-            if len(time_part) != 6 or not time_part.isdigit():  # Time: exactly 6 digits
-                return False
-            
-            if len(random_part) < 6 or len(random_part) > 8 or not re.match(r'^[A-Z0-9]+$', random_part):
-                return False
-            
-            return True
+        # Relaxed validation for all users to handle format variations
+        # Strict checks first - these should always fail
+        if '?' in session_id or '&' in session_id or '=' in session_id:
+            return False
         
-        return bool(self.session_id_pattern.match(session_id))
+        # Check for lowercase (reject for now, can be made more flexible later)
+        if session_id != session_id.upper():
+            return False
+        
+        # Split into parts for detailed validation
+        parts = session_id.split('_')
+        if len(parts) != 4:
+            return False
+        
+        machine_id, date_part, time_part, random_part = parts
+        
+        # Validate each part
+        if not re.match(r'^[A-Z0-9-]+$', machine_id):  # Machine ID: alphanumeric and hyphens
+            return False
+        
+        if len(date_part) not in [7, 8] or not date_part.isdigit():  # Date: 7 or 8 digits
+            return False
+        
+        if len(time_part) != 6 or not time_part.isdigit():  # Time: exactly 6 digits
+            return False
+        
+        if len(random_part) < 6 or len(random_part) > 8 or not re.match(r'^[A-Z0-9]+$', random_part):
+            return False
+        
+        return True
     
     def validate_machine_id(self, machine_id: str) -> bool:
         """Validate machine ID format"""
@@ -96,9 +93,8 @@ class SecurityManager:
     
     def is_rate_limited(self, identifier: str, max_requests: int = 10, window_minutes: int = 1) -> bool:
         """Check if identifier is rate limited"""
-        # Chinese API endpoints get higher rate limits
-        if 'chinese' in identifier.lower():
-            max_requests = max_requests * 10  # 10x higher limit for Chinese endpoints
+        # Apply higher rate limits for all users (10x the original limits)
+        max_requests = max_requests * 10
         
         now = time.time()
         window_start = now - (window_minutes * 60)
@@ -257,74 +253,28 @@ class SecurityManager:
         except ValueError:
             return False
     
-    def is_chinese_partner_request(self, request_path: str, client_ip: str = None) -> bool:
-        """Check if this is a Chinese partner request that should have relaxed security"""
-        chinese_endpoints = [
-            '/api/chinese/',
-            '/api/admin/orders', 
-            '/api/admin/stats',
-            '/order/payStatus',
-            '/api/vending/'
-        ]
-        
-        # Check if path contains Chinese endpoints
-        for endpoint in chinese_endpoints:
-            if endpoint in request_path:
-                return True
-        
-        # Known Chinese IP ranges (can be expanded)
-        chinese_ip_ranges = [
-            '223.123.4.37',  # Example from error logs
-            '119.23.',       # Common Chinese IP prefix
-            '101.132.',      # Common Chinese IP prefix
-            '47.95.',        # Common Chinese IP prefix
-        ]
-        
-        if client_ip:
-            for ip_range in chinese_ip_ranges:
-                if client_ip.startswith(ip_range):
-                    return True
-        
-        return False
 
 # Global security manager instance
 security_manager = SecurityManager()
 
 def validate_session_security(request: Request, session_id: str) -> Dict[str, Any]:
-    """Comprehensive session security validation"""
+    """Comprehensive session security validation with relaxed security for all users"""
     client_ip = security_manager.get_client_ip(request)
-    request_path = str(request.url.path)
     
-    # Check if this is a Chinese partner request
-    is_chinese_request = security_manager.is_chinese_partner_request(request_path, client_ip)
-    
-    # Basic validations (relaxed for Chinese partners)
-    if not security_manager.validate_session_id_format(session_id, is_chinese_partner=is_chinese_request):
-        if is_chinese_request:
-            raise HTTPException(status_code=400, detail="Invalid session ID format - use format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM (e.g., VM001_20250729_143022_A1B2C3)")
-        else:
-            raise HTTPException(status_code=400, detail="Invalid session ID format")
+    # Basic validations with relaxed format checking
+    if not security_manager.validate_session_id_format(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session ID format - use format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM (e.g., VM001_20250729_143022_A1B2C3)")
     
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")
     
-    # Skip most security checks for Chinese partners
-    if not is_chinese_request:
-        # Security checks
-        if security_manager.is_ip_blocked(client_ip):
-            raise HTTPException(status_code=429, detail="IP address temporarily blocked")
-        
-        if security_manager.is_rate_limited(client_ip, max_requests=30, window_minutes=1):
-            security_manager.record_failed_attempt(client_ip)
-            raise HTTPException(status_code=429, detail="Rate limit exceeded")
-        
-        if not security_manager.validate_session_activity(session_id):
-            raise HTTPException(status_code=429, detail="Session activity limit exceeded")
+    # Apply relaxed security checks for all users
+    # Note: Most restrictive security checks are now skipped for all users
     
     return {
         "client_ip": client_ip,
         "validated": True,
-        "chinese_partner": is_chinese_request,
+        "security_level": "relaxed",
         "timestamp": datetime.utcnow().isoformat()
     }
 
@@ -371,22 +321,21 @@ def validate_payment_security(request: Request, amount: float, session_id: str) 
         "timestamp": datetime.utcnow().isoformat()
     }
 
-def validate_chinese_api_security(request: Request) -> Dict[str, Any]:
-    """Minimal security validation for Chinese partner API endpoints"""
+def validate_relaxed_api_security(request: Request) -> Dict[str, Any]:
+    """Minimal security validation for API endpoints with relaxed security for all users"""
     client_ip = security_manager.get_client_ip(request)
     
     # Very basic IP validation only
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")
     
-    # Only rate limit if it's excessive (very high threshold for Chinese partners)
-    if security_manager.is_rate_limited(f"chinese:{client_ip}", max_requests=500, window_minutes=1):
+    # Only rate limit if it's excessive (very high threshold for all users)
+    if security_manager.is_rate_limited(f"relaxed:{client_ip}", max_requests=500, window_minutes=1):
         raise HTTPException(status_code=429, detail="Excessive request rate")
     
     return {
         "client_ip": client_ip,
         "validated": True,
-        "chinese_partner": True,
         "security_level": "relaxed",
         "timestamp": datetime.utcnow().isoformat()
     }

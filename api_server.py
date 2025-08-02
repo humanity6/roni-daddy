@@ -19,7 +19,7 @@ from security_middleware import (
     validate_session_security, 
     validate_machine_security, 
     validate_payment_security,
-    validate_chinese_api_security,
+    validate_relaxed_api_security,
     security_manager
 )
 import openai
@@ -1052,8 +1052,8 @@ async def get_template_styles(template_id: str):
 async def test_chinese_connection(http_request: Request):
     """Test endpoint for Chinese manufacturers to verify API connectivity"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         return {
             "status": "success",
@@ -1097,14 +1097,13 @@ async def debug_session_validation(
 ):
     """Debug endpoint for Chinese developers to test session ID validation"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         client_ip = security_info.get("client_ip")
         
-        # Test session ID format validation
+        # Test session ID format validation with relaxed security
         from security_middleware import security_manager
-        is_chinese_request = security_manager.is_chinese_partner_request("/api/chinese/", client_ip)
-        is_valid = security_manager.validate_session_id_format(session_id, is_chinese_partner=is_chinese_request)
+        is_valid = security_manager.validate_session_id_format(session_id)
         
         # Parse session ID components if possible
         session_parts = session_id.split('_') if '_' in session_id else []
@@ -1112,7 +1111,7 @@ async def debug_session_validation(
         return {
             "session_id": session_id,
             "is_valid": is_valid,
-            "is_chinese_partner": is_chinese_request,
+            "relaxed_security": True,
             "client_ip": client_ip,
             "validation_details": {
                 "length": len(session_id),
@@ -1264,9 +1263,9 @@ async def receive_payment_status_update(
 ):
     """Receive payment status updates from Chinese systems - matches their API specification"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
-        print(f"Chinese payment status update from {security_info['client_ip']}: {request.third_id} -> status {request.status}")
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
+        print(f"Payment status update from {security_info['client_ip']}: {request.third_id} -> status {request.status}")
         # Find order by third_party_payment_id
         order = db.query(Order).filter(Order.third_party_payment_id == request.third_id).first()
         
@@ -1358,8 +1357,8 @@ async def get_payment_status(
 ):
     """Get real-time payment status for Chinese partners"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         # Find order by third_party_payment_id
         order = db.query(Order).filter(Order.third_party_payment_id == third_id).first()
         
@@ -1399,8 +1398,8 @@ async def get_equipment_info(
 ):
     """Get equipment information and status for Chinese partners"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Look up vending machine by equipment_id
         machine = db.query(VendingMachine).filter(VendingMachine.id == equipment_id).first()
@@ -1454,8 +1453,8 @@ async def update_equipment_stock(
 ):
     """Update stock quantities for specific equipment"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Get request body
         body = await http_request.json()
@@ -1511,8 +1510,8 @@ async def get_stock_status(
 ):
     """Get real-time stock status for all phone models"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Get all phone models with their stock levels
         models = db.query(PhoneModel).options(joinedload(PhoneModel.brand)).filter(PhoneModel.is_available == True).all()
@@ -1551,8 +1550,8 @@ async def trigger_print_job(
 ):
     """Trigger printing after payment completion"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Get request body
         body = await http_request.json()
@@ -1630,8 +1629,8 @@ async def get_print_status(
 ):
     """Check printing progress for an order"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Find the order
         order = db.query(Order).filter(Order.id == order_id).first()
@@ -1670,8 +1669,8 @@ async def get_order_download_links(
 ):
     """Get UK-hosted download links for order images"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Find the order with images
         order = db.query(Order).options(joinedload(Order.images)).filter(Order.id == order_id).first()
@@ -1730,8 +1729,8 @@ async def get_batch_download_links(
 ):
     """Get batch download links for multiple orders"""
     try:
-        # Use relaxed security for Chinese partners
-        security_info = validate_chinese_api_security(http_request)
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
         
         # Get request parameters
         query_params = dict(http_request.query_params)
