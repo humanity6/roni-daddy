@@ -650,7 +650,7 @@ class ComprehensiveAPITester:
         )
         
         if not success or not response.get('session_id'):
-            print("⚠️  Session creation failed, skipping lifecycle tests")
+            print("WARNING: Session creation failed, skipping lifecycle tests")
             return
         
         session_id = response['session_id']
@@ -746,7 +746,7 @@ class ComprehensiveAPITester:
 
     def test_vending_error_scenarios(self):
         """Test vending machine error scenarios"""
-        print("\n⚠️  Testing Vending Machine Error Scenarios...")
+        print("\nWARNING: Testing Vending Machine Error Scenarios...")
         
         # Invalid session ID format - different expected results based on how FastAPI interprets them
         invalid_session_tests = [
@@ -1042,7 +1042,7 @@ class ComprehensiveAPITester:
         if failed_count > 0:
             print(f"  Rate limiting working: {failed_count} requests blocked")
         else:
-            print(f"  ⚠️  Rate limiting may need adjustment")
+            print(f"  WARNING: Rate limiting may need adjustment")
 
     def test_validation_edge_cases(self):
         """Test input validation edge cases"""
@@ -1282,7 +1282,7 @@ class ComprehensiveAPITester:
 
     def test_session_data_validation(self):
         """Test session data persistence and validation across endpoints"""
-        print("\n🔍 Testing Session Data Validation...")
+        print("\nDEBUG: Testing Session Data Validation...")
         
         # Create a session for testing
         session_data = {
@@ -1328,7 +1328,7 @@ class ComprehensiveAPITester:
         
         if status_success:
             if 'status' not in status_response or status_response.get('status') != 'active':
-                print(f"⚠️ Initial status check failed: expected 'active', got '{status_response.get('status')}'")
+                print(f"WARNING: Initial status check failed: expected 'active', got '{status_response.get('status')}'")
         
         # Test 2: Store order data and verify it persists
         test_order_data = TestDataGenerator.generate_order_data()
@@ -1371,7 +1371,7 @@ class ComprehensiveAPITester:
             validation_passed = True
             for field_name, expected, actual in validation_checks:
                 if expected != actual:
-                    print(f"⚠️ Data validation failed for {field_name}: expected '{expected}', got '{actual}'")
+                    print(f"WARNING: Data validation failed for {field_name}: expected '{expected}', got '{actual}'")
                     validation_passed = False
             
             if validation_passed:
@@ -1388,7 +1388,7 @@ class ComprehensiveAPITester:
             expected_progress = 'payment_pending'
             actual_progress = status_response2.get('user_progress')
             if actual_progress != expected_progress:
-                print(f"⚠️ Status validation failed: expected progress '{expected_progress}', got '{actual_progress}'")
+                print(f"WARNING: Status validation failed: expected progress '{expected_progress}', got '{actual_progress}'")
             else:
                 print("✅ Session status properly updated after order data storage")
         
@@ -1414,7 +1414,7 @@ class ComprehensiveAPITester:
             if brand_count > 0:
                 print(f"✅ Database contains {brand_count} brands")
             else:
-                print("⚠️ Database has no brands - may indicate initialization issue")
+                print("WARNING: Database has no brands - may indicate initialization issue")
         
         # Test templates existence
         templates_success, templates_response, _ = self.test_endpoint(
@@ -1426,7 +1426,7 @@ class ComprehensiveAPITester:
             if template_count > 0:
                 print(f"✅ Database contains {template_count} templates")
             else:
-                print("⚠️ Database has no templates - may indicate initialization issue")
+                print("WARNING: Database has no templates - may indicate initialization issue")
         
         # Test 2: Verify session creation affects database state
         print("Testing session state persistence...")
@@ -1466,7 +1466,7 @@ class ComprehensiveAPITester:
                     if new_sessions > initial_sessions:
                         print(f"✅ Session creation properly updated database: {initial_sessions} → {new_sessions}")
                     else:
-                        print(f"⚠️ Session creation may not have updated database: {initial_sessions} → {new_sessions}")
+                        print(f"WARNING: Session creation may not have updated database: {initial_sessions} -> {new_sessions}")
                 
                 # Test 3: Verify order creation affects database state
                 print("Testing order state persistence...")

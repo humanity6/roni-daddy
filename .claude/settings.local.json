@@ -20,7 +20,8 @@
       "Bash(del test_chinese_session.py)",
       "Bash(npm run dev:*)",
       "Bash(pkill:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

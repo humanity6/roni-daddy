@@ -3,7 +3,7 @@
 
 **Version:** 2.1.0  
 **Last Updated:** August 2025  
-**Base URL:** `https://pimpmycase.onrender.com` (Production) | `http://localhost:8000` (Development)
+**Base URL:** `https://pimpmycase.onrender.com` (Production)
 
 ---
 

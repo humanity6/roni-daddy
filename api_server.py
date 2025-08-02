@@ -2092,9 +2092,37 @@ async def send_order_summary_to_vending_machine(
             "payment_requested_at": datetime.now(timezone.utc).isoformat(),
             "order_security_info": security_info
         })
-        session.session_data = session_data
         
-        db.commit()
+        # IMPORTANT: SQLAlchemy doesn't detect changes to mutable JSON objects
+        # We need to mark the attribute as changed to trigger persistence
+        from sqlalchemy.orm.attributes import flag_modified
+        session.session_data = session_data
+        flag_modified(session, 'session_data')
+        
+        # Add debugging to verify data is stored
+        print(f"DEBUG: Storing order summary for session {session_id}")
+        print(f"DEBUG: Order data keys: {list(request.order_data.keys()) if request.order_data else 'None'}")
+        print(f"DEBUG: Session data keys after update: {list(session_data.keys())}")
+        print(f"DEBUG: Order summary stored: {'order_summary' in session_data}")
+        
+        try:
+            # Use explicit transaction with proper isolation
+            db.flush()  # Ensure changes are written to the transaction
+            db.commit()
+            
+            # Verify data was actually committed
+            db.refresh(session)
+            if session.session_data and "order_summary" in session.session_data:
+                print(f"DEBUG: Successfully verified order_summary in database for session {session_id}")
+            else:
+                print(f"ERROR: Order summary not found in database after commit for session {session_id}")
+                print(f"ERROR: Session data keys in DB: {list(session.session_data.keys()) if session.session_data else 'None'}")
+                raise HTTPException(status_code=500, detail="Failed to persist order data")
+                
+        except Exception as e:
+            db.rollback()
+            print(f"ERROR: Database transaction failed for session {session_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to store order summary: {str(e)}")
         
         return {
             "success": True,
@@ -2374,12 +2402,25 @@ async def get_vending_order_info(
             raise HTTPException(status_code=410, detail="Session has expired")
         
         # Check if session has order information with detailed debugging
+        print(f"DEBUG: Retrieving order info for session {session_id}")
+        print(f"DEBUG: Session status: {session.status}, progress: {session.user_progress}")
+        print(f"DEBUG: Session has session_data: {session.session_data is not None}")
+        
         if not session.session_data:
-            print(f"DEBUG: Session {session_id} has no session_data")
+            print(f"ERROR: Session {session_id} has no session_data")
             raise HTTPException(status_code=400, detail="No session data available for this session")
         
+        print(f"DEBUG: Session {session_id} session_data keys: {list(session.session_data.keys())}")
+        
         if not session.session_data.get("order_summary"):
-            print(f"DEBUG: Session {session_id} session_data keys: {list(session.session_data.keys()) if session.session_data else 'None'}")
+            print(f"ERROR: Session {session_id} missing order_summary key")
+            print(f"ERROR: Available keys: {list(session.session_data.keys())}")
+            
+            # Check if order data exists under a different key structure
+            for key, value in session.session_data.items():
+                if isinstance(value, dict) and any(k in str(value).lower() for k in ['brand', 'model', 'template']):
+                    print(f"DEBUG: Found potential order data in key '{key}': {type(value)}")
+            
             raise HTTPException(status_code=400, detail="No order information available for this session")
         
         order_summary = session.session_data["order_summary"]

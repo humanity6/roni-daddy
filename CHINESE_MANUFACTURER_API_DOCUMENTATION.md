@@ -2,7 +2,6 @@
 
 **Version:** 2.1.0  
 **Base URL:** `https://pimpmycase.onrender.com`  
-**Testing URL:** `http://localhost:8000` (for local testing)
 
 This document provides comprehensive API documentation for Chinese manufacturers to integrate with the PimpMyCase platform for payment status updates, equipment management, stock management, print commands, and image downloading.
 
