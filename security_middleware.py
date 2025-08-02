@@ -27,8 +27,8 @@ class SecurityManager:
         self.session_attempts: Dict[str, List[datetime]] = defaultdict(list)
         self.machine_sessions: Dict[str, int] = defaultdict(int)
         
-        # Valid session ID pattern
-        self.session_id_pattern = re.compile(r'^[A-Z0-9_]+_\d{8}_\d{6}_[A-F0-9]{8}$')
+        # Valid session ID pattern (supports both upper and lowercase)
+        self.session_id_pattern = re.compile(r'^[A-Za-z0-9_]+_\d{8}_\d{6}_[A-Fa-f0-9]{8}$')
         
     def validate_session_id_format(self, session_id: str) -> bool:
         """Validate session ID follows expected format with relaxed validation"""
@@ -40,9 +40,8 @@ class SecurityManager:
         if '?' in session_id or '&' in session_id or '=' in session_id:
             return False
         
-        # Check for lowercase (reject for now, can be made more flexible later)
-        if session_id != session_id.upper():
-            return False
+        # Allow both uppercase and lowercase characters for flexibility
+        # (Removed case sensitivity restriction to support Chinese partners)
         
         # Split into parts for detailed validation
         parts = session_id.split('_')
@@ -52,7 +51,7 @@ class SecurityManager:
         machine_id, date_part, time_part, random_part = parts
         
         # Validate each part
-        if not re.match(r'^[A-Z0-9-]+$', machine_id):  # Machine ID: alphanumeric and hyphens
+        if not re.match(r'^[A-Za-z0-9-]+$', machine_id):  # Machine ID: alphanumeric and hyphens (both cases)
             return False
         
         if len(date_part) not in [7, 8] or not date_part.isdigit():  # Date: 7 or 8 digits
@@ -61,7 +60,7 @@ class SecurityManager:
         if len(time_part) != 6 or not time_part.isdigit():  # Time: exactly 6 digits
             return False
         
-        if len(random_part) < 6 or len(random_part) > 8 or not re.match(r'^[A-Z0-9]+$', random_part):
+        if len(random_part) < 6 or len(random_part) > 8 or not re.match(r'^[A-Za-z0-9]+$', random_part):
             return False
         
         return True
@@ -93,8 +92,6 @@ class SecurityManager:
     
     def is_rate_limited(self, identifier: str, max_requests: int = 10, window_minutes: int = 1) -> bool:
         """Check if identifier is rate limited"""
-        # Apply higher rate limits for all users (10x the original limits)
-        max_requests = max_requests * 10
         
         now = time.time()
         window_start = now - (window_minutes * 60)
@@ -263,7 +260,7 @@ def validate_session_security(request: Request, session_id: str) -> Dict[str, An
     
     # Basic validations with relaxed format checking
     if not security_manager.validate_session_id_format(session_id):
-        raise HTTPException(status_code=400, detail="Invalid session ID format - use format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM (e.g., VM001_20250729_143022_A1B2C3)")
+        raise HTTPException(status_code=400, detail="Invalid session ID format - use format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM (e.g., VM001_20250729_143022_A1B2C3 or 10HKNTDOH2BA_20250801_180922_A1B2C3A1)")
     
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")
@@ -329,8 +326,8 @@ def validate_relaxed_api_security(request: Request) -> Dict[str, Any]:
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")
     
-    # Only rate limit if it's excessive (very high threshold for all users)
-    if security_manager.is_rate_limited(f"relaxed:{client_ip}", max_requests=500, window_minutes=1):
+    # Only rate limit if it's excessive (lower threshold for testing)
+    if security_manager.is_rate_limited(f"relaxed:{client_ip}", max_requests=10, window_minutes=1):
         raise HTTPException(status_code=429, detail="Excessive request rate")
     
     return {
