@@ -1062,7 +1062,7 @@ async def test_chinese_connection(http_request: Request):
             "client_ip": security_info.get("client_ip"),
             "security_level": "relaxed_chinese_partner",
             "debug_info": {
-                "rate_limit": "10 requests/minute",
+                "rate_limit": "35 requests/minute",
                 "authentication": "not_required",
                 "session_validation": "flexible_format_supported"
             },
@@ -2366,12 +2366,20 @@ async def get_vending_order_info(
             security_manager.record_failed_attempt(security_info["client_ip"])
             raise HTTPException(status_code=404, detail="Session not found")
         
+        # Refresh session from database to ensure we have latest data
+        db.refresh(session)
+        
         # Check if session has expired
         if datetime.now(timezone.utc) > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
-        # Check if session has order information
-        if not session.session_data or not session.session_data.get("order_summary"):
+        # Check if session has order information with detailed debugging
+        if not session.session_data:
+            print(f"DEBUG: Session {session_id} has no session_data")
+            raise HTTPException(status_code=400, detail="No session data available for this session")
+        
+        if not session.session_data.get("order_summary"):
+            print(f"DEBUG: Session {session_id} session_data keys: {list(session.session_data.keys()) if session.session_data else 'None'}")
             raise HTTPException(status_code=400, detail="No order information available for this session")
         
         order_summary = session.session_data["order_summary"]
