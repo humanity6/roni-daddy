@@ -21,7 +21,9 @@
       "Bash(npm run dev:*)",
       "Bash(pkill:*)",
       "Bash(taskkill:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
