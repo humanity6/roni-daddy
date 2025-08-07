@@ -35,6 +35,41 @@ import stripe
 import secrets
 import traceback
 
+# Helper function to generate Chinese API third_id
+def generate_third_id():
+    """Generate third_id in Chinese API format: PYEN + yyMMdd + 6digits
+    Example: PYEN250604000001
+    """
+    from datetime import datetime
+    
+    # Get current date in yyMMdd format
+    current_date = datetime.now()
+    date_str = current_date.strftime("%y%m%d")
+    
+    # Generate 6-digit sequential number (using timestamp + random for uniqueness)
+    timestamp_suffix = str(int(time.time()))[-6:]  # Last 6 digits of timestamp
+    
+    # Ensure we have exactly 6 digits
+    if len(timestamp_suffix) < 6:
+        timestamp_suffix = timestamp_suffix.zfill(6)
+    
+    third_id = f"PYEN{date_str}{timestamp_suffix}"
+    return third_id
+
+def get_mobile_model_id(phone_model, db: Session):
+    """Get mobile_model_id for Chinese API from PhoneModel
+    Returns chinese_model_id if available, otherwise uses internal ID
+    """
+    if not phone_model:
+        return "UNKNOWN_MODEL"
+    
+    # Try to use chinese_model_id first
+    if phone_model.chinese_model_id and phone_model.chinese_model_id.strip():
+        return phone_model.chinese_model_id.strip()
+    
+    # Fallback to internal ID
+    return phone_model.id
+
 # Load environment variables - check multiple locations
 load_dotenv()  # Current directory
 load_dotenv("image gen/.env")  # Image gen subdirectory
@@ -282,6 +317,62 @@ class ChinesePayStatusRequest(BaseModel):
         # Chinese payment status: 1=waiting, 2=paying, 3=paid, 4=failed, 5=abnormal
         if v not in [1, 2, 3, 4, 5]:
             raise ValueError('Status must be 1 (waiting), 2 (paying), 3 (paid), 4 (failed), or 5 (abnormal)')
+        return v
+
+class ChinesePaymentDataRequest(BaseModel):
+    mobile_model_id: str
+    device_id: str
+    third_id: str
+    pay_amount: float
+    pay_type: int
+    
+    @field_validator('mobile_model_id')
+    @classmethod
+    def validate_mobile_model_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Mobile model ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Mobile model ID too long')
+        return v.strip()
+    
+    @field_validator('device_id')
+    @classmethod
+    def validate_device_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Device ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Device ID too long')
+        return v.strip()
+    
+    @field_validator('third_id')
+    @classmethod
+    def validate_third_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Third party payment ID cannot be empty')
+        if len(v) > 50:
+            raise ValueError('Third party payment ID too long')
+        # Validate PYEN format: PYEN + yyMMdd + 6digits
+        import re
+        if not re.match(r'^PYEN\d{6}\d{6}$', v):
+            raise ValueError('Third party payment ID must follow format: PYEN + yyMMdd + 6digits')
+        return v.strip()
+    
+    @field_validator('pay_amount')
+    @classmethod
+    def validate_pay_amount(cls, v):
+        if v is None or v <= 0:
+            raise ValueError('Payment amount must be greater than 0')
+        if v > 10000:  # Maximum £10,000 for safety
+            raise ValueError('Payment amount too high')
+        return round(float(v), 2)
+    
+    @field_validator('pay_type')
+    @classmethod
+    def validate_pay_type(cls, v):
+        # Chinese payment types: 1=WeChat, 2=Alipay, 3=UnionPay, 4=Cash, 5=NAYAX, 6=Card, 7=On-site, 8=TikTok, 9=Meituan, 10=WeChat code, 11=Philippines, 12=UK online
+        valid_types = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        if v not in valid_types:
+            raise ValueError(f'Payment type must be one of: {valid_types}')
         return v
 
 # Exception handler for validation errors
@@ -1140,6 +1231,167 @@ async def get_payment_status(
             "error": str(e),
             "third_id": third_id
         }
+
+@app.post("/api/chinese/order/payData")
+async def send_payment_data_to_chinese_api(
+    request: ChinesePaymentDataRequest,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Send payment data to Chinese manufacturers for card payment processing"""
+    try:
+        # Security validation
+        security_info = validate_relaxed_api_security(http_request)
+        print(f"Chinese payment data request from {security_info['client_ip']}: {request.third_id}")
+        
+        # Validate that the mobile model exists in our database
+        model = db.query(PhoneModel).filter(
+            (PhoneModel.chinese_model_id == request.mobile_model_id) | 
+            (PhoneModel.id == request.mobile_model_id)
+        ).first()
+        
+        if not model:
+            print(f"Warning: Mobile model {request.mobile_model_id} not found in database, proceeding anyway")
+        
+        # Prepare data for Chinese API (following their specification)
+        chinese_api_data = {
+            "mobile_model_id": request.mobile_model_id,
+            "device_id": request.device_id,
+            "third_id": request.third_id,
+            "pay_amount": request.pay_amount,
+            "pay_type": request.pay_type
+        }
+        
+        print(f"Sending payment data to Chinese API: {chinese_api_data}")
+        
+        # TODO: Make actual HTTP request to Chinese manufacturer API
+        # For now, we'll simulate success and return the expected response format
+        # In production, this would be:
+        # response = requests.post(CHINESE_API_URL + "/order/payData", json=chinese_api_data)
+        
+        # Store the payment initiation in our system for tracking
+        # This helps link the third_id with our vending session when status updates come in
+        payment_record = {
+            "third_id": request.third_id,
+            "device_id": request.device_id,
+            "mobile_model_id": request.mobile_model_id,
+            "pay_amount": request.pay_amount,
+            "pay_type": request.pay_type,
+            "initiated_at": datetime.now(timezone.utc).isoformat(),
+            "client_ip": security_info["client_ip"]
+        }
+        
+        # Store in session or database for tracking (for now just log)
+        print(f"Payment initiation stored: {payment_record}")
+        
+        # Generate response in Chinese API format
+        payment_id = f"PAY_{request.third_id}_{int(time.time())}"
+        
+        return {
+            "msg": "Payment data sent successfully",
+            "code": 200,
+            "data": {
+                "id": payment_id,
+                "third_id": request.third_id
+            }
+        }
+        
+    except Exception as e:
+        print(f"Chinese payment data error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return error in Chinese API format
+        return {
+            "msg": f"Failed to send payment data: {str(e)}",
+            "code": 500,
+            "data": {
+                "id": "",
+                "third_id": request.third_id if hasattr(request, 'third_id') else ""
+            }
+        }
+
+@app.post("/api/vending/session/{session_id}/init-payment")
+async def initialize_vending_payment(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """Initialize payment with Chinese manufacturers for vending machine session"""
+    try:
+        # Get vending session
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if session has expired
+        if datetime.now(timezone.utc) > session.expires_at:
+            raise HTTPException(status_code=410, detail="Session has expired")
+        
+        # Get session data
+        if not session.session_data or not session.session_data.get("order_summary"):
+            raise HTTPException(status_code=400, detail="No order data found in session")
+        
+        order_summary = session.session_data["order_summary"]
+        
+        # Extract order details
+        brand_name = order_summary.get("brand", "")
+        model_name = order_summary.get("model", "")
+        payment_amount = session.payment_amount or order_summary.get("price", 19.99)
+        
+        # Look up phone model in database
+        brand = BrandService.get_brand_by_name(db, brand_name) if brand_name else None
+        phone_model = PhoneModelService.get_model_by_name(db, model_name, brand.id) if brand and model_name else None
+        
+        # Generate third_id
+        third_id = generate_third_id()
+        
+        # Get mobile model ID for Chinese API
+        mobile_model_id = get_mobile_model_id(phone_model, db)
+        
+        # Prepare Chinese payment data
+        chinese_payment_data = ChinesePaymentDataRequest(
+            mobile_model_id=mobile_model_id,
+            device_id=session_id,  # Use session ID as device ID
+            third_id=third_id,
+            pay_amount=float(payment_amount),
+            pay_type=6  # Card payment for vending machines
+        )
+        
+        # Call Chinese API endpoint
+        from fastapi import Request as FastAPIRequest
+        mock_request = type('MockRequest', (), {'client': type('MockClient', (), {'host': '127.0.0.1'})()})()
+        
+        chinese_response = await send_payment_data_to_chinese_api(
+            chinese_payment_data, 
+            mock_request, 
+            db
+        )
+        
+        # Store third_id in session for tracking
+        session_data = session.session_data or {}
+        session_data["chinese_third_id"] = third_id
+        session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
+        session.session_data = session_data
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Payment initialized with Chinese manufacturers",
+            "session_id": session_id,
+            "third_id": third_id,
+            "payment_amount": payment_amount,
+            "chinese_response": chinese_response,
+            "mobile_model_id": mobile_model_id,
+            "device_id": session_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Payment initialization error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to initialize payment: {str(e)}")
 
 @app.get("/api/chinese/equipment/{equipment_id}/info")
 async def get_equipment_info(

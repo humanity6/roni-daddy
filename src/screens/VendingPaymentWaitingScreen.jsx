@@ -9,6 +9,7 @@ const VendingPaymentWaitingScreen = () => {
   const { state } = useAppState()
   const [timeElapsed, setTimeElapsed] = useState(0)
   const [paymentStatus, setPaymentStatus] = useState('waiting') // waiting, processing, completed, failed
+  const [error, setError] = useState(null)
 
   const { orderData, price } = location.state || {}
 
@@ -21,30 +22,70 @@ const VendingPaymentWaitingScreen = () => {
     return () => clearInterval(timer)
   }, [])
 
-  // Simulate payment status checking (in real implementation, this would poll Chinese API)
+  // Real payment status checking via API polling
   useEffect(() => {
-    // Simulate payment processing after 10 seconds
-    const paymentTimer = setTimeout(() => {
-      setPaymentStatus('processing')
-      
-      // Simulate completion after another 5 seconds
-      setTimeout(() => {
-        setPaymentStatus('completed')
-        // Navigate to success screen after payment completion
-        setTimeout(() => {
-          navigate('/payment-success', {
-            state: {
-              orderData,
-              paymentMethod: 'vending_machine',
-              machinePayment: true
-            }
-          })
-        }, 2000)
-      }, 5000)
-    }, 10000)
+    const pollPaymentStatus = async () => {
+      try {
+        // Get vending session info
+        const sessionId = state.vendingMachineSession?.sessionId
+        if (!sessionId) {
+          console.error('No vending session ID available')
+          setPaymentStatus('failed')
+          setError('No vending session found')
+          return
+        }
 
-    return () => clearTimeout(paymentTimer)
-  }, [navigate, orderData])
+        // Poll the vending machine session status
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${sessionId}/status`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to check payment status')
+        }
+
+        const statusData = await response.json()
+        
+        // Update status based on API response
+        if (statusData.status === 'payment_completed') {
+          setPaymentStatus('completed')
+          // Navigate to vending payment success screen
+          setTimeout(() => {
+            navigate('/vending-payment-success', {
+              state: {
+                orderData,
+                paymentMethod: 'vending_machine',
+                vendingSession: state.vendingMachineSession,
+                transactionId: statusData.transaction_id
+              }
+            })
+          }, 2000)
+        } else if (statusData.status === 'payment_pending') {
+          setPaymentStatus('processing')
+        } else if (statusData.status === 'payment_failed') {
+          setPaymentStatus('failed')
+        } else {
+          setPaymentStatus('waiting')
+        }
+        
+      } catch (error) {
+        console.error('Payment status polling error:', error)
+        setPaymentStatus('failed')
+      }
+    }
+
+    // Initial status check
+    pollPaymentStatus()
+
+    // Set up polling interval every 3 seconds
+    const pollInterval = setInterval(pollPaymentStatus, 3000)
+
+    // Cleanup interval on unmount
+    return () => clearInterval(pollInterval)
+  }, [navigate, orderData, state.vendingMachineSession])
 
   const handleBack = () => {
     navigate(-1)
@@ -131,6 +172,25 @@ const VendingPaymentWaitingScreen = () => {
               </div>
             </div>
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 rounded-2xl p-6 w-full max-w-sm">
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-red-500 text-xl">✕</span>
+                </div>
+                <h3 className="font-semibold text-red-800 mb-2">Payment Error</h3>
+                <p className="text-red-700 text-sm">{error}</p>
+                <button
+                  onClick={handleBack}
+                  className="mt-3 px-4 py-2 bg-red-100 text-red-800 rounded-full font-semibold text-sm hover:bg-red-200 transition-colors"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Instructions */}
           <div className="bg-blue-50 rounded-2xl p-6 w-full max-w-sm">

@@ -255,34 +255,118 @@ export const AppStateProvider = ({ children }) => {
     }
   }, [searchParams])
   
-  // Function to register user with vending machine session
-  const registerWithVendingMachine = async (sessionId, machineId, location) => {
+  // Function to create a new vending machine session (for test scenarios)
+  const createVendingMachineSession = async (machineId, location) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${sessionId}/register-user`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/create-session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           machine_id: machineId,
-          session_id: sessionId,
-          location,
-          user_agent: navigator.userAgent,
-          ip_address: null // Could be determined on backend
-        })
+          location: location || 'Test Location',
+          session_timeout_minutes: 30,
+          metadata: { source: 'test_qr_link' }
+        }),
       })
+
+      if (!response.ok) {
+        throw new Error('Session creation failed')
+      }
+
+      const result = await response.json()
+      return result.session_id
+    } catch (error) {
+      console.error('Vending machine session creation failed:', error)
+      throw error
+    }
+  }
+
+  // Function to register user with vending machine session
+  const registerWithVendingMachine = async (sessionId, machineId, location) => {
+    try {
+      let finalSessionId = sessionId
+      let response
+
+      // First, try to register with the provided session ID
+      try {
+        response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${sessionId}/register-user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            machine_id: machineId,
+            session_id: sessionId,
+            location,
+            user_agent: navigator.userAgent,
+            ip_address: null
+          })
+        })
+
+        // If registration successful, use original session
+        if (response.ok) {
+          finalSessionId = sessionId
+        }
+      } catch (registrationError) {
+        console.log('Initial registration failed, will create new session')
+        response = null
+      }
+
+      // If initial registration failed or returned 400/404, create a new session
+      if (!response || !response.ok) {
+        console.log('Session not found or registration failed, creating new session for testing...')
+        
+        try {
+          // Create a new session
+          finalSessionId = await createVendingMachineSession(machineId, location)
+          
+          // Update the app state with the new session ID
+          dispatch({
+            type: ACTIONS.SET_VENDING_MACHINE_SESSION,
+            payload: {
+              ...state.vendingMachineSession,
+              sessionId: finalSessionId,
+              sessionStatus: 'session_created'
+            }
+          })
+          
+          // Now register with the new session
+          response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${finalSessionId}/register-user`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              machine_id: machineId,
+              session_id: finalSessionId,
+              location,
+              user_agent: navigator.userAgent,
+              ip_address: null
+            })
+          })
+        } catch (createError) {
+          console.error('Failed to create session:', createError)
+          throw new Error('Failed to create and register session')
+        }
+      }
       
-      if (response.ok) {
+      if (response && response.ok) {
         const sessionData = await response.json()
         dispatch({
           type: ACTIONS.SET_VENDING_MACHINE_SESSION,
           payload: {
             ...sessionData.machine_info,
+            sessionId: finalSessionId,
             sessionStatus: 'registered',
             expiresAt: sessionData.expires_at,
             userProgress: sessionData.user_progress
           }
         })
+        console.log(`Successfully registered with session: ${finalSessionId}`)
+      } else {
+        throw new Error('Registration failed after session creation')
       }
     } catch (error) {
       console.error('Failed to register with vending machine session:', error)

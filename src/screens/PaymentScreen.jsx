@@ -212,6 +212,26 @@ const PaymentScreen = () => {
         const summaryResult = await orderSummaryResponse.json()
         console.log('Order summary sent to vending machine:', summaryResult)
         
+        // Initialize payment with Chinese manufacturers
+        try {
+          const chinesePaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/init-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          })
+          
+          if (chinesePaymentResponse.ok) {
+            const chineseResult = await chinesePaymentResponse.json()
+            console.log('Payment initialized with Chinese manufacturers:', chineseResult)
+          } else {
+            console.warn('Failed to initialize Chinese payment, but continuing with vending flow')
+          }
+        } catch (chineseError) {
+          console.warn('Chinese payment initialization error, but continuing:', chineseError)
+          // Don't fail the entire flow if Chinese API call fails
+        }
+        
         // Show message to return to vending machine for payment
         alert(`Order ready! Please return to the vending machine to pay £${effectivePrice.toFixed(2)}`)
         

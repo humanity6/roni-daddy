@@ -30,6 +30,7 @@ import RetroRemixGenerateScreen from './screens/RetroRemixGenerateScreen'
 import PaymentSuccessScreen from './screens/PaymentSuccessScreen'
 import PaymentCancelScreen from './screens/PaymentCancelScreen'
 import VendingPaymentWaitingScreen from './screens/VendingPaymentWaitingScreen'
+import VendingPaymentSuccessScreen from './screens/VendingPaymentSuccessScreen'
 
 function App() {
   return (
@@ -67,6 +68,7 @@ function App() {
           <Route path="/payment-success" element={<PaymentSuccessScreen />} />
           <Route path="/payment-cancel" element={<PaymentCancelScreen />} />
           <Route path="/vending-payment-waiting" element={<VendingPaymentWaitingScreen />} />
+          <Route path="/vending-payment-success" element={<VendingPaymentSuccessScreen />} />
         </Routes>
       </div>
     </AppStateProvider>
