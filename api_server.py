@@ -1351,7 +1351,7 @@ async def initialize_vending_payment(
         # Prepare Chinese payment data
         chinese_payment_data = ChinesePaymentDataRequest(
             mobile_model_id=mobile_model_id,
-            device_id=session_id,  # Use session ID as device ID
+            device_id=session.machine_id,  # Use actual machine ID as device ID
             third_id=third_id,
             pay_amount=float(payment_amount),
             pay_type=6  # Card payment for vending machines
@@ -1382,7 +1382,7 @@ async def initialize_vending_payment(
             "payment_amount": payment_amount,
             "chinese_response": chinese_response,
             "mobile_model_id": mobile_model_id,
-            "device_id": session_id
+            "device_id": session.machine_id
         }
         
     except HTTPException:
