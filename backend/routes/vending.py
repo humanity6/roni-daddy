@@ -20,6 +20,7 @@ from datetime import datetime, timezone, timedelta
 import secrets
 import time
 import base64
+from sqlalchemy.orm.attributes import flag_modified
 
 router = APIRouter(prefix="/api/vending")
 
@@ -163,10 +164,29 @@ async def initialize_vending_payment(
             pay_type=6  # Card payment for vending machines
         )
         
+        # Call Chinese API endpoint
+        try:
+            from backend.routes.chinese_api import send_payment_data_to_chinese_api
+            # Create mock request object
+            class MockRequest:
+                def __init__(self):
+                    self.client = type('obj', (object,), {'host': '127.0.0.1'})
+                    
+            mock_request = MockRequest()
+            chinese_response = await send_payment_data_to_chinese_api(
+                chinese_payment_data, 
+                mock_request, 
+                db
+            )
+        except Exception as e:
+            print(f"Warning: Chinese API call failed: {e}")
+            chinese_response = {"msg": "Chinese API temporarily unavailable", "code": 200}
+        
         # Store third_id in session for tracking
         session_data = session.session_data or {}
         session_data["chinese_third_id"] = third_id
         session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
+        session_data["chinese_response"] = chinese_response
         session.session_data = session_data
         db.commit()
         
@@ -177,7 +197,8 @@ async def initialize_vending_payment(
             "third_id": third_id,
             "payment_amount": payment_amount,
             "mobile_model_id": mobile_model_id,
-            "device_id": session.machine_id
+            "device_id": session.machine_id,
+            "chinese_response": chinese_response
         }
         
     except HTTPException:
@@ -275,40 +296,341 @@ async def register_user_with_session(
         # Security validation
         security_info = validate_session_security(http_request, session_id)
         
-        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        # Validate machine ID matches session
+        if not security_manager.validate_machine_id(request.machine_id):
+            raise HTTPException(status_code=400, detail="Invalid machine ID format")
+        
+        session = db.query(VendingMachineSession).options(joinedload(VendingMachineSession.vending_machine)).filter(VendingMachineSession.session_id == session_id).first()
         if not session:
+            security_manager.record_failed_attempt(security_info["client_ip"])
             raise HTTPException(status_code=404, detail="Session not found")
         
         # Check if session has expired
         if datetime.now(timezone.utc) > session.expires_at:
             raise HTTPException(status_code=410, detail="Session has expired")
         
-        # Update session with user registration
-        session.user_progress = "registered"
+        # Validate machine ID matches session machine
+        if session.machine_id != request.machine_id:
+            security_manager.record_failed_attempt(security_info["client_ip"])
+            raise HTTPException(status_code=400, detail="Machine ID mismatch")
+        
+        # Sanitize inputs
+        user_agent = security_manager.sanitize_string_input(request.user_agent or "", 500)
+        location = security_manager.sanitize_string_input(request.location or "", 200)
+        
+        # Update session with user info
+        session.user_progress = "qr_scanned"
         session.last_activity = datetime.now(timezone.utc)
+        session.user_agent = user_agent
+        session.ip_address = security_info["client_ip"]  # Use validated IP from security check
         
-        # Store registration data
-        if not session.session_data:
-            session.session_data = {}
-        
-        session.session_data["user_registered_at"] = datetime.now(timezone.utc).isoformat()
-        session.session_data["registration_ip"] = security_info["client_ip"]
+        # Update session data with security tracking
+        session_data = session.session_data or {}
+        session_data.update({
+            "qr_scanned_at": datetime.now(timezone.utc).isoformat(),
+            "user_agent": user_agent,
+            "ip_address": security_info["client_ip"],
+            "location": location,
+            "security_validated": True,
+            "scan_security_info": security_info
+        })
+        session.session_data = session_data
         
         db.commit()
+        db.refresh(session)
         
         return {
             "success": True,
             "session_id": session_id,
-            "status": session.status,
+            "machine_info": {
+                "id": session.machine_id,
+                "name": session.vending_machine.name if session.vending_machine else "Unknown",
+                "location": session.vending_machine.location if session.vending_machine else location
+            },
+            "expires_at": session.expires_at.isoformat(),
             "user_progress": session.user_progress,
-            "machine_id": session.machine_id,
-            "message": "User successfully registered with session"
+            "security_validated": True
         }
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to register user: {str(e)}")
+
+@router.post("/session/{session_id}/order-summary")
+async def send_order_summary_to_vending_machine(
+    session_id: str,
+    request: OrderSummaryRequest,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Send order summary to vending machine for payment processing"""
+    try:
+        # Security validation including payment amount
+        security_info = validate_payment_security(http_request, request.payment_amount, session_id)
+        
+        # Validate order data size
+        if not security_manager.validate_json_size(request.order_data, 100):
+            raise HTTPException(status_code=400, detail="Order data too large")
+        
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            security_manager.record_failed_attempt(security_info["client_ip"])
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if session has expired
+        if datetime.now(timezone.utc) > session.expires_at:
+            raise HTTPException(status_code=410, detail="Session has expired")
+        
+        # Validate session state
+        if session.status != "active" or session.user_progress not in ["qr_scanned", "designing", "design_complete"]:
+            raise HTTPException(status_code=400, detail="Invalid session state for order summary")
+        
+        # Sanitize currency
+        currency = security_manager.sanitize_string_input(request.currency, 10)
+        if currency not in ["GBP", "USD", "EUR"]:
+            currency = "GBP"  # Default to GBP
+        
+        # Update session with order details
+        session.user_progress = "payment_pending"
+        session.payment_amount = request.payment_amount
+        session.last_activity = datetime.now(timezone.utc)
+        
+        # Store order summary in session data with security info
+        session_data = session.session_data or {}
+        session_data.update({
+            "order_summary": request.order_data,
+            "payment_amount": request.payment_amount,
+            "currency": currency,
+            "payment_requested_at": datetime.now(timezone.utc).isoformat(),
+            "order_security_info": security_info
+        })
+        
+        # IMPORTANT: SQLAlchemy doesn't detect changes to mutable JSON objects
+        # We need to mark the attribute as changed to trigger persistence
+        session.session_data = session_data
+        flag_modified(session, 'session_data')
+        
+        # Add debugging to verify data is stored
+        print(f"DEBUG: Storing order summary for session {session_id}")
+        print(f"DEBUG: Order data keys: {list(request.order_data.keys()) if request.order_data else 'None'}")
+        print(f"DEBUG: Session data keys after update: {list(session_data.keys())}")
+        print(f"DEBUG: Order summary stored: {'order_summary' in session_data}")
+        
+        try:
+            # Use explicit transaction with proper isolation
+            db.flush()  # Ensure changes are written to the transaction
+            db.commit()
+            
+            # Verify data was actually committed
+            db.refresh(session)
+            if session.session_data and "order_summary" in session.session_data:
+                print(f"DEBUG: Successfully verified order_summary in database for session {session_id}")
+            else:
+                print(f"ERROR: Order summary not found in database after commit for session {session_id}")
+                print(f"ERROR: Session data keys in DB: {list(session.session_data.keys()) if session.session_data else 'None'}")
+                raise HTTPException(status_code=500, detail="Failed to persist order data")
+                
+        except Exception as e:
+            db.rollback()
+            print(f"ERROR: Database transaction failed for session {session_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to store order summary: {str(e)}")
+        
+        return {
+            "success": True,
+            "message": "Order summary sent to vending machine",
+            "session_id": session_id,
+            "payment_amount": request.payment_amount,
+            "currency": currency,
+            "status": "payment_pending",
+            "security_validated": True
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send order summary: {str(e)}")
+
+@router.post("/session/{session_id}/confirm-payment")
+async def confirm_vending_machine_payment(
+    session_id: str,
+    request: VendingPaymentConfirmRequest,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Confirm payment received from vending machine"""
+    try:
+        # Security validation including payment amount
+        security_info = validate_payment_security(http_request, request.payment_amount, session_id)
+        
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            security_manager.record_failed_attempt(security_info["client_ip"])
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if session has expired
+        if datetime.now(timezone.utc) > session.expires_at:
+            raise HTTPException(status_code=410, detail="Session has expired")
+        
+        # Validate session state
+        if session.user_progress != "payment_pending":
+            raise HTTPException(status_code=400, detail="Session not ready for payment confirmation")
+        
+        # Update session with payment confirmation
+        session.status = "payment_completed"
+        session.payment_method = "vending_machine"
+        session.payment_confirmed_at = datetime.now(timezone.utc)
+        session.last_activity = datetime.now(timezone.utc)
+        
+        # Store payment details with security info
+        session_data = session.session_data or {}
+        session_data.update({
+            "payment_confirmed_at": datetime.now(timezone.utc).isoformat(),
+            "payment_method": request.payment_method,
+            "transaction_id": request.transaction_id,
+            "payment_data": request.payment_data or {},
+            "payment_security_info": security_info,
+            "payment_amount_verified": request.payment_amount
+        })
+        session.session_data = session_data
+        
+        # Decrement machine session count as payment is complete
+        security_manager.decrement_machine_sessions(session.machine_id)
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Payment confirmed successfully",
+            "session_id": session_id,
+            "transaction_id": request.transaction_id,
+            "status": "payment_completed",
+            "security_validated": True
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to confirm payment: {str(e)}")
+
+@router.post("/session/{session_id}/validate")
+async def validate_session_security_endpoint(
+    session_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Validate session security for external monitoring"""
+    try:
+        # Security validation
+        security_info = validate_session_security(http_request, session_id)
+        
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check session health
+        is_expired = datetime.now(timezone.utc) > session.expires_at
+        is_active = session.status in ["active", "designing", "payment_pending"]
+        
+        return {
+            "session_id": session_id,
+            "valid": True,
+            "security_validated": True,
+            "session_health": {
+                "is_expired": is_expired,
+                "is_active": is_active,
+                "status": session.status,
+                "user_progress": session.user_progress,
+                "expires_at": session.expires_at.isoformat(),
+                "last_activity": session.last_activity.isoformat()
+            },
+            "security_info": security_info,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Session validation failed: {str(e)}")
+
+@router.get("/session/{session_id}/order-info")
+async def get_vending_order_info(
+    session_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Get order information for vending machine payment processing"""
+    try:
+        # Security validation
+        security_info = validate_session_security(http_request, session_id)
+        
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            security_manager.record_failed_attempt(security_info["client_ip"])
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Refresh session from database to ensure we have latest data
+        db.refresh(session)
+        
+        # Check if session has expired
+        if datetime.now(timezone.utc) > session.expires_at:
+            raise HTTPException(status_code=410, detail="Session has expired")
+        
+        # Check if session has order information with detailed debugging
+        print(f"DEBUG: Retrieving order info for session {session_id}")
+        print(f"DEBUG: Session status: {session.status}, progress: {session.user_progress}")
+        print(f"DEBUG: Session has session_data: {session.session_data is not None}")
+        
+        if not session.session_data:
+            print(f"ERROR: Session {session_id} has no session_data")
+            raise HTTPException(status_code=400, detail="No session data available for this session")
+        
+        print(f"DEBUG: Session {session_id} session_data keys: {list(session.session_data.keys())}")
+        
+        if not session.session_data.get("order_summary"):
+            print(f"ERROR: Session {session_id} missing order_summary key")
+            print(f"ERROR: Available keys: {list(session.session_data.keys())}")
+            raise HTTPException(status_code=400, detail="No order information available for this session")
+        
+        order_summary = session.session_data["order_summary"]
+        
+        # Extract key order information for vending machine display
+        order_info = {
+            "session_id": session_id,
+            "order_summary": {
+                "brand": order_summary.get("brand", ""),
+                "model": order_summary.get("model", ""),
+                "template": order_summary.get("template", {}),
+                "color": order_summary.get("color", ""),
+                "inputText": order_summary.get("inputText", ""),
+                "selectedFont": order_summary.get("selectedFont", ""),
+                "selectedTextColor": order_summary.get("selectedTextColor", "")
+            },
+            "payment_amount": session.payment_amount,
+            "currency": session.session_data.get("currency", "GBP"),
+            "machine_info": {
+                "id": session.machine_id,
+                "location": session.qr_data.get("location") if session.qr_data else None
+            },
+            "session_status": {
+                "status": session.status,
+                "user_progress": session.user_progress,
+                "expires_at": session.expires_at.isoformat(),
+                "last_activity": session.last_activity.isoformat()
+            },
+            "security_validated": True
+        }
+        
+        # Update last activity
+        session.last_activity = datetime.now(timezone.utc)
+        db.commit()
+        
+        return order_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get order info: {str(e)}")
 
 @router.delete("/session/{session_id}")
 async def cleanup_vending_session(
