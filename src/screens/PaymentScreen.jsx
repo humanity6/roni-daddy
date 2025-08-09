@@ -96,6 +96,31 @@ const PaymentScreen = () => {
     pointerEvents: 'none'
   })
 
+  // Utility function to generate third_id in Chinese API format: PYEN+yyMMdd+6 digits
+  const generateThirdId = () => {
+    const now = new Date()
+    const year = now.getFullYear().toString().slice(-2) // Last 2 digits of year
+    const month = (now.getMonth() + 1).toString().padStart(2, '0')
+    const day = now.getDate().toString().padStart(2, '0')
+    const randomDigits = Math.floor(Math.random() * 999999).toString().padStart(6, '0')
+    return `PYEN${year}${month}${day}${randomDigits}`
+  }
+
+  // Function to get mobile_model_id from current phone selection
+  const getMobileModelId = (brand, model) => {
+    // For now, we'll use a simple format. In production, this should lookup from the database
+    // or use the Chinese model ID mapping that's already established in the backend
+    if (!brand || !model) {
+      return "MM20250108000001" // Default fallback as shown in their example
+    }
+    
+    // Create a consistent model ID based on brand and model
+    // This should match the format used in the backend database
+    const cleanBrand = brand.toLowerCase().replace(/\s+/g, '')
+    const cleanModel = model.toLowerCase().replace(/\s+/g, '')
+    return `MM${cleanBrand}_${cleanModel}`.substring(0, 20) // Truncate if too long
+  }
+
   const handleBack = () => {
     navigate(-1)
   }
@@ -189,6 +214,53 @@ const PaymentScreen = () => {
         paymentMethod: 'vending_machine'
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
+
+      // IMMEDIATELY call Chinese API to activate card reader as requested by Chinese team
+      try {
+        const thirdId = generateThirdId()
+        const mobileModelId = getMobileModelId(orderData.brand, orderData.model)
+        
+        const chinesePaymentData = {
+          mobile_model_id: mobileModelId,
+          device_id: "10HKNTDOH2BA", // Device ID specified by Chinese team
+          third_id: thirdId,
+          pay_amount: effectivePrice,
+          pay_type: 6 // Card payment for vending machines (6 as per their specification)
+        }
+        
+        console.log('Calling Chinese payment API to activate card reader:', chinesePaymentData)
+        
+        const chineseApiResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chinesePaymentData)
+        })
+        
+        if (chineseApiResponse.ok) {
+          const chineseResult = await chineseApiResponse.json()
+          console.log('Chinese API response - Card reader activated:', chineseResult)
+          
+          // Store the third_id for tracking
+          orderData.chinese_third_id = thirdId
+          orderData.chinese_payment_id = chineseResult.data?.id
+          localStorage.setItem('pendingOrder', JSON.stringify(orderData))
+        } else {
+          console.warn('Chinese API call failed but continuing with vending flow')
+          const errorData = await chineseApiResponse.json()
+          console.warn('Chinese API error:', errorData)
+          
+          // Show warning to user but don't block the flow
+          alert('Warning: Card reader may not be activated. Please try again or use alternative payment method.')
+        }
+        
+      } catch (chineseError) {
+        console.warn('Chinese API call failed but continuing with vending flow:', chineseError)
+        
+        // Show warning to user but don't block the flow
+        alert('Warning: Unable to activate card reader. Payment may need to be processed manually.')
+      }
       
       // If in vending machine mode, send order summary to vending machine
       if (isVendingMachine && vendingMachineSession?.sessionId) {
