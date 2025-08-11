@@ -25,6 +25,22 @@ async def test_chinese_connection(http_request: Request):
         # Use relaxed security for all users
         security_info = validate_relaxed_api_security(http_request)
         
+        # Test actual connection to Chinese API
+        chinese_api_status = {"status": "unknown", "error": None}
+        try:
+            from backend.services.chinese_payment_service import test_chinese_api_connection
+            chinese_api_result = test_chinese_api_connection()
+            chinese_api_status = {
+                "status": "connected" if chinese_api_result.get("success") else "failed",
+                "message": chinese_api_result.get("message"),
+                "base_url": chinese_api_result.get("base_url")
+            }
+        except Exception as e:
+            chinese_api_status = {
+                "status": "failed",
+                "error": str(e)
+            }
+        
         return {
             "status": "success",
             "message": "Chinese manufacturer API connection successful",
@@ -32,6 +48,7 @@ async def test_chinese_connection(http_request: Request):
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "client_ip": security_info.get("client_ip"),
             "security_level": "relaxed_chinese_partner",
+            "chinese_api_connection": chinese_api_status,
             "debug_info": {
                 "rate_limit": "35 requests/minute",
                 "authentication": "not_required",
@@ -52,12 +69,15 @@ async def test_chinese_connection(http_request: Request):
                 "payment_check": "/api/chinese/payment/{third_id}/status",
                 "equipment_info": "/api/chinese/equipment/{equipment_id}/info",
                 "stock_status": "/api/chinese/models/stock-status",
+                "machine_management": "/api/chinese/machines",
                 "vending_session_status": "/api/vending/session/{session_id}/status"
             }
         }
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Test connection failed: {str(e)}")
 
 @router.get("/debug/session-validation/{session_id}")
@@ -380,24 +400,7 @@ async def send_payment_data_to_chinese_api(
         if not model:
             print(f"Warning: Mobile model {request.mobile_model_id} not found in database, proceeding anyway")
         
-        # Prepare data for Chinese API (following their specification)
-        chinese_api_data = {
-            "mobile_model_id": request.mobile_model_id,
-            "device_id": request.device_id,
-            "third_id": request.third_id,
-            "pay_amount": request.pay_amount,
-            "pay_type": request.pay_type
-        }
-        
-        print(f"Sending payment data to Chinese API: {chinese_api_data}")
-        
-        # TODO: Make actual HTTP request to Chinese manufacturer API
-        # For now, we'll simulate success and return the expected response format
-        # In production, this would be:
-        # response = requests.post(CHINESE_API_URL + "/order/payData", json=chinese_api_data)
-        
         # Store the payment initiation in our system for tracking
-        # This helps link the third_id with our vending session when status updates come in
         payment_record = {
             "third_id": request.third_id,
             "device_id": request.device_id,
@@ -407,21 +410,23 @@ async def send_payment_data_to_chinese_api(
             "initiated_at": datetime.now(timezone.utc).isoformat(),
             "client_ip": security_info["client_ip"]
         }
+        print(f"Payment initiation: {payment_record}")
         
-        # Store in session or database for tracking (for now just log)
-        print(f"Payment initiation stored: {payment_record}")
+        # Make actual HTTP request to Chinese manufacturer API
+        from backend.services.chinese_payment_service import send_payment_to_chinese_api
         
-        # Generate response in Chinese API format
-        payment_id = f"PAY_{request.third_id}_{int(time.time())}"
+        chinese_response = send_payment_to_chinese_api(
+            mobile_model_id=request.mobile_model_id,
+            device_id=request.device_id,
+            third_id=request.third_id,
+            pay_amount=float(request.pay_amount),
+            pay_type=request.pay_type
+        )
         
-        return {
-            "msg": "Payment data sent successfully",
-            "code": 200,
-            "data": {
-                "id": payment_id,
-                "third_id": request.third_id
-            }
-        }
+        # Log the response
+        print(f"Chinese API response: {chinese_response}")
+        
+        return chinese_response
         
     except Exception as e:
         print(f"Chinese payment data error: {str(e)}")
@@ -589,6 +594,183 @@ async def get_stock_status(
         return {
             "success": False,
             "error": str(e)
+        }
+
+@router.post("/machines")
+async def add_vending_machine(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Add new vending machine to the database for Chinese partners"""
+    try:
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
+        
+        # Get request body
+        body = await http_request.json()
+        
+        # Validate required fields
+        machine_id = body.get('machine_id', '').strip()
+        name = body.get('name', '').strip()
+        location = body.get('location', '').strip()
+        
+        if not machine_id:
+            return {
+                "success": False,
+                "error": "machine_id is required",
+                "code": 400
+            }
+        
+        if not name:
+            name = f"Vending Machine {machine_id}"
+        
+        # Check if machine already exists
+        existing_machine = db.query(VendingMachine).filter(VendingMachine.id == machine_id).first()
+        if existing_machine:
+            return {
+                "success": False,
+                "error": f"Machine with ID '{machine_id}' already exists",
+                "code": 409,
+                "existing_machine": {
+                    "id": existing_machine.id,
+                    "name": existing_machine.name,
+                    "location": existing_machine.location,
+                    "is_active": existing_machine.is_active,
+                    "created_at": existing_machine.created_at.isoformat()
+                }
+            }
+        
+        # Create new vending machine
+        new_machine = VendingMachine(
+            id=machine_id,
+            name=name,
+            location=location,
+            is_active=body.get('is_active', True),
+            qr_config=body.get('qr_config', {}),
+            created_at=datetime.now(timezone.utc)
+        )
+        
+        db.add(new_machine)
+        db.commit()
+        db.refresh(new_machine)
+        
+        return {
+            "success": True,
+            "message": f"Vending machine '{machine_id}' added successfully",
+            "machine": {
+                "id": new_machine.id,
+                "name": new_machine.name,
+                "location": new_machine.location,
+                "is_active": new_machine.is_active,
+                "created_at": new_machine.created_at.isoformat()
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "code": 500
+        }
+
+@router.get("/machines")
+async def list_vending_machines(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """List all vending machines for Chinese partners"""
+    try:
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
+        
+        # Get all vending machines
+        machines = db.query(VendingMachine).all()
+        
+        machine_data = []
+        for machine in machines:
+            machine_data.append({
+                "id": machine.id,
+                "name": machine.name,
+                "location": machine.location,
+                "is_active": machine.is_active,
+                "last_heartbeat": machine.last_heartbeat.isoformat() if machine.last_heartbeat else None,
+                "created_at": machine.created_at.isoformat(),
+                "updated_at": machine.updated_at.isoformat() if machine.updated_at else None,
+                "qr_config": machine.qr_config
+            })
+        
+        return {
+            "success": True,
+            "machines": machine_data,
+            "total_machines": len(machine_data),
+            "active_machines": len([m for m in machine_data if m["is_active"]]),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.put("/machines/{machine_id}")
+async def update_vending_machine(
+    machine_id: str,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Update vending machine details for Chinese partners"""
+    try:
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
+        
+        # Find the machine
+        machine = db.query(VendingMachine).filter(VendingMachine.id == machine_id).first()
+        if not machine:
+            return {
+                "success": False,
+                "error": f"Machine '{machine_id}' not found",
+                "code": 404
+            }
+        
+        # Get request body
+        body = await http_request.json()
+        
+        # Update fields if provided
+        if 'name' in body and body['name'].strip():
+            machine.name = body['name'].strip()
+        if 'location' in body:
+            machine.location = body['location'].strip()
+        if 'is_active' in body:
+            machine.is_active = body['is_active']
+        if 'qr_config' in body:
+            machine.qr_config = body['qr_config']
+        
+        machine.updated_at = datetime.now(timezone.utc)
+        
+        db.commit()
+        db.refresh(machine)
+        
+        return {
+            "success": True,
+            "message": f"Vending machine '{machine_id}' updated successfully",
+            "machine": {
+                "id": machine.id,
+                "name": machine.name,
+                "location": machine.location,
+                "is_active": machine.is_active,
+                "created_at": machine.created_at.isoformat(),
+                "updated_at": machine.updated_at.isoformat()
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "code": 500
         }
 
 @router.post("/print/trigger")

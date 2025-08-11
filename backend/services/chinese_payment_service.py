@@ -1,0 +1,271 @@
+"""Chinese manufacturer payment API service with authentication and signature generation"""
+
+import requests
+import hashlib
+import json
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any
+import time
+import logging
+
+from backend.config.settings import (
+    CHINESE_API_BASE_URL, CHINESE_API_ACCOUNT, CHINESE_API_PASSWORD,
+    CHINESE_API_SYSTEM_NAME, CHINESE_API_FIXED_KEY, 
+    CHINESE_API_DEVICE_ID, CHINESE_API_TIMEOUT
+)
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+class ChinesePaymentAPIClient:
+    """Client for Chinese manufacturer payment API with proper authentication and signature generation"""
+    
+    def __init__(self):
+        self.base_url = CHINESE_API_BASE_URL
+        self.account = CHINESE_API_ACCOUNT
+        self.password = CHINESE_API_PASSWORD
+        self.system_name = CHINESE_API_SYSTEM_NAME
+        self.fixed_key = CHINESE_API_FIXED_KEY
+        self.device_id = CHINESE_API_DEVICE_ID
+        self.timeout = CHINESE_API_TIMEOUT
+        
+        self.token = None
+        self.token_expires_at = None
+        self.session = requests.Session()
+        
+        # Set default headers
+        self.session.headers.update({
+            'Content-Type': 'application/json',
+            'User-Agent': 'PimpMyCase-API/2.0.0'
+        })
+
+    def generate_signature(self, params: Dict[str, Any]) -> str:
+        """Generate MD5 signature for API request following Chinese API specification"""
+        try:
+            # Sort parameters by key
+            sorted_params = dict(sorted(params.items()))
+            
+            # Concatenate values
+            signature_string = ""
+            for key in sorted(sorted_params.keys()):
+                value = sorted_params[key]
+                if value is not None:
+                    signature_string += str(value)
+            
+            # Add system name and fixed key
+            signature_string += self.system_name
+            signature_string += self.fixed_key
+            
+            logger.debug(f"Signature string: {signature_string}")
+            
+            # Generate MD5 hash
+            signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
+            logger.debug(f"Generated signature: {signature}")
+            
+            return signature
+            
+        except Exception as e:
+            logger.error(f"Failed to generate signature: {str(e)}")
+            raise
+
+    def is_token_valid(self) -> bool:
+        """Check if current token is valid and not expired"""
+        if not self.token:
+            return False
+        
+        if not self.token_expires_at:
+            return True  # If no expiry set, assume it's valid for now
+            
+        return datetime.now(timezone.utc) < self.token_expires_at
+
+    def login(self) -> bool:
+        """Login and get authentication token"""
+        try:
+            logger.info("Authenticating with Chinese API")
+            
+            login_data = {
+                "account": self.account,
+                "password": self.password
+            }
+            
+            signature = self.generate_signature(login_data)
+            
+            headers = {
+                "sign": signature,
+                "req_source": "en"
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/user/login",
+                json=login_data,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            logger.info(f"Login response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(f"Login response: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                
+                if data.get("code") == 200:
+                    self.token = data["data"]["token"]
+                    # Set token expiry to 1 hour from now (Chinese API doesn't specify, so we assume)
+                    self.token_expires_at = datetime.now(timezone.utc).timestamp() + 3600
+                    logger.info(f"Login successful! Token: {self.token[:20]}...")
+                    return True
+                else:
+                    logger.error(f"Login failed - API error: {data.get('code')} - {data.get('msg')}")
+            else:
+                logger.error(f"Login failed - HTTP status: {response.status_code}")
+                logger.error(f"Response: {response.text}")
+            
+            return False
+            
+        except requests.RequestException as e:
+            logger.error(f"Login request failed: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Login exception: {str(e)}")
+            return False
+
+    def ensure_authenticated(self) -> bool:
+        """Ensure we have a valid authentication token"""
+        if self.is_token_valid():
+            return True
+            
+        return self.login()
+
+    def send_payment_data(self, mobile_model_id: str, third_id: str, 
+                         pay_amount: float, pay_type: int = 6, 
+                         device_id: Optional[str] = None) -> Dict[str, Any]:
+        """Send payment data to Chinese manufacturers for card payment processing"""
+        try:
+            logger.info(f"Sending payment data to Chinese API: third_id={third_id}, amount={pay_amount}")
+            
+            # Ensure we're authenticated
+            if not self.ensure_authenticated():
+                return {
+                    "msg": "Authentication failed",
+                    "code": 500,
+                    "data": {"id": "", "third_id": third_id}
+                }
+            
+            # Use provided device_id or fall back to configured one
+            effective_device_id = device_id or self.device_id
+            
+            payload = {
+                "mobile_model_id": mobile_model_id,
+                "device_id": effective_device_id,
+                "third_id": third_id,
+                "pay_amount": pay_amount,
+                "pay_type": pay_type
+            }
+            
+            logger.debug(f"Payment payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
+            
+            signature = self.generate_signature(payload)
+            
+            headers = {
+                "Authorization": self.token,
+                "sign": signature,
+                "req_source": "en"
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/order/payData",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            logger.info(f"PayData response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(f"PayData response: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                
+                # Log successful payment initiation
+                if data.get("code") == 200:
+                    logger.info(f"Payment data sent successfully: payment_id={data['data'].get('id')}, third_id={third_id}")
+                else:
+                    logger.warning(f"Payment data API returned error: {data.get('code')} - {data.get('msg')}")
+                
+                return data
+            else:
+                error_msg = f"PayData failed - HTTP {response.status_code}"
+                logger.error(f"{error_msg}: {response.text}")
+                return {
+                    "msg": error_msg,
+                    "code": response.status_code,
+                    "data": {"id": "", "third_id": third_id},
+                    "response": response.text
+                }
+                
+        except requests.RequestException as e:
+            error_msg = f"PayData request failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "msg": error_msg,
+                "code": 500,
+                "data": {"id": "", "third_id": third_id}
+            }
+        except Exception as e:
+            error_msg = f"PayData exception: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "msg": error_msg,
+                "code": 500,
+                "data": {"id": "", "third_id": third_id}
+            }
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Test connection and authentication with Chinese API"""
+        try:
+            if self.ensure_authenticated():
+                return {
+                    "success": True,
+                    "message": "Chinese API connection successful",
+                    "token": self.token[:20] + "..." if self.token else None,
+                    "base_url": self.base_url,
+                    "device_id": self.device_id
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "Authentication failed",
+                    "base_url": self.base_url
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Connection test failed: {str(e)}",
+                "base_url": self.base_url
+            }
+
+# Singleton instance
+_chinese_client = None
+
+def get_chinese_payment_client() -> ChinesePaymentAPIClient:
+    """Get singleton instance of Chinese payment API client"""
+    global _chinese_client
+    if _chinese_client is None:
+        _chinese_client = ChinesePaymentAPIClient()
+    return _chinese_client
+
+def send_payment_to_chinese_api(mobile_model_id: str, device_id: str, third_id: str, 
+                               pay_amount: float, pay_type: int = 6) -> Dict[str, Any]:
+    """Convenience function to send payment data to Chinese API"""
+    client = get_chinese_payment_client()
+    return client.send_payment_data(
+        mobile_model_id=mobile_model_id,
+        third_id=third_id, 
+        pay_amount=pay_amount,
+        pay_type=pay_type,
+        device_id=device_id
+    )
+
+def test_chinese_api_connection() -> Dict[str, Any]:
+    """Convenience function to test Chinese API connection"""
+    client = get_chinese_payment_client()
+    return client.test_connection()

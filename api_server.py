@@ -17,6 +17,7 @@ import time
 import uuid
 import json
 import stripe
+import logging
 
 # Database imports
 from database import get_db, create_tables
@@ -70,6 +71,22 @@ from datetime import datetime, timezone
 
 # Initialize services
 stripe_client = initialize_stripe()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('pimpmycase_api.log', encoding='utf-8')
+    ]
+)
+
+# Set specific loggers
+logger = logging.getLogger(__name__)
+logging.getLogger('backend.services.chinese_payment_service').setLevel(logging.DEBUG)
+logging.getLogger('requests').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 # Database lifespan event handler
 @asynccontextmanager
