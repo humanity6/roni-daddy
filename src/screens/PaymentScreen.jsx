@@ -215,24 +215,56 @@ const PaymentScreen = () => {
         const summaryResult = await orderSummaryResponse.json()
         console.log('Order summary sent to vending machine:', summaryResult)
         
-        // Initialize payment with Chinese manufacturers
+        // Send payment data directly to Chinese manufacturers
         try {
-          const chinesePaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/init-payment`, {
+          // Generate third_id similar to backend helper function
+          const generateThirdId = () => {
+            const now = new Date()
+            const dateStr = now.getFullYear().toString().slice(-2) + 
+                          String(now.getMonth() + 1).padStart(2, '0') + 
+                          String(now.getDate()).padStart(2, '0')
+            const timestampSuffix = String(Date.now()).slice(-6)
+            return `PYEN${dateStr}${timestampSuffix}`
+          }
+
+          const third_id = generateThirdId()
+          
+          // Prepare payment data for Chinese API
+          const chinesePaymentData = {
+            mobile_model_id: model || 'UNKNOWN_MODEL', // Use the phone model name
+            device_id: vendingMachineSession.machineId || vendingMachineSession.sessionId, // Use machine ID as device identifier, fallback to session ID
+            third_id: third_id,
+            pay_amount: effectivePrice,
+            pay_type: 6 // Card payment for vending machines
+          }
+
+          console.log('Sending payment data to Chinese API:', chinesePaymentData)
+
+          const chinesePaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-            }
+            },
+            body: JSON.stringify(chinesePaymentData)
           })
           
           if (chinesePaymentResponse.ok) {
             const chineseResult = await chinesePaymentResponse.json()
-            console.log('Payment initialized with Chinese manufacturers:', chineseResult)
+            console.log('Payment data sent successfully to Chinese API:', chineseResult)
+            
+            if (chineseResult.code !== 200) {
+              console.warn('Chinese API returned error:', chineseResult.msg)
+              throw new Error(`Chinese API error: ${chineseResult.msg}`)
+            }
           } else {
-            console.warn('Failed to initialize Chinese payment, but continuing with vending flow')
+            console.error('Failed to send payment data to Chinese API:', chinesePaymentResponse.status)
+            throw new Error(`Chinese API call failed with status: ${chinesePaymentResponse.status}`)
           }
         } catch (chineseError) {
-          console.warn('Chinese payment initialization error, but continuing:', chineseError)
-          // Don't fail the entire flow if Chinese API call fails
+          console.error('Chinese payment data transmission failed:', chineseError)
+          setPaymentError(`Failed to initialize payment with machine: ${chineseError.message}. Please try again or use app payment.`)
+          setIsProcessingPayment(false)
+          return // Stop processing if Chinese API fails
         }
         
         // Show message to return to vending machine for payment
