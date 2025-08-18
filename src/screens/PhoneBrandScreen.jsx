@@ -2,39 +2,22 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
+import { useAppState } from '../contexts/AppStateContext'
 
 const PhoneBrandScreen = () => {
   const navigate = useNavigate()
+  const { state: appState } = useAppState()
   const [selectedBrand, setSelectedBrand] = useState('')
   const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
   const [apiModels, setApiModels] = useState({})
+  const [error, setError] = useState(null)
 
-  // Default brands with exact UI styling from previous version
-  const defaultBrands = [
-    { 
-      id: 'iphone', 
-      name: 'IPHONE', 
-      frameColor: '#d7efd4',
-      buttonColor: '#b9e4b4',
-      available: true
-    },
-    { 
-      id: 'samsung', 
-      name: 'SAMSUNG', 
-      frameColor: '#f9e1eb',
-      buttonColor: '#f5bed3',
-      available: true
-    },
-    { 
-      id: 'google', 
-      name: 'GOOGLE', 
-      frameColor: '#d8ecf4',
-      buttonColor: '#d8ecf4',
-      available: false, // Google is coming soon
-      subtitle: 'Coming Soon'
-    }
-  ]
+  // Get device_id from vending machine session
+  const deviceId = appState.vendingMachineSession?.deviceId
+  
+  console.log('PhoneBrandScreen - Device ID:', deviceId)
+  console.log('PhoneBrandScreen - Vending Machine Session:', appState.vendingMachineSession)
 
   // Load brands and models on component mount
   useEffect(() => {
@@ -44,35 +27,54 @@ const PhoneBrandScreen = () => {
   const loadBrandsAndModels = async () => {
     try {
       setLoading(true)
-      console.log('🔄 PhoneBrandScreen - Loading brands and models from Chinese API...')
+      setError(null)
+      console.log('🔄 PhoneBrandScreen - Loading brands from Chinese API...')
       
-      // Always use the default brands for UI
-      setBrands(defaultBrands)
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       
-      // Try to fetch models from Chinese API for each brand
-      const modelsData = {}
+      // Fetch brands from Chinese API via our backend
+      const brandsResponse = await fetch(`${API_BASE_URL}/api/brands?device_id=${deviceId || ''}`)
       
-      for (const brand of defaultBrands) {
-        if (brand.available) {
-          try {
-            const response = await aiImageService.getPhoneModels(brand.id)
-            if (response.success && response.models) {
-              modelsData[brand.id] = response.models
-              console.log(`✅ PhoneBrandScreen - Models loaded for ${brand.name}:`, response.models.length)
-            }
-          } catch (error) {
-            console.error(`❌ PhoneBrandScreen - Failed to load models for ${brand.name}:`, error)
-            // Will fall back to hardcoded models in individual screens
-          }
-        }
+      if (!brandsResponse.ok) {
+        throw new Error(`Failed to fetch brands: ${brandsResponse.status} ${brandsResponse.statusText}`)
       }
       
-      setApiModels(modelsData)
-      console.log('✅ PhoneBrandScreen - All models loaded')
+      const brandsResult = await brandsResponse.json()
+      
+      if (!brandsResult.success) {
+        throw new Error(`Brands API error: ${brandsResult.detail || 'Unknown error'}`)
+      }
+      
+      console.log('✅ PhoneBrandScreen - Brands loaded from Chinese API:', brandsResult.brands)
+      setBrands(brandsResult.brands)
+      
+      // Pre-load models for available brands if device_id is available
+      if (deviceId) {
+        const modelsData = {}
+        
+        for (const brand of brandsResult.brands) {
+          if (brand.available) {
+            try {
+              const modelsResponse = await fetch(`${API_BASE_URL}/api/brands/${brand.id}/models?device_id=${deviceId}`)
+              if (modelsResponse.ok) {
+                const modelsResult = await modelsResponse.json()
+                if (modelsResult.success && modelsResult.models) {
+                  modelsData[brand.id] = modelsResult.models
+                  console.log(`✅ PhoneBrandScreen - Models loaded for ${brand.name}:`, modelsResult.models.length)
+                }
+              }
+            } catch (error) {
+              console.error(`❌ PhoneBrandScreen - Failed to load models for ${brand.name}:`, error)
+            }
+          }
+        }
+        
+        setApiModels(modelsData)
+      }
+      
     } catch (error) {
-      console.error('❌ PhoneBrandScreen - Failed to load brands:', error)
-      // Use default brands anyway
-      setBrands(defaultBrands)
+      console.error('❌ PhoneBrandScreen - Failed to load brands from Chinese API:', error)
+      setError(`Failed to load brands: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -81,33 +83,38 @@ const PhoneBrandScreen = () => {
   const handleBrandSelect = (brandId) => {
     const selectedBrandData = brands.find(b => b.id === brandId)
     if (selectedBrandData?.available) {
+      if (!deviceId) {
+        alert('Device ID is required for stock lookup. Please scan the QR code from a vending machine.')
+        return
+      }
+      
       setSelectedBrand(brandId)
       setTimeout(() => {
-        // Navigate to specific model screen based on brand
+        // Navigate to specific model screen based on brand with device_id
+        const navigationState = { 
+          apiModels: apiModels[brandId],
+          deviceId: deviceId,
+          chineseBrandId: selectedBrandData.chinese_brand_id
+        }
+        
         switch(brandId) {
           case 'iphone':
-            navigate('/iphone-model', {
-              state: { apiModels: apiModels.iphone }
-            })
+            navigate('/iphone-model', { state: navigationState })
             break
           case 'samsung':
-            navigate('/samsung-model', {
-              state: { apiModels: apiModels.samsung }
-            })
+            navigate('/samsung-model', { state: navigationState })
             break
           case 'google':
-            navigate('/google-model', {
-              state: { apiModels: apiModels.google }
-            })
+            navigate('/google-model', { state: navigationState })
             break
           default:
-            navigate('/iphone-model')
+            navigate('/iphone-model', { state: navigationState })
         }
       }, 300)
     }
   }
 
-  // Loading state - simplified version without API indicators
+  // Loading state
   if (loading) {
     return (
       <div 
@@ -141,7 +148,8 @@ const PhoneBrandScreen = () => {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 20px'
           }}></div>
-          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading...</h2>
+          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading Chinese API...</h2>
+          {deviceId && <p style={{ fontSize: '14px', margin: '10px 0 0 0', opacity: 0.7 }}>Device: {deviceId}</p>}
         </div>
         
         <style>{`
@@ -150,6 +158,59 @@ const PhoneBrandScreen = () => {
             100% { transform: rotate(360deg); }
           }
         `}</style>
+      </div>
+    )
+  }
+  
+  // Error state
+  if (error) {
+    return (
+      <div 
+        style={{ 
+          minHeight: '100vh',
+          background: '#f8f8f8',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '40px 20px',
+          position: 'relative',
+          overflow: 'hidden',
+          fontFamily: 'Cubano, sans-serif'
+        }}
+      >
+        <PastelBlobs />
+        
+        <div style={{ 
+          position: 'relative', 
+          zIndex: 10,
+          textAlign: 'center',
+          color: '#474746',
+          maxWidth: '400px'
+        }}>
+          <h2 style={{ fontSize: '24px', margin: '0 0 20px 0', color: '#d32f2f' }}>Chinese API Error</h2>
+          <p style={{ fontSize: '16px', margin: '0 0 20px 0' }}>{error}</p>
+          {!deviceId && (
+            <p style={{ fontSize: '14px', margin: '0', opacity: 0.7 }}>
+              Please scan a QR code from a vending machine to access stock information.
+            </p>
+          )}
+          <button 
+            onClick={loadBrandsAndModels}
+            style={{
+              marginTop: '20px',
+              padding: '12px 24px',
+              backgroundColor: '#474746',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
@@ -236,9 +297,9 @@ const PhoneBrandScreen = () => {
               cursor: brand.available ? 'pointer' : 'not-allowed',
               transition: 'transform 0.25s ease',
               position: 'relative',
-              background: brand.frameColor,
+              background: brand.frame_color || brand.frameColor,
               border: 'none',
-              opacity: brand.available ? 1 : 1,
+              opacity: brand.available ? 1 : 0.6,
               minWidth: '210px'
             }}
             onMouseEnter={(e) => {
@@ -274,7 +335,7 @@ const PhoneBrandScreen = () => {
                   position: 'absolute',
                   top: '10px',
                   right: '16px',
-                  background: brand.buttonColor,
+                  background: brand.button_color || brand.buttonColor,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -303,7 +364,7 @@ const PhoneBrandScreen = () => {
                     style={{
                       fontSize: '22px',
                       fontWeight: 'normal',
-                      color: '#2c3e50',
+                      color: brand.available ? '#2c3e50' : '#7f8c8d',
                       letterSpacing: '-1px',
                       fontFamily: 'Cubano, sans-serif'
                     }}

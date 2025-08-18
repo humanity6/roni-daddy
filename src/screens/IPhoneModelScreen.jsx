@@ -12,30 +12,13 @@ const IPhoneModelScreen = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [iPhoneModels, setIPhoneModels] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  
+  // Get parameters from navigation state
+  const { deviceId, chineseBrandId, apiModels } = location.state || {}
 
-  // Fallback iPhone models (hardcoded)
-  const fallbackModels = [
-    'IPHONE 16 PRO MAX',
-    'IPHONE 16 PRO',
-    'IPHONE 16 PLUS',
-    'IPHONE 16',
-    'IPHONE 15 PRO MAX',
-    'IPHONE 15 PRO',
-    'IPHONE 15 PLUS',
-    'IPHONE 15',
-    'IPHONE 14 PRO MAX',
-    'IPHONE 14 PRO',
-    'IPHONE 14 PLUS',
-    'IPHONE 14',
-    'IPHONE 13 PRO MAX',
-    'IPHONE 13 PRO',
-    'IPHONE 13 MINI',
-    'IPHONE 13',
-    'IPHONE 12 PRO MAX',
-    'IPHONE 12 PRO',
-    'IPHONE 12 MINI',
-    'IPHONE 12',
-  ]
+  // No fallback models - Chinese API is required
+  console.log('IPhoneModelScreen - Parameters:', { deviceId, chineseBrandId, apiModels })
 
   useEffect(() => {
     loadModels()
@@ -44,58 +27,74 @@ const IPhoneModelScreen = () => {
   const loadModels = async () => {
     try {
       setLoading(true)
+      setError(null)
       
-      // Check if we have API models from the previous screen
-      const apiModels = location.state?.apiModels
+      if (!deviceId) {
+        throw new Error('Device ID is required for stock lookup')
+      }
       
+      // Use API models if passed from brand screen, otherwise fetch fresh data
       if (apiModels && apiModels.length > 0) {
-        console.log('✅ IPhoneModelScreen - Using API models:', apiModels.length)
-        
-        // Map API models to our format
-        const mappedModels = apiModels.map(model => 
-          model.display_name || model.name || model.e_name || `iPhone ${model.id}`
-        )
-        
-        setIPhoneModels(mappedModels)
-        
-        // Try to find IPHONE 16 in the mapped models, otherwise use the first model
-        const iphone16Index = mappedModels.findIndex(model => 
-          model.toUpperCase().includes('IPHONE 16') && !model.toUpperCase().includes('PRO') && !model.toUpperCase().includes('PLUS')
-        )
-        
-        if (iphone16Index >= 0) {
-          setSelectedModel(mappedModels[iphone16Index])
-        } else {
-          setSelectedModel(mappedModels[0])
-        }
+        console.log('✅ IPhoneModelScreen - Using pre-loaded API models:', apiModels.length)
+        setIPhoneModels(apiModels)
+        setSelectedModel(apiModels[0])
       } else {
-        console.log('🔄 IPhoneModelScreen - Using fallback models')
-        setIPhoneModels(fallbackModels)
-        setSelectedModel('IPHONE 16')
+        console.log('🔄 IPhoneModelScreen - Fetching models from Chinese API...')
+        
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+        const response = await fetch(`${API_BASE_URL}/api/brands/iphone/models?device_id=${deviceId}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch iPhone models: ${response.status} ${response.statusText}`)
+        }
+        
+        const result = await response.json()
+        
+        if (!result.success) {
+          throw new Error(`iPhone models API error: ${result.detail || 'Unknown error'}`)
+        }
+        
+        if (!result.models || result.models.length === 0) {
+          throw new Error('No iPhone models available with current stock')
+        }
+        
+        console.log('✅ IPhoneModelScreen - Models loaded from Chinese API:', result.models)
+        setIPhoneModels(result.models)
+        setSelectedModel(result.models[0])
       }
     } catch (error) {
       console.error('❌ IPhoneModelScreen - Error loading models:', error)
-      setIPhoneModels(fallbackModels)
-      setSelectedModel('IPHONE 16')
+      setError(error.message)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSubmit = () => {
-    // Find the corresponding API model data if available
-    const apiModels = location.state?.apiModels
-    let chineseApiModelId = null
-    
-    if (apiModels && apiModels.length > 0) {
-      const selectedIndex = iPhoneModels.indexOf(selectedModel)
-      if (selectedIndex >= 0 && selectedIndex < apiModels.length) {
-        chineseApiModelId = apiModels[selectedIndex].id
-      }
+    if (!selectedModel) {
+      alert('Please select a model')
+      return
     }
     
-    actions.setPhoneSelection('iphone', selectedModel.toLowerCase().replace(/\s+/g, '-'), chineseApiModelId)
-    navigate('/template-selection')
+    // Pass Chinese model data to app state
+    const selectedModelData = {
+      brand: 'iphone',
+      model: selectedModel.name || selectedModel.display_name,
+      chinese_model_id: selectedModel.chinese_model_id || selectedModel.id,
+      price: selectedModel.price,
+      stock: selectedModel.stock,
+      device_id: deviceId
+    }
+    
+    console.log('IPhoneModelScreen - Selected model data:', selectedModelData)
+    
+    actions.setPhoneSelection(selectedModelData.brand, selectedModelData.model, selectedModelData)
+    navigate('/template-selection', { 
+      state: { 
+        selectedModelData,
+        deviceId 
+      }
+    })
   }
 
   const handleBack = () => {
@@ -136,7 +135,8 @@ const IPhoneModelScreen = () => {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 20px'
           }}></div>
-          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading Models...</h2>
+          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading iPhone Models...</h2>
+          {deviceId && <p style={{ fontSize: '14px', margin: '10px 0 0 0', opacity: 0.7 }}>Device: {deviceId}</p>}
         </div>
         
         <style>{`
@@ -145,6 +145,70 @@ const IPhoneModelScreen = () => {
             100% { transform: rotate(360deg); }
           }
         `}</style>
+      </div>
+    )
+  }
+  
+  // Error state
+  if (error) {
+    return (
+      <div 
+        style={{ 
+          height: '100vh',
+          background: '#f8f8f8',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          position: 'relative',
+          overflow: 'hidden',
+          fontFamily: 'PoppinsLight, sans-serif',
+        }}
+      >
+        <PastelBlobs />
+        
+        <div style={{ 
+          position: 'relative', 
+          zIndex: 10,
+          textAlign: 'center',
+          color: '#474746',
+          maxWidth: '400px'
+        }}>
+          <h2 style={{ fontSize: '24px', margin: '0 0 20px 0', color: '#d32f2f' }}>iPhone Models Error</h2>
+          <p style={{ fontSize: '16px', margin: '0 0 20px 0' }}>{error}</p>
+          <button 
+            onClick={loadModels}
+            style={{
+              marginTop: '20px',
+              padding: '12px 24px',
+              backgroundColor: '#474746',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Retry
+          </button>
+          <button 
+            onClick={handleBack}
+            style={{
+              marginTop: '10px',
+              marginLeft: '10px',
+              padding: '12px 24px',
+              backgroundColor: 'transparent',
+              color: '#474746',
+              border: '2px solid #474746',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     )
   }
@@ -291,7 +355,9 @@ const IPhoneModelScreen = () => {
               color: '#ffffff'
             }}
           >
-            <span style={{ whiteSpace: 'wrap' }}>{selectedModel}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {typeof selectedModel === 'object' ? selectedModel.name || selectedModel.display_name : selectedModel}
+            </span>
             <div
               style={{
                 width: '40px',
@@ -329,28 +395,42 @@ const IPhoneModelScreen = () => {
                 marginTop: '5px'
               }}
             >
-              {iPhoneModels.map((model, index) => (
-                <div
-                  key={index}
-                  onClick={() => {
-                    setSelectedModel(model)
-                    setDropdownOpen(false)
-                  }}
-                  style={{
-                    padding: '12px 20px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    color: '#333',
-                    borderBottom: index < iPhoneModels.length - 1 ? '1px solid #eee' : 'none',
-                    fontFamily: 'PoppinsLight, sans-serif',
-                    transition: 'background-color 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  {model}
-                </div>
-              ))}
+              {iPhoneModels.map((model, index) => {
+                const modelName = typeof model === 'object' ? (model.name || model.display_name) : model
+                const modelStock = typeof model === 'object' ? model.stock : null
+                const modelPrice = typeof model === 'object' ? model.price : null
+                
+                return (
+                  <div
+                    key={index}
+                    onClick={() => {
+                      setSelectedModel(model)
+                      setDropdownOpen(false)
+                    }}
+                    style={{
+                      padding: '12px 20px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#333',
+                      borderBottom: index < iPhoneModels.length - 1 ? '1px solid #eee' : 'none',
+                      fontFamily: 'PoppinsLight, sans-serif',
+                      transition: 'background-color 0.2s ease',
+                      opacity: modelStock === 0 ? 0.5 : 1
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <div>{modelName}</div>
+                    {(modelStock !== null || modelPrice !== null) && (
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
+                        {modelPrice && `£${modelPrice}`}
+                        {modelStock !== null && ` • Stock: ${modelStock}`}
+                        {modelStock === 0 && ' • Out of Stock'}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

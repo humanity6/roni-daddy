@@ -12,26 +12,13 @@ const SamsungModelScreen = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [samsungModels, setSamsungModels] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  
+  // Get parameters from navigation state
+  const { deviceId, chineseBrandId, apiModels } = location.state || {}
 
-  // Fallback Samsung models (hardcoded)
-  const fallbackModels = [
-    'GALAXY S24 ULTRA',
-    'GALAXY S24+',
-    'GALAXY S24',
-    'GALAXY S23 ULTRA',
-    'GALAXY S23+',
-    'GALAXY S23',
-    'GALAXY S22 ULTRA',
-    'GALAXY S22+',
-    'GALAXY S22',
-    'GALAXY NOTE 20 ULTRA',
-    'GALAXY NOTE 20',
-    'GALAXY A54 5G',
-    'GALAXY A34 5G',
-    'GALAXY A14 5G',
-    'GALAXY Z FOLD 5',
-    'GALAXY Z FLIP 5'
-  ]
+  // No fallback models - Chinese API is required
+  console.log('SamsungModelScreen - Parameters:', { deviceId, chineseBrandId, apiModels })
 
   useEffect(() => {
     loadModels()
@@ -40,58 +27,74 @@ const SamsungModelScreen = () => {
   const loadModels = async () => {
     try {
       setLoading(true)
+      setError(null)
       
-      // Check if we have API models from the previous screen
-      const apiModels = location.state?.apiModels
+      if (!deviceId) {
+        throw new Error('Device ID is required for stock lookup')
+      }
       
+      // Use API models if passed from brand screen, otherwise fetch fresh data
       if (apiModels && apiModels.length > 0) {
-        console.log('✅ SamsungModelScreen - Using API models:', apiModels.length)
-        
-        // Map API models to our format
-        const mappedModels = apiModels.map(model => 
-          model.display_name || model.name || model.e_name || `Samsung ${model.id}`
-        )
-        
-        setSamsungModels(mappedModels)
-        
-        // Try to find GALAXY S24 in the mapped models, otherwise use the first model
-        const galaxyS24Index = mappedModels.findIndex(model => 
-          model.toUpperCase().includes('GALAXY S24') && !model.toUpperCase().includes('ULTRA') && !model.toUpperCase().includes('+')
-        )
-        
-        if (galaxyS24Index >= 0) {
-          setSelectedModel(mappedModels[galaxyS24Index])
-        } else {
-          setSelectedModel(mappedModels[0])
-        }
+        console.log('✅ SamsungModelScreen - Using pre-loaded API models:', apiModels.length)
+        setSamsungModels(apiModels)
+        setSelectedModel(apiModels[0])
       } else {
-        console.log('🔄 SamsungModelScreen - Using fallback models')
-        setSamsungModels(fallbackModels)
-        setSelectedModel('GALAXY S24')
+        console.log('🔄 SamsungModelScreen - Fetching models from Chinese API...')
+        
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+        const response = await fetch(`${API_BASE_URL}/api/brands/samsung/models?device_id=${deviceId}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch Samsung models: ${response.status} ${response.statusText}`)
+        }
+        
+        const result = await response.json()
+        
+        if (!result.success) {
+          throw new Error(`Samsung models API error: ${result.detail || 'Unknown error'}`)
+        }
+        
+        if (!result.models || result.models.length === 0) {
+          throw new Error('No Samsung models available with current stock')
+        }
+        
+        console.log('✅ SamsungModelScreen - Models loaded from Chinese API:', result.models)
+        setSamsungModels(result.models)
+        setSelectedModel(result.models[0])
       }
     } catch (error) {
       console.error('❌ SamsungModelScreen - Error loading models:', error)
-      setSamsungModels(fallbackModels)
-      setSelectedModel('GALAXY S24')
+      setError(error.message)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSubmit = () => {
-    // Find the corresponding API model data if available
-    const apiModels = location.state?.apiModels
-    let chineseApiModelId = null
-    
-    if (apiModels && apiModels.length > 0) {
-      const selectedIndex = samsungModels.indexOf(selectedModel)
-      if (selectedIndex >= 0 && selectedIndex < apiModels.length) {
-        chineseApiModelId = apiModels[selectedIndex].id
-      }
+    if (!selectedModel) {
+      alert('Please select a model')
+      return
     }
     
-    actions.setPhoneSelection('samsung', selectedModel.toLowerCase().replace(/\s+/g, '-'), chineseApiModelId)
-    navigate('/template-selection')
+    // Pass Chinese model data to app state
+    const selectedModelData = {
+      brand: 'samsung',
+      model: selectedModel.name || selectedModel.display_name,
+      chinese_model_id: selectedModel.chinese_model_id || selectedModel.id,
+      price: selectedModel.price,
+      stock: selectedModel.stock,
+      device_id: deviceId
+    }
+    
+    console.log('SamsungModelScreen - Selected model data:', selectedModelData)
+    
+    actions.setPhoneSelection(selectedModelData.brand, selectedModelData.model, selectedModelData)
+    navigate('/template-selection', { 
+      state: { 
+        selectedModelData,
+        deviceId 
+      }
+    })
   }
 
   const handleBack = () => {

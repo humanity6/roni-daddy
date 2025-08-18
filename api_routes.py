@@ -10,6 +10,7 @@ import json
 from decimal import Decimal
 from security_middleware import validate_relaxed_api_security, security_manager
 from pydantic import BaseModel
+from backend.services.chinese_api_service import get_chinese_api_service
 
 # Pydantic models for request bodies
 class StockUpdateRequest(BaseModel):
@@ -21,68 +22,216 @@ class PriceUpdateRequest(BaseModel):
 # Create API router
 router = APIRouter()
 
-
-# Brand endpoints
-@router.get("/api/brands")
-async def get_brands(include_unavailable: bool = False, db: Session = Depends(get_db)):
-    """Get all phone brands"""
+# Add new Chinese API endpoints
+@router.get("/api/chinese/stock/{device_id}/{brand_id}")
+async def get_chinese_stock(device_id: str, brand_id: str):
+    """Get stock directly from Chinese API for specific device and brand"""
     try:
-        brands = BrandService.get_all_brands(db, include_unavailable)
-        return {
-            "success": True,
-            "brands": [
-                {
-                    "id": brand.id,
-                    "name": brand.name,
-                    "display_name": brand.display_name,
-                    "frame_color": brand.frame_color,
-                    "button_color": brand.button_color,
-                    "is_available": brand.is_available,
-                    "subtitle": brand.subtitle
-                }
-                for brand in brands
-            ]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get brands: {str(e)}")
-
-@router.get("/api/brands/{brand_id}/models")
-async def get_phone_models(brand_id: str, include_unavailable: bool = False, db: Session = Depends(get_db)):
-    """Get phone models for a specific brand (by ID or name)"""
-    try:
-        # Try to find brand by ID first, then by name (case insensitive)
-        brand = BrandService.get_brand_by_id(db, brand_id)
-        if not brand:
-            brand = BrandService.get_brand_by_name(db, brand_id)
+        chinese_api = get_chinese_api_service()
+        result = chinese_api.get_stock_models(device_id, brand_id)
         
-        if not brand:
-            raise HTTPException(status_code=404, detail=f"Brand '{brand_id}' not found")
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Chinese API error: {result.get('error')}"
+            )
         
-        models = PhoneModelService.get_models_by_brand(db, brand.id, include_unavailable)
-        return {
-            "success": True,
-            "models": [
-                {
-                    "id": model.id,
-                    "name": model.name,
-                    "display_name": model.display_name,
-                    "chinese_model_id": model.chinese_model_id,
-                    "price": float(model.price),
-                    "stock": model.stock,
-                    "is_available": model.is_available and model.stock > 0
-                }
-                for model in models
-            ],
-            "brand": {
-                "id": brand.id,
-                "name": brand.name,
-                "display_name": brand.display_name
-            }
-        }
+        return result
+        
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get Chinese stock: {str(e)}")
+
+@router.get("/api/chinese/brands")
+async def get_chinese_brands():
+    """Get brands directly from Chinese API"""
+    try:
+        chinese_api = get_chinese_api_service()
+        result = chinese_api.get_brands()
+        
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Chinese API error: {result.get('error')}"
+            )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get Chinese brands: {str(e)}")
+
+
+# Brand endpoints
+@router.get("/api/brands")
+async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Get all phone brands from Chinese API with filtering"""
+    try:
+        chinese_api = get_chinese_api_service()
+        
+        # Get brands from Chinese API
+        chinese_result = chinese_api.get_brands()
+        
+        if not chinese_result.get("success"):
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Chinese API error: {chinese_result.get('error', 'Unknown error')}"
+            )
+        
+        chinese_brands = chinese_result.get("data", {}).get("data", [])
+        
+        # Filter and transform brands according to requirements
+        filtered_brands = []
+        brand_mapping = {
+            "Apple": {"id": "iphone", "name": "IPHONE", "available": True, "frame_color": "#d7efd4", "button_color": "#b9e4b4"},
+            "SAMSUNG": {"id": "samsung", "name": "SAMSUNG", "available": True, "frame_color": "#f9e1eb", "button_color": "#f5bed3"},
+            "苹果": {"id": "iphone", "name": "IPHONE", "available": True, "frame_color": "#d7efd4", "button_color": "#b9e4b4"},  # Chinese name for Apple
+            "三星": {"id": "samsung", "name": "SAMSUNG", "available": True, "frame_color": "#f9e1eb", "button_color": "#f5bed3"}  # Chinese name for Samsung
+        }
+        
+        # Always include Google as coming soon
+        filtered_brands.append({
+            "id": "google",
+            "name": "GOOGLE", 
+            "chinese_brand_id": None,
+            "frame_color": "#d8ecf4",
+            "button_color": "#d8ecf4",
+            "available": False,
+            "subtitle": "Coming Soon"
+        })
+        
+        # Process Chinese API brands
+        added_brands = set()
+        for brand in chinese_brands:
+            brand_name = brand.get("e_name", "") or brand.get("name", "")
+            chinese_brand_id = brand.get("id")
+            
+            if brand_name in brand_mapping:
+                mapping = brand_mapping[brand_name]
+                brand_id = mapping["id"]
+                
+                # Avoid duplicates
+                if brand_id not in added_brands:
+                    filtered_brands.append({
+                        "id": brand_id,
+                        "name": mapping["name"],
+                        "chinese_brand_id": chinese_brand_id,
+                        "frame_color": mapping["frame_color"],
+                        "button_color": mapping["button_color"],
+                        "available": mapping["available"],
+                        "subtitle": None
+                    })
+                    added_brands.add(brand_id)
+        
+        return {
+            "success": True,
+            "brands": filtered_brands,
+            "device_id": device_id,
+            "chinese_api_status": "connected"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get brands from Chinese API: {str(e)}")
+
+@router.get("/api/brands/{brand_id}/models")
+async def get_phone_models(brand_id: str, device_id: str, db: Session = Depends(get_db)):
+    """Get phone models for a specific brand from Chinese API with real-time stock"""
+    try:
+        if not device_id:
+            raise HTTPException(status_code=400, detail="device_id is required for stock lookup")
+        
+        chinese_api = get_chinese_api_service()
+        
+        # Get brands first to find the Chinese brand ID
+        brands_result = chinese_api.get_brands()
+        if not brands_result.get("success"):
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to get brands from Chinese API: {brands_result.get('error')}"
+            )
+        
+        # Find the Chinese brand ID for the requested brand
+        chinese_brand_id = None
+        brand_mapping = {
+            "iphone": ["Apple", "苹果"],
+            "samsung": ["SAMSUNG", "三星"],
+            "google": []  # Google not available yet
+        }
+        
+        if brand_id == "google":
+            # Google is coming soon - return empty models
+            return {
+                "success": True,
+                "models": [],
+                "brand": {
+                    "id": "google",
+                    "name": "GOOGLE",
+                    "available": False,
+                    "message": "Coming Soon"
+                },
+                "device_id": device_id
+            }
+        
+        chinese_brands = brands_result.get("data", {}).get("data", [])
+        brand_names_to_find = brand_mapping.get(brand_id, [])
+        
+        for brand in chinese_brands:
+            brand_name = brand.get("e_name", "") or brand.get("name", "")
+            if brand_name in brand_names_to_find:
+                chinese_brand_id = brand.get("id")
+                break
+        
+        if not chinese_brand_id:
+            raise HTTPException(status_code=404, detail=f"Chinese brand ID not found for brand '{brand_id}'")
+        
+        # Get stock models from Chinese API
+        stock_result = chinese_api.get_stock_models(device_id, chinese_brand_id)
+        
+        if not stock_result.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to get stock from Chinese API: {stock_result.get('error')}"
+            )
+        
+        stock_data = stock_result.get("data", {}).get("data", [])
+        
+        # Transform Chinese API response to our format
+        models = []
+        for item in stock_data:
+            if item.get("stock", 0) > 0:  # Only include models with stock
+                models.append({
+                    "id": item.get("mobile_model_id"),
+                    "chinese_model_id": item.get("mobile_model_id"),
+                    "name": item.get("mobile_model_name"),
+                    "display_name": item.get("mobile_model_name"),
+                    "price": float(item.get("price", 10)),
+                    "stock": item.get("stock", 0),
+                    "is_available": True
+                })
+        
+        return {
+            "success": True,
+            "models": models,
+            "brand": {
+                "id": brand_id,
+                "name": brand_id.upper(),
+                "chinese_brand_id": chinese_brand_id
+            },
+            "device_id": device_id,
+            "total_models": len(models),
+            "in_stock_models": len([m for m in models if m["stock"] > 0])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to get models from Chinese API: {str(e)}")
 
 # Template endpoints
 @router.get("/api/templates")

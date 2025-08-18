@@ -16,6 +16,14 @@ const PaymentScreen = () => {
   // Get vending machine session info
   const { vendingMachineSession } = appState
   const isVendingMachine = vendingMachineSession?.isVendingMachine || false
+  const deviceId = vendingMachineSession?.deviceId
+  
+  // Get Chinese model data from app state
+  const phoneSelection = appState.model || appState.brand || {}
+  
+  console.log('PaymentScreen - Device ID:', deviceId)
+  console.log('PaymentScreen - Phone Selection:', phoneSelection)
+  console.log('PaymentScreen - App State:', appState)
 
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
@@ -108,8 +116,11 @@ const PaymentScreen = () => {
     setPaymentError(null)
     
     try {
-      // Get all the order data we need
+      // Get all the order data we need from app state and location
       const { brand, model, color } = location.state || {}
+      const selectedModelData = location.state?.selectedModelData || phoneSelection
+      
+      console.log('PaymentScreen - Order data:', { brand, model, color, selectedModelData })
       
       // Store current order data in localStorage for success page
       const orderData = {
@@ -117,9 +128,11 @@ const PaymentScreen = () => {
         uploadedImages,
         imageTransforms,
         price: effectivePrice,
-        brand: brand || 'iPhone',
-        model: model || 'iPhone 15 Pro',
+        brand: selectedModelData?.brand || brand || 'iPhone',
+        model: selectedModelData?.model || model || 'iPhone 15 Pro',
         color: color || 'Natural Titanium',
+        chinese_model_id: selectedModelData?.chinese_model_id,
+        device_id: deviceId,
         template,
         inputText,
         selectedFont,
@@ -169,8 +182,19 @@ const PaymentScreen = () => {
     setPaymentError(null)
     
     try {
-      // Get all the order data we need
+      // Get all the order data we need from app state and location
       const { brand, model, color } = location.state || {}
+      const selectedModelData = location.state?.selectedModelData || phoneSelection
+      
+      if (!deviceId) {
+        throw new Error('Device ID is required for vending machine payment')
+      }
+      
+      if (!selectedModelData?.chinese_model_id) {
+        throw new Error('Chinese model ID is required for payment processing')
+      }
+      
+      console.log('PaymentScreen - Vending machine payment data:', { brand, model, color, selectedModelData, deviceId })
       
       // Store current order data in localStorage
       const orderData = {
@@ -178,9 +202,11 @@ const PaymentScreen = () => {
         uploadedImages,
         imageTransforms,
         price: effectivePrice,
-        brand: brand || 'iPhone',
-        model: model || 'iPhone 15 Pro',
+        brand: selectedModelData?.brand || brand || 'iPhone',
+        model: selectedModelData?.model || model || 'iPhone 15 Pro',
         color: color || 'Natural Titanium',
+        chinese_model_id: selectedModelData?.chinese_model_id,
+        device_id: deviceId,
         template,
         inputText,
         selectedFont,
@@ -229,10 +255,10 @@ const PaymentScreen = () => {
 
           const third_id = generateThirdId()
           
-          // Prepare payment data for Chinese API
+          // Prepare payment data for Chinese API using correct Chinese model ID and device ID
           const chinesePaymentData = {
-            mobile_model_id: model || 'UNKNOWN_MODEL', // Use the phone model name
-            device_id: vendingMachineSession.machineId || vendingMachineSession.sessionId, // Use machine ID as device identifier, fallback to session ID
+            mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
+            device_id: deviceId, // Use device_id from QR parameters
             third_id: third_id,
             pay_amount: effectivePrice,
             pay_type: 6 // Card payment for vending machines
@@ -508,6 +534,34 @@ const PaymentScreen = () => {
                   Location: {vendingMachineSession.location}
                 </p>
               )}
+              {deviceId && (
+                <p className="text-green-700 text-xs text-center mt-1">
+                  Device: {deviceId}
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Chinese API Status Indicators */}
+          {!deviceId && (
+            <div className="mt-4 px-6 py-3 bg-yellow-100 border-2 border-yellow-300 rounded-xl">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <p className="text-yellow-800 font-semibold text-sm">
+                  Warning: No device ID - scan QR code from vending machine
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {(!phoneSelection?.chinese_model_id && !location.state?.selectedModelData?.chinese_model_id) && (
+            <div className="mt-4 px-6 py-3 bg-red-100 border-2 border-red-300 rounded-xl">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                <p className="text-red-800 font-semibold text-sm">
+                  Error: No Chinese model ID - please select model again
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -546,7 +600,7 @@ const PaymentScreen = () => {
               <div className="rounded-full bg-white p-[6px]">
                 <button
                   onClick={handlePayViaVendingMachine}
-                  disabled={isProcessingPayment}
+                  disabled={isProcessingPayment || !deviceId || (!phoneSelection?.chinese_model_id && !location.state?.selectedModelData?.chinese_model_id)}
                   className="px-8 py-4 rounded-full flex items-center justify-center bg-green-400 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]"
                 >
                   {isProcessingPayment ? '...' : 'Pay via Machine'}

@@ -13,6 +13,7 @@ const initialState = {
   vendingMachineSession: {
     isVendingMachine: false,
     machineId: null,
+    deviceId: null,  // Device ID for Chinese API stock/model queries
     sessionId: null,
     location: null,
     machineInfo: null,
@@ -225,8 +226,14 @@ export const AppStateProvider = ({ children }) => {
     const sessionId = searchParams.get('session')
     const qrSession = searchParams.has('qr')
     const machineId = searchParams.get('machine_id')
+    const deviceId = searchParams.get('device_id') || machineId  // device_id for Chinese API, fallback to machine_id
     const vendingSessionId = searchParams.get('session_id')
     const location = searchParams.get('location')
+    const lang = searchParams.get('lang')
+    
+    console.log('QR Parameters extracted:', {
+      sessionId, qrSession, machineId, deviceId, vendingSessionId, location, lang
+    })
     
     if (sessionId || qrSession) {
       dispatch({
@@ -236,22 +243,27 @@ export const AppStateProvider = ({ children }) => {
     }
     
     // Handle vending machine QR parameters
-    if (qrSession && machineId && vendingSessionId) {
+    if (qrSession && (machineId || deviceId)) {
       const vendingMachineData = {
         isVendingMachine: true,
         machineId,
+        deviceId,  // Store device_id separately for Chinese API
         sessionId: vendingSessionId,
         location,
         sessionStatus: 'qr_scanned'
       }
+      
+      console.log('Setting vending machine session:', vendingMachineData)
       
       dispatch({
         type: ACTIONS.SET_VENDING_MACHINE_SESSION,
         payload: vendingMachineData
       })
       
-      // Register user with vending machine session
-      registerWithVendingMachine(vendingSessionId, machineId, location)
+      // Register user with vending machine session if we have session ID
+      if (vendingSessionId && machineId) {
+        registerWithVendingMachine(vendingSessionId, machineId, location)
+      }
     }
   }, [searchParams])
   
