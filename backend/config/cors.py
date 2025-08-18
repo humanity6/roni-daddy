@@ -2,11 +2,13 @@
 
 # CORS allowed origins
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Mobile app
+    "http://localhost:5173",  # Mobile app (Vite dev server)
+    "http://localhost:8000",  # Frontend served by FastAPI
     "http://localhost:3000",   # Admin dashboard
     "http://localhost:3001",   # Admin dashboard alternate
     "http://192.168.100.4:5173",  # Your IP address
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:8000",   # FastAPI served frontend
     "https://pimp-my-case.vercel.app",  # Production frontend
     "https://pimp-my-case.vercel.app/",  # With trailing slash
     "https://pimp-my-case-arshads-projects-c0bbf026.vercel.app",  # Main deployment
