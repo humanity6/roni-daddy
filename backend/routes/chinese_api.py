@@ -944,6 +944,168 @@ async def get_order_download_links(
             "order_id": order_id
         }
 
+@router.get("/brands")
+async def get_chinese_brands(
+    http_request: Request
+):
+    """Get brand list from Chinese API"""
+    try:
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
+        
+        # Import Chinese API service
+        from backend.services.chinese_payment_service import get_chinese_brands
+        
+        # Fetch brands from Chinese API
+        result = get_chinese_brands()
+        
+        if result.get("success"):
+            # Filter and order brands: iPhone first, Samsung second, Google third (unavailable)
+            all_brands = result.get("brands", [])
+            
+            # Find iPhone and Samsung brands
+            iphone_brand = None
+            samsung_brand = None
+            
+            for brand in all_brands:
+                e_name = brand.get("e_name", "").upper()
+                if e_name == "APPLE":
+                    iphone_brand = {
+                        "id": brand.get("id"),
+                        "e_name": "iPhone", 
+                        "name": "iPhone",
+                        "available": True,
+                        "order": 1
+                    }
+                elif e_name == "SAMSUNG":
+                    samsung_brand = {
+                        "id": brand.get("id"),
+                        "e_name": "Samsung",
+                        "name": "Samsung", 
+                        "available": True,
+                        "order": 2
+                    }
+            
+            # Create filtered brand list
+            filtered_brands = []
+            
+            if iphone_brand:
+                filtered_brands.append(iphone_brand)
+            
+            if samsung_brand:
+                filtered_brands.append(samsung_brand)
+            
+            # Add Google as unavailable
+            filtered_brands.append({
+                "id": "GOOGLE_UNAVAILABLE",
+                "e_name": "Google",
+                "name": "Google",
+                "available": False,
+                "order": 3,
+                "message": "Currently unavailable"
+            })
+            
+            return {
+                "success": True,
+                "brands": filtered_brands,
+                "total_brands": len(filtered_brands),
+                "available_brands": len([b for b in filtered_brands if b.get("available", False)]),
+                "message": f"Filtered brands: {len([b for b in filtered_brands if b.get('available', False)])} available, {len([b for b in filtered_brands if not b.get('available', False)])} unavailable",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.get("message", "Failed to fetch brands"),
+                "brands": [],
+                "fallback": True  # Indicates frontend should use fallback
+            }
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "brands": [],
+            "fallback": True
+        }
+
+@router.get("/stock/{device_id}/{brand_id}")
+async def get_chinese_stock(
+    device_id: str,
+    brand_id: str,
+    http_request: Request
+):
+    """Get stock list for a specific brand and device from Chinese API"""
+    try:
+        # Use relaxed security for all users
+        security_info = validate_relaxed_api_security(http_request)
+        
+        # Sanitize inputs
+        from security_middleware import security_manager
+        device_id = security_manager.sanitize_string_input(device_id, 50)
+        brand_id = security_manager.sanitize_string_input(brand_id, 50)
+        
+        # Check if brand is unavailable (like Google)
+        if brand_id == "GOOGLE_UNAVAILABLE":
+            return {
+                "success": False,
+                "error": "Brand currently unavailable",
+                "stock_items": [],
+                "available_items": [],
+                "device_id": device_id,
+                "brand_id": brand_id,
+                "message": "Google phones are currently unavailable"
+            }
+        
+        # Import Chinese API service
+        from backend.services.chinese_payment_service import get_chinese_stock
+        
+        # Fetch stock from Chinese API
+        result = get_chinese_stock(device_id, brand_id)
+        
+        if result.get("success"):
+            stock_items = result.get("stock_items", [])
+            
+            # Filter only items with stock > 0
+            available_items = [item for item in stock_items if item.get("stock", 0) > 0]
+            
+            return {
+                "success": True,
+                "stock_items": stock_items,
+                "available_items": available_items,
+                "total_items": result.get("total_items", 0),
+                "available_count": len(available_items),
+                "device_id": device_id,
+                "brand_id": brand_id,
+                "message": f"Found {len(available_items)} available models out of {result.get('total_items', 0)} total",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.get("message", "Failed to fetch stock"),
+                "stock_items": [],
+                "available_items": [],
+                "device_id": device_id,
+                "brand_id": brand_id,
+                "fallback": True
+            }
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "stock_items": [],
+            "available_items": [],
+            "device_id": device_id,
+            "brand_id": brand_id,
+            "fallback": True
+        }
+
 @router.get("/images/batch-download")
 async def get_batch_download_links(
     http_request: Request,

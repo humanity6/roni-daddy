@@ -71,26 +71,139 @@ class AIImageService {
 
 
   /**
-   * Get available phone models for a specific brand
-   * @param {string} brandId - Brand ID from Chinese API
-   * @returns {Promise<Object>} Models response with fallback
+   * Get available phone brands from Chinese API
+   * @returns {Promise<Object>} Brands response
    */
-  async getPhoneModels(brandId) {
+  async getChineseBrands() {
     try {
-      console.log('🔍 Service - Getting phone models for brand:', brandId)
+      console.log('🔍 Service - Getting brands from Chinese API')
       
-      const response = await fetch(`${API_BASE_URL}/api/brands/${brandId}/models`)
+      const response = await fetch(`${API_BASE_URL}/api/chinese/brands`)
       
       if (!response.ok) {
-        throw new Error(`Models request failed: ${response.status}`)
+        throw new Error(`Brands request failed: ${response.status}`)
       }
       
       const result = await response.json()
-      console.log('🔍 Service - Models received:', result)
-      return result
+      console.log('🔍 Service - Brands received:', result)
+      
+      if (result.success) {
+        return result
+      } else {
+        console.warn('Chinese API brands failed, using fallback data')
+        return this.getFallbackBrands()
+      }
+    } catch (error) {
+      console.error('Get Chinese Brands Error:', error)
+      console.warn('Using fallback brands due to error')
+      return this.getFallbackBrands()
+    }
+  }
+
+  /**
+   * Get available phone models for a specific brand and device from Chinese API
+   * @param {string} brandId - Brand ID from Chinese API
+   * @param {string} deviceId - Device ID for stock check
+   * @returns {Promise<Object>} Models response with stock data
+   */
+  async getPhoneModels(brandId, deviceId = '1CBRONIQRWQQ') {
+    try {
+      console.log('🔍 Service - Getting phone models for brand:', brandId, 'device:', deviceId)
+      
+      const response = await fetch(`${API_BASE_URL}/api/chinese/stock/${deviceId}/${brandId}`)
+      
+      if (!response.ok) {
+        throw new Error(`Stock request failed: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log('🔍 Service - Stock data received:', result)
+      
+      if (result.success) {
+        return {
+          success: true,
+          models: result.available_items || result.stock_items || [],
+          total_models: result.available_count || result.total_items || 0,
+          device_id: result.device_id,
+          brand_id: result.brand_id,
+          message: result.message
+        }
+      } else {
+        console.warn('Chinese API stock failed, using fallback data')
+        return this.getFallbackModels(brandId)
+      }
     } catch (error) {
       console.error('Get Phone Models Error:', error)
-      throw error
+      console.warn('Using fallback models due to error')
+      return this.getFallbackModels(brandId)
+    }
+  }
+
+  /**
+   * Get fallback brand data when Chinese API is unavailable
+   * @returns {Object} Fallback brands response
+   */
+  getFallbackBrands() {
+    const fallbackBrands = [
+      { 
+        id: 'BR20250111000002', 
+        e_name: 'iPhone', 
+        name: 'iPhone',
+        available: true,
+        order: 1
+      },
+      { 
+        id: 'BR020250120000001', 
+        e_name: 'Samsung', 
+        name: 'Samsung',
+        available: true,
+        order: 2
+      },
+      { 
+        id: 'GOOGLE_UNAVAILABLE', 
+        e_name: 'Google', 
+        name: 'Google',
+        available: false,
+        order: 3,
+        message: 'Currently unavailable'
+      }
+    ]
+    
+    return {
+      success: true,
+      brands: fallbackBrands,
+      total_brands: fallbackBrands.length,
+      available_brands: fallbackBrands.filter(b => b.available).length,
+      fallback: true,
+      message: 'Using fallback brand data (iPhone, Samsung available - Google unavailable)'
+    }
+  }
+
+  /**
+   * Get fallback model data when Chinese API is unavailable
+   * @param {string} brandId - Brand ID
+   * @returns {Object} Fallback models response
+   */
+  getFallbackModels(brandId) {
+    const fallbackModels = {
+      'BR20250111000002': [
+        { mobile_model_id: 'MM1020250226000002', mobile_model_name: 'iPhone 16 Pro Max', price: '100', stock: 2 },
+        { mobile_model_id: 'MM1020250227000001', mobile_model_name: 'iPhone 15 Pro', price: '95', stock: 1 }
+      ],
+      'BR020250120000001': [
+        { mobile_model_id: 'MM020250120000002', mobile_model_name: 'Samsung Galaxy S24', price: '90', stock: 3 }
+      ]
+    }
+    
+    const models = fallbackModels[brandId] || []
+    
+    return {
+      success: true,
+      models: models,
+      total_models: models.length,
+      fallback: true,
+      brand_id: brandId,
+      message: 'Using fallback model data'
     }
   }
 

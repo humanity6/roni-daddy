@@ -142,17 +142,62 @@ async def initialize_vending_payment(
         # Extract order details
         brand_name = order_summary.get("brand", "")
         model_name = order_summary.get("model", "")
+        brand_id = order_summary.get("brand_id", "")
         payment_amount = session.payment_amount or order_summary.get("price", 19.99)
         
-        # Look up phone model in database
-        brand = BrandService.get_brand_by_name(db, brand_name) if brand_name else None
-        phone_model = PhoneModelService.get_model_by_name(db, model_name, brand.id) if brand and model_name else None
+        # Validate stock availability with Chinese API
+        mobile_model_id = None
+        stock_available = False
+        
+        if brand_id and session.machine_id:
+            try:
+                # Import Chinese API service
+                from backend.services.chinese_payment_service import get_chinese_stock
+                
+                # Get real-time stock data from Chinese API
+                stock_result = get_chinese_stock(session.machine_id, brand_id)
+                
+                if stock_result.get("success"):
+                    stock_items = stock_result.get("stock_items", [])
+                    
+                    # Find the specific model in stock
+                    for item in stock_items:
+                        if (item.get("mobile_model_name") == model_name and 
+                            item.get("stock", 0) > 0):
+                            mobile_model_id = item.get("mobile_model_id")
+                            stock_available = True
+                            print(f"✅ Stock validated: {model_name} (ID: {mobile_model_id}) has {item.get('stock')} units")
+                            break
+                    
+                    if not stock_available:
+                        print(f"❌ Stock validation failed: {model_name} not available or out of stock")
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Selected model '{model_name}' is not available or out of stock"
+                        )
+                else:
+                    print(f"⚠️  Chinese API stock check failed: {stock_result.get('message')}")
+                    # Fallback to local database lookup
+                    brand = BrandService.get_brand_by_name(db, brand_name) if brand_name else None
+                    phone_model = PhoneModelService.get_model_by_name(db, model_name, brand.id) if brand and model_name else None
+                    mobile_model_id = get_mobile_model_id(phone_model, db)
+                    
+            except Exception as e:
+                print(f"❌ Stock validation error: {str(e)}")
+                # Fallback to local database lookup
+                brand = BrandService.get_brand_by_name(db, brand_name) if brand_name else None
+                phone_model = PhoneModelService.get_model_by_name(db, model_name, brand.id) if brand and model_name else None
+                mobile_model_id = get_mobile_model_id(phone_model, db)
+        else:
+            print(f"❌ Missing required data for stock validation: brand_id={brand_id}, machine_id={session.machine_id}")
+            raise HTTPException(status_code=400, detail="Missing brand ID or machine ID for stock validation")
         
         # Generate third_id
         third_id = generate_third_id()
         
-        # Get mobile model ID for Chinese API
-        mobile_model_id = get_mobile_model_id(phone_model, db)
+        # Ensure we have a mobile_model_id
+        if not mobile_model_id:
+            raise HTTPException(status_code=400, detail="Could not determine mobile model ID for payment processing")
         
         # Prepare Chinese payment data
         from backend.schemas.chinese_api import ChinesePaymentDataRequest

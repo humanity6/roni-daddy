@@ -219,6 +219,166 @@ class ChinesePaymentAPIClient:
                 "data": {"id": "", "third_id": third_id}
             }
 
+    def get_brand_list(self) -> Dict[str, Any]:
+        """Get brand list from Chinese API"""
+        try:
+            logger.info("Fetching brand list from Chinese API")
+            
+            # Ensure we're authenticated
+            if not self.ensure_authenticated():
+                return {
+                    "success": False,
+                    "message": "Authentication failed",
+                    "brands": []
+                }
+            
+            # Empty payload for brand list
+            payload = {}
+            signature = self.generate_signature(payload)
+            
+            headers = {
+                "Authorization": self.token,
+                "sign": signature,
+                "req_source": "en"
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/brand/list",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            logger.info(f"Brand list response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(f"Brand list response: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                
+                if data.get("code") == 200:
+                    brands = data.get("data", [])
+                    logger.info(f"Successfully fetched {len(brands)} brands")
+                    return {
+                        "success": True,
+                        "brands": brands,
+                        "total_brands": len(brands)
+                    }
+                else:
+                    logger.warning(f"Brand list API returned error: {data.get('code')} - {data.get('msg')}")
+                    return {
+                        "success": False,
+                        "message": data.get('msg', 'Unknown error'),
+                        "brands": []
+                    }
+            else:
+                error_msg = f"Brand list failed - HTTP {response.status_code}"
+                logger.error(f"{error_msg}: {response.text}")
+                return {
+                    "success": False,
+                    "message": error_msg,
+                    "brands": []
+                }
+                
+        except requests.RequestException as e:
+            error_msg = f"Brand list request failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg,
+                "brands": []
+            }
+        except Exception as e:
+            error_msg = f"Brand list exception: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg,
+                "brands": []
+            }
+
+    def get_stock_list(self, device_id: str, brand_id: str) -> Dict[str, Any]:
+        """Get stock list for a specific brand and device from Chinese API"""
+        try:
+            logger.info(f"Fetching stock list from Chinese API - device_id: {device_id}, brand_id: {brand_id}")
+            
+            # Ensure we're authenticated
+            if not self.ensure_authenticated():
+                return {
+                    "success": False,
+                    "message": "Authentication failed",
+                    "stock_items": []
+                }
+            
+            # Payload for stock list
+            payload = {
+                "device_id": device_id,
+                "brand_id": brand_id
+            }
+            
+            signature = self.generate_signature(payload)
+            
+            headers = {
+                "Authorization": self.token,
+                "sign": signature,
+                "req_source": "en"
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/stock/list",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            logger.info(f"Stock list response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(f"Stock list response: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                
+                if data.get("code") == 200:
+                    stock_items = data.get("data", [])
+                    logger.info(f"Successfully fetched {len(stock_items)} stock items for brand {brand_id}")
+                    return {
+                        "success": True,
+                        "stock_items": stock_items,
+                        "total_items": len(stock_items),
+                        "device_id": device_id,
+                        "brand_id": brand_id
+                    }
+                else:
+                    logger.warning(f"Stock list API returned error: {data.get('code')} - {data.get('msg')}")
+                    return {
+                        "success": False,
+                        "message": data.get('msg', 'Unknown error'),
+                        "stock_items": []
+                    }
+            else:
+                error_msg = f"Stock list failed - HTTP {response.status_code}"
+                logger.error(f"{error_msg}: {response.text}")
+                return {
+                    "success": False,
+                    "message": error_msg,
+                    "stock_items": []
+                }
+                
+        except requests.RequestException as e:
+            error_msg = f"Stock list request failed: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg,
+                "stock_items": []
+            }
+        except Exception as e:
+            error_msg = f"Stock list exception: {str(e)}"
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "message": error_msg,
+                "stock_items": []
+            }
+
     def test_connection(self) -> Dict[str, Any]:
         """Test connection and authentication with Chinese API"""
         try:
@@ -269,3 +429,13 @@ def test_chinese_api_connection() -> Dict[str, Any]:
     """Convenience function to test Chinese API connection"""
     client = get_chinese_payment_client()
     return client.test_connection()
+
+def get_chinese_brands() -> Dict[str, Any]:
+    """Convenience function to get brand list from Chinese API"""
+    client = get_chinese_payment_client()
+    return client.get_brand_list()
+
+def get_chinese_stock(device_id: str, brand_id: str) -> Dict[str, Any]:
+    """Convenience function to get stock list from Chinese API"""
+    client = get_chinese_payment_client()
+    return client.get_stock_list(device_id, brand_id)

@@ -43,26 +43,6 @@ async def get_chinese_stock(device_id: str, brand_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get Chinese stock: {str(e)}")
 
-@router.get("/api/chinese/brands")
-async def get_chinese_brands():
-    """Get brands directly from Chinese API"""
-    try:
-        chinese_api = get_chinese_api_service()
-        result = chinese_api.get_brands()
-        
-        if not result.get("success"):
-            raise HTTPException(
-                status_code=500,
-                detail=f"Chinese API error: {result.get('error')}"
-            )
-        
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get Chinese brands: {str(e)}")
-
 
 # Brand endpoints
 @router.get("/api/brands")  
