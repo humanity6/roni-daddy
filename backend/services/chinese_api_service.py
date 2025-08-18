@@ -49,7 +49,10 @@ class ChineseAPIService:
         
         # Generate MD5 hash
         signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
-        print(f"Generated signature for params {params}: {signature}")
+        try:
+            print(f"Generated signature for params {params}: {signature}")
+        except UnicodeEncodeError:
+            print(f"Generated signature (params contain non-ASCII): {signature}")
         
         return signature
     
@@ -80,25 +83,37 @@ class ChineseAPIService:
                 headers=headers,
                 timeout=self.config.timeout
             )
+            response.encoding = 'utf-8'  # Ensure proper encoding
             
             if response.status_code == 200:
                 data = response.json()
-                print(f"Chinese API response for {endpoint}: {data}")
+                try:
+                    print(f"Chinese API response for {endpoint}: {data}")
+                except UnicodeEncodeError:
+                    print(f"Chinese API response for {endpoint}: [response contains non-ASCII characters]")
                 return {
                     "success": data.get("code") == 200,
                     "data": data,
                     "message": data.get("msg", "Success")
                 }
             else:
+                try:
+                    error_text = response.text
+                except UnicodeDecodeError:
+                    error_text = "[response contains non-decodable characters]"
                 return {
                     "success": False,
-                    "error": f"HTTP {response.status_code}: {response.text}",
+                    "error": f"HTTP {response.status_code}: {error_text}",
                     "data": None
                 }
         except Exception as e:
+            try:
+                error_msg = str(e)
+            except UnicodeEncodeError:
+                error_msg = "Error contains non-ASCII characters - connection or encoding issue"
             return {
                 "success": False,
-                "error": str(e),
+                "error": error_msg,
                 "data": None
             }
     
@@ -113,7 +128,10 @@ class ChineseAPIService:
         
         if result.get("success") and result.get("data", {}).get("data", {}).get("token"):
             self.token = result["data"]["data"]["token"]
-            print(f"Chinese API login successful, token: {self.token[:20]}...")
+            try:
+                print(f"Chinese API login successful, token: {self.token[:20]}...")
+            except UnicodeEncodeError:
+                print("Chinese API login successful, token received")
         
         return result
     

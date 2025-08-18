@@ -65,20 +65,25 @@ async def get_chinese_brands():
 
 
 # Brand endpoints
-@router.get("/api/brands")
+@router.get("/api/brands")  
 async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Get all phone brands from Chinese API with filtering"""
     try:
+        print("🔍 Starting get_brands API call")
         chinese_api = get_chinese_api_service()
+        print("🔍 Chinese API service obtained")
         
         # Get brands from Chinese API
         chinese_result = chinese_api.get_brands()
+        print(f"🔍 Chinese API call completed, success: {chinese_result.get('success')}")
         
         if not chinese_result.get("success"):
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Chinese API error: {chinese_result.get('error', 'Unknown error')}"
-            )
+            try:
+                error_msg = chinese_result.get('error', 'Unknown error')
+                error_detail = f"Chinese API error: {error_msg}"
+            except UnicodeEncodeError:
+                error_detail = "Chinese API error: Response contains non-ASCII characters"
+            raise HTTPException(status_code=500, detail=error_detail)
         
         chinese_brands = chinese_result.get("data", {}).get("data", [])
         
@@ -86,9 +91,7 @@ async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_
         filtered_brands = []
         brand_mapping = {
             "Apple": {"id": "iphone", "name": "IPHONE", "available": True, "frame_color": "#d7efd4", "button_color": "#b9e4b4"},
-            "SAMSUNG": {"id": "samsung", "name": "SAMSUNG", "available": True, "frame_color": "#f9e1eb", "button_color": "#f5bed3"},
-            "苹果": {"id": "iphone", "name": "IPHONE", "available": True, "frame_color": "#d7efd4", "button_color": "#b9e4b4"},  # Chinese name for Apple
-            "三星": {"id": "samsung", "name": "SAMSUNG", "available": True, "frame_color": "#f9e1eb", "button_color": "#f5bed3"}  # Chinese name for Samsung
+            "SAMSUNG": {"id": "samsung", "name": "SAMSUNG", "available": True, "frame_color": "#f9e1eb", "button_color": "#f5bed3"}
         }
         
         # Always include Google as coming soon
@@ -105,7 +108,18 @@ async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_
         # Process Chinese API brands
         added_brands = set()
         for brand in chinese_brands:
-            brand_name = brand.get("e_name", "") or brand.get("name", "")
+            # Try English name first, then Chinese name
+            brand_name = brand.get("e_name", "")
+            if not brand_name:
+                chinese_name = brand.get("name", "")
+                # Map common Chinese brand names to English
+                if chinese_name == "\u82f9\u679c":  # 苹果 (Apple in Chinese)
+                    brand_name = "Apple"
+                elif chinese_name == "\u4e09\u661f":  # 三星 (Samsung in Chinese)  
+                    brand_name = "SAMSUNG"
+                else:
+                    brand_name = chinese_name
+                    
             chinese_brand_id = brand.get("id")
             
             if brand_name in brand_mapping:
@@ -135,7 +149,14 @@ async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get brands from Chinese API: {str(e)}")
+        # Safe error handling for non-ASCII characters
+        try:
+            error_msg = repr(e)  # Use repr instead of str
+            if len(error_msg) > 200:
+                error_msg = error_msg[:200] + "..."
+        except:
+            error_msg = "Exception contains non-representable characters"
+        raise HTTPException(status_code=500, detail=f"Failed to get brands from Chinese API: {error_msg}")
 
 @router.get("/api/brands/{brand_id}/models")
 async def get_phone_models(brand_id: str, device_id: str, db: Session = Depends(get_db)):
@@ -231,7 +252,11 @@ async def get_phone_models(brand_id: str, device_id: str, db: Session = Depends(
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to get models from Chinese API: {str(e)}")
+        try:
+            error_msg = str(e)
+        except UnicodeEncodeError:
+            error_msg = "Error contains non-ASCII characters"
+        raise HTTPException(status_code=500, detail=f"Failed to get models from Chinese API: {error_msg}")
 
 # Template endpoints
 @router.get("/api/templates")
