@@ -9,7 +9,7 @@ import os
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("/api")
 async def root():
     return {"message": "PimpMyCase API - Database Edition", "status": "active", "version": "2.0.0"}
 

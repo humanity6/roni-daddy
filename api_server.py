@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 
 # Standard library imports
 from typing import Optional, List
@@ -102,7 +103,13 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI app
 app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
 
-# Include API routes
+# Add CORS middleware
+app.add_middleware(CORSMiddleware, **CORS_CONFIG)
+
+# Add exception handlers
+app.exception_handler(RequestValidationError)(validation_exception_handler)
+
+# Include API routes FIRST (higher priority)
 app.include_router(router)
 
 # Include modular route modules
@@ -112,11 +119,33 @@ app.include_router(payment_router)
 app.include_router(vending_router)
 app.include_router(chinese_router)
 
-# Add CORS middleware
-app.add_middleware(CORSMiddleware, **CORS_CONFIG)
-
-# Add exception handlers
-app.exception_handler(RequestValidationError)(validation_exception_handler)
+# Mount static files for frontend (after API routes)
+import os
+if os.path.exists("dist"):
+    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+    app.mount("/fonts", StaticFiles(directory="dist/fonts"), name="fonts") 
+    app.mount("/ui-mockups", StaticFiles(directory="dist/ui-mockups"), name="ui-mockups")
+    
+    # Serve individual static files and SPA fallback (LAST - lowest priority)
+    @app.get("/{filename:path}")
+    async def serve_static_files(filename: str):
+        """Serve static files from dist directory or SPA fallback"""
+        # List of files that should be served from dist
+        static_files = [
+            "index.html", "manifest.json", "sw.js", ".htaccess",
+            "logo.png", "filmstrip-case.png", "filmstrip-template.png", 
+            "blueblob.svg", "google blob.svg", "iphoneblob.svg", "samsung blob.svg",
+            "phone cover cropped.png", "phone-template.png", "logo (original).png"
+        ]
+        
+        # If it's a static file, serve it
+        if filename in static_files or filename == "":
+            file_path = os.path.join("dist", filename if filename else "index.html")
+            if os.path.exists(file_path):
+                return FileResponse(file_path)
+        
+        # For all other paths (SPA routes), serve index.html
+        return FileResponse("dist/index.html")
 
 # All endpoints have been moved to modular route modules:
 # - Basic endpoints (root, favicon, health, database) -> basic_router
