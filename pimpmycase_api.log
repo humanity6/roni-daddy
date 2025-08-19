@@ -26,3 +26,73 @@
   }
 }
 2025-08-18 21:14:43,532 - backend.services.chinese_payment_service - INFO - Login successful! Token: eyJhbGciOiJIUzUxMiJ9...
+2025-08-18 21:39:19,991 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API
+2025-08-18 21:39:19,991 - backend.services.chinese_payment_service - INFO - Authenticating with Chinese API
+2025-08-18 21:39:19,991 - backend.services.chinese_payment_service - DEBUG - Signature string: taharizvi.ai@gmail.comEN112233mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-08-18 21:39:19,991 - backend.services.chinese_payment_service - DEBUG - Generated signature: a22664d06749e18629f68935d2a63755
+2025-08-18 21:39:22,852 - backend.services.chinese_payment_service - INFO - Login response status: 200
+2025-08-18 21:39:22,852 - backend.services.chinese_payment_service - DEBUG - Login response: {
+  "msg": "操作成功",
+  "code": 200,
+  "data": {
+    "id": "MEA102507030002",
+    "account": "taharizvi.ai@gmail.com",
+    "token": "eyJhbGciOiJIUzUxMiJ9.eyJtb2JpbGVTaGVsbF9sb2dpbl91c2VyX2tleToiOiJ0YWhhcml6dmkuYWlAZ21haWwuY29tIn0.jUNZ4VRJJ1eCpwGckFoI9SlP3yXabvWx5Zy29rQWC7mcAPgXg2mH53zOj-fHExapih5mvRtBwJPsUIK2IX_zsg"
+  }
+}
+2025-08-18 21:39:22,852 - backend.services.chinese_payment_service - INFO - Login successful! Token: eyJhbGciOiJIUzUxMiJ9...
+2025-08-18 21:39:22,852 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-08-18 21:39:22,852 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-08-18 21:39:23,435 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-08-18 21:39:23,435 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "msg": "操作成功",
+  "code": 200,
+  "data": [
+    {
+      "e_name": "测试品牌",
+      "name": "测试品牌",
+      "id": "BR102507260001"
+    },
+    {
+      "e_name": "Apple",
+      "name": "苹果",
+      "id": "BR20250111000002"
+    },
+    {
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "id": "BR020250120000001"
+    },
+    {
+      "e_name": "HUAWEI",
+      "name": "华为",
+      "id": "BR102504010001"
+    },
+    {
+      "e_name": "Redmi",
+      "name": "红米",
+      "id": "BR102504060001"
+    },
+    {
+      "e_name": "OPPO",
+      "name": "OPPO",
+      "id": "BR102504020001"
+    },
+    {
+      "e_name": "VIVO",
+      "name": "VIVO",
+      "id": "BR102504020002"
+    },
+    {
+      "e_name": "Xiaomi",
+      "name": "小米",
+      "id": "BR20250111000001"
+    },
+    {
+      "e_name": "HONOR",
+      "name": "荣耀",
+      "id": "BR102504070001"
+    }
+  ]
+}
+2025-08-18 21:39:23,435 - backend.services.chinese_payment_service - INFO - Successfully fetched 9 brands

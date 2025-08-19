@@ -24,7 +24,8 @@
       "Bash(grep:*)",
       "Bash(cp:*)",
       "Bash(mv:*)",
-      "Bash(move:*)"
+      "Bash(move:*)",
+      "Bash(set PYTHONIOENCODING=utf-8)"
     ],
     "deny": []
   }

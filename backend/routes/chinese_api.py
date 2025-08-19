@@ -1017,8 +1017,7 @@ async def get_chinese_brands(
             return {
                 "success": False,
                 "error": result.get("message", "Failed to fetch brands"),
-                "brands": [],
-                "fallback": True  # Indicates frontend should use fallback
+                "brands": []
             }
             
     except Exception as e:
@@ -1027,8 +1026,7 @@ async def get_chinese_brands(
         return {
             "success": False,
             "error": str(e),
-            "brands": [],
-            "fallback": True
+            "brands": []
         }
 
 @router.get("/stock/{device_id}/{brand_id}")
@@ -1089,8 +1087,7 @@ async def get_chinese_stock(
                 "stock_items": [],
                 "available_items": [],
                 "device_id": device_id,
-                "brand_id": brand_id,
-                "fallback": True
+                "brand_id": brand_id
             }
             
     except Exception as e:
@@ -1102,8 +1099,7 @@ async def get_chinese_stock(
             "stock_items": [],
             "available_items": [],
             "device_id": device_id,
-            "brand_id": brand_id,
-            "fallback": True
+            "brand_id": brand_id
         }
 
 @router.get("/images/batch-download")

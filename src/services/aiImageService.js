@@ -90,13 +90,11 @@ class AIImageService {
       if (result.success) {
         return result
       } else {
-        console.warn('Chinese API brands failed, using fallback data')
-        return this.getFallbackBrands()
+        throw new Error(`Chinese API brands failed: ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Get Chinese Brands Error:', error)
-      console.warn('Using fallback brands due to error')
-      return this.getFallbackBrands()
+      throw error
     }
   }
 
@@ -129,83 +127,15 @@ class AIImageService {
           message: result.message
         }
       } else {
-        console.warn('Chinese API stock failed, using fallback data')
-        return this.getFallbackModels(brandId)
+        throw new Error(`Chinese API stock failed: ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Get Phone Models Error:', error)
-      console.warn('Using fallback models due to error')
-      return this.getFallbackModels(brandId)
+      throw error
     }
   }
 
-  /**
-   * Get fallback brand data when Chinese API is unavailable
-   * @returns {Object} Fallback brands response
-   */
-  getFallbackBrands() {
-    const fallbackBrands = [
-      { 
-        id: 'BR20250111000002', 
-        e_name: 'iPhone', 
-        name: 'iPhone',
-        available: true,
-        order: 1
-      },
-      { 
-        id: 'BR020250120000001', 
-        e_name: 'Samsung', 
-        name: 'Samsung',
-        available: true,
-        order: 2
-      },
-      { 
-        id: 'GOOGLE_UNAVAILABLE', 
-        e_name: 'Google', 
-        name: 'Google',
-        available: false,
-        order: 3,
-        message: 'Currently unavailable'
-      }
-    ]
-    
-    return {
-      success: true,
-      brands: fallbackBrands,
-      total_brands: fallbackBrands.length,
-      available_brands: fallbackBrands.filter(b => b.available).length,
-      fallback: true,
-      message: 'Using fallback brand data (iPhone, Samsung available - Google unavailable)'
-    }
-  }
 
-  /**
-   * Get fallback model data when Chinese API is unavailable
-   * @param {string} brandId - Brand ID
-   * @returns {Object} Fallback models response
-   */
-  getFallbackModels(brandId) {
-    const fallbackModels = {
-      'BR20250111000002': [
-        { mobile_model_id: 'MM1020250226000002', mobile_model_name: 'iPhone 16 Pro Max', price: '100', stock: 2 },
-        { mobile_model_id: 'MM1020250227000001', mobile_model_name: 'iPhone 15 Pro', price: '95', stock: 1 }
-      ],
-      'BR020250120000001': [
-        { mobile_model_id: 'MM020250120000002', mobile_model_name: 'Samsung Galaxy S24', price: '90', stock: 3 }
-      ]
-    }
-    
-    const models = fallbackModels[brandId] || []
-    
-    return {
-      success: true,
-      models: models,
-      total_models: models.length,
-      fallback: true,
-      brand_id: brandId,
-      message: 'Using fallback model data'
-    }
-  }
 
 
   /**
