@@ -76,7 +76,7 @@ class ChinesePaymentAPIClient:
         if not self.token_expires_at:
             return True  # If no expiry set, assume it's valid for now
             
-        return datetime.now(timezone.utc) < self.token_expires_at
+        return datetime.now(timezone.utc).timestamp() < self.token_expires_at
 
     def login(self) -> bool:
         """Login and get authentication token"""

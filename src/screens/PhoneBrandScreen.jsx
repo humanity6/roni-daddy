@@ -13,10 +13,14 @@ const PhoneBrandScreen = () => {
   const [apiModels, setApiModels] = useState({})
   const [error, setError] = useState(null)
 
-  // Get device_id from vending machine session
-  const deviceId = appState.vendingMachineSession?.deviceId
+  // Get device_id from vending machine session or directly from URL parameters
+  const urlParams = new URLSearchParams(window.location.search)
+  const deviceIdFromUrl = urlParams.get('device_id')
+  const deviceId = appState.vendingMachineSession?.deviceId || deviceIdFromUrl
   
-  console.log('PhoneBrandScreen - Device ID:', deviceId)
+  console.log('PhoneBrandScreen - Device ID from session:', appState.vendingMachineSession?.deviceId)
+  console.log('PhoneBrandScreen - Device ID from URL:', deviceIdFromUrl)
+  console.log('PhoneBrandScreen - Final Device ID:', deviceId)
   console.log('PhoneBrandScreen - Vending Machine Session:', appState.vendingMachineSession)
 
   // Load brands and models on component mount

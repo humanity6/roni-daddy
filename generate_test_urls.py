@@ -11,11 +11,14 @@ import argparse
 
 
 def generate_session_id(machine_id: str) -> str:
-    """Generate session ID following the format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM"""
+    """Generate session ID following the Chinese format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM"""
+    import random
+    import string
     now = datetime.now()
     date = now.strftime('%Y%m%d')
     time_str = now.strftime('%H%M%S')
-    random_suffix = str(int(time.time()))[-6:]  # Last 6 digits of timestamp as random
+    # Generate random suffix like Chinese format (8 alphanumeric characters)
+    random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
     return f"{machine_id}_{date}_{time_str}_{random_suffix}"
 
 
@@ -26,25 +29,21 @@ def generate_test_url(machine_id: str = "1CBRONIQRWQQ", location: str = None, mo
     # Generate session ID if not provided
     session_id = custom_session or generate_session_id(machine_id)
     
-    # Build URL parameters matching AppStateContext expectations
+    # Build URL parameters exactly matching Chinese format
     params = {
-        'qr': '',  # Empty value to trigger qr parameter check
-        'machine_id': machine_id,  # Use machine_id not machineId
-        'session_id': session_id,  # Use session_id not sessionId
-        'device_id': machine_id    # Set device_id same as machine_id for Chinese API
+        'qr': 'true',
+        'machine_id': machine_id,
+        'session_id': session_id,
+        'device_id': machine_id,  # device_id same as machine_id
+        'lang': 'en'
     }
     
-    # Add optional parameters
-    if location:
+    # Only add optional parameters that don't interfere with Chinese format
+    if location and mode == 'debug':  # Only add location in debug mode
         params['location'] = location
-    if mode:
-        params['mode'] = mode
     
-    # Add timestamp for tracking
-    params['generated'] = datetime.now().isoformat()
-    
-    # Build complete URL
-    base_url = 'https://pimpmycase.shop'
+    # Build complete URL with exact Chinese format
+    base_url = 'https://pimpmycase.shop/'  # Note the trailing slash
     query_string = urlencode(params)
     
     return f"{base_url}?{query_string}"
