@@ -50,32 +50,54 @@ async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_
     """Get all phone brands with fallback to local data"""
     try:
         print("Starting get_brands API call")
+        print(f"Device ID received: {device_id}")
         
-        # Temporarily disable Chinese API for development testing
-        print("Using fallback brands for development (Chinese API disabled)")
+        # Get brands from Chinese API
         chinese_brands = []
+        try:
+            from backend.services.chinese_payment_service import get_chinese_brands
+            result = get_chinese_brands()
+            if result.get("success"):
+                chinese_brands = result.get("brands", [])
+                print(f"Successfully fetched {len(chinese_brands)} brands from Chinese API")
+            else:
+                print(f"Chinese API brands failed: {result.get('message')}")
+        except Exception as e:
+            print(f"Error fetching Chinese brands: {e}")
+            chinese_brands = []
+        
+        # Map Chinese API brands to our system
+        apple_brand_id = None
+        samsung_brand_id = None
+        
+        for brand in chinese_brands:
+            e_name = brand.get("e_name", "").upper()
+            if e_name == "APPLE":
+                apple_brand_id = brand.get("id")
+            elif e_name == "SAMSUNG":
+                samsung_brand_id = brand.get("id")
         
         # Standard brand structure - ORDERED: iPhone first, Samsung second, Google third
         filtered_brands = [
             {
                 "id": "iphone", 
                 "name": "IPHONE",
-                "chinese_brand_id": "apple_chinese_id" if chinese_brands else None,
+                "chinese_brand_id": apple_brand_id,
                 "frame_color": "#d7efd4",
                 "button_color": "#b9e4b4", 
-                "available": True,
-                "enabled": True,
-                "subtitle": None
+                "available": apple_brand_id is not None,
+                "enabled": apple_brand_id is not None,
+                "subtitle": None if apple_brand_id else "Unavailable"
             },
             {
                 "id": "samsung",
                 "name": "SAMSUNG",
-                "chinese_brand_id": "samsung_chinese_id" if chinese_brands else None,
+                "chinese_brand_id": samsung_brand_id,
                 "frame_color": "#f9e1eb",
                 "button_color": "#f5bed3",
-                "available": True,
-                "enabled": True,
-                "subtitle": None
+                "available": samsung_brand_id is not None,
+                "enabled": samsung_brand_id is not None,
+                "subtitle": None if samsung_brand_id else "Unavailable"
             },
             {
                 "id": "google",

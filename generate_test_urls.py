@@ -26,10 +26,12 @@ def generate_test_url(machine_id: str = "1CBRONIQRWQQ", location: str = None, mo
     # Generate session ID if not provided
     session_id = custom_session or generate_session_id(machine_id)
     
-    # Build URL parameters
+    # Build URL parameters matching AppStateContext expectations
     params = {
-        'sessionId': session_id,
-        'machineId': machine_id
+        'qr': '',  # Empty value to trigger qr parameter check
+        'machine_id': machine_id,  # Use machine_id not machineId
+        'session_id': session_id,  # Use session_id not sessionId
+        'device_id': machine_id    # Set device_id same as machine_id for Chinese API
     }
     
     # Add optional parameters
