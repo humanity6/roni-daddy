@@ -25,7 +25,8 @@
       "Bash(cp:*)",
       "Bash(mv:*)",
       "Bash(move:*)",
-      "Bash(set PYTHONIOENCODING=utf-8)"
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(dir:*)"
     ],
     "deny": []
   }

@@ -13,16 +13,38 @@ const PaymentScreen = () => {
   const [paymentError, setPaymentError] = useState(null)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null)
   
-  // Get vending machine session info
+  // Get vending machine session info and device_id from multiple sources
   const { vendingMachineSession } = appState
   const isVendingMachine = vendingMachineSession?.isVendingMachine || false
-  const deviceId = vendingMachineSession?.deviceId
+  
+  // Extract device_id from multiple sources
+  const currentUrl = window.location.href
+  const urlParams = new URLSearchParams(window.location.search)
+  
+  // Also try manual extraction as backup
+  const deviceIdMatch = currentUrl.match(/device_id=([^&]+)/)
+  const deviceIdFromUrl = urlParams.get('device_id') || (deviceIdMatch ? deviceIdMatch[1] : null)
+  
+  const deviceIdFromSession = vendingMachineSession?.deviceId
+  const deviceIdFromState = location.state?.deviceId
+  
+  // Use first available device_id
+  const deviceId = deviceIdFromSession || deviceIdFromUrl || deviceIdFromState
+  
+  console.log('PaymentScreen - Current URL:', currentUrl)
+  console.log('PaymentScreen - URL search params:', window.location.search)
+  console.log('PaymentScreen - Device ID from session:', deviceIdFromSession)
+  console.log('PaymentScreen - Device ID from URL:', deviceIdFromUrl)  
+  console.log('PaymentScreen - Device ID from state:', deviceIdFromState)
+  console.log('PaymentScreen - Final Device ID:', deviceId)
   
   // Get Chinese model data from app state
-  const phoneSelection = appState.model || appState.brand || {}
+  const phoneSelection = appState.modelData || {}
+  const chineseModelId = phoneSelection.chinese_model_id
   
   console.log('PaymentScreen - Device ID:', deviceId)
   console.log('PaymentScreen - Phone Selection:', phoneSelection)
+  console.log('PaymentScreen - Chinese Model ID:', chineseModelId)
   console.log('PaymentScreen - App State:', appState)
 
   // Expecting these values from previous step, otherwise use sensible defaults

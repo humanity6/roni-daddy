@@ -24,6 +24,7 @@ const initialState = {
   // User selections
   brand: null,
   model: null,
+  modelData: null,  // Complete model data including chinese_model_id, price, etc.
   color: null,
   
   // Images and design
@@ -87,7 +88,8 @@ const appStateReducer = (state, action) => {
         ...state,
         brand: action.payload.brand,
         model: action.payload.model,
-        color: action.payload.color
+        modelData: action.payload.modelData,  // Store complete model data including chinese_model_id
+        color: action.payload.modelData?.color || null  // Extract color from modelData if present
       }
     
     case ACTIONS.SET_TEMPLATE:
@@ -428,9 +430,9 @@ export const AppStateProvider = ({ children }) => {
       payload: { sessionId, qrSession }
     }),
     
-    setPhoneSelection: (brand, model, color) => dispatch({
+    setPhoneSelection: (brand, model, modelData) => dispatch({
       type: ACTIONS.SET_PHONE_SELECTION,
-      payload: { brand, model, color }
+      payload: { brand, model, modelData }
     }),
     
     setTemplate: (template) => dispatch({

@@ -14,8 +14,12 @@ const PhoneBrandScreen = () => {
   const [error, setError] = useState(null)
 
   // Get device_id from vending machine session or directly from URL parameters
+  const currentUrl = window.location.href
   const urlParams = new URLSearchParams(window.location.search)
-  const deviceIdFromUrl = urlParams.get('device_id')
+  
+  // Also try manual extraction as backup
+  const deviceIdMatch = currentUrl.match(/device_id=([^&]+)/)
+  const deviceIdFromUrl = urlParams.get('device_id') || (deviceIdMatch ? deviceIdMatch[1] : null)
   const deviceId = appState.vendingMachineSession?.deviceId || deviceIdFromUrl
   
   console.log('PhoneBrandScreen - Device ID from session:', appState.vendingMachineSession?.deviceId)
