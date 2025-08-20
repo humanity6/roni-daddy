@@ -203,6 +203,51 @@ async def process_payment_success(
             }
             order = OrderService.create_order(db, order_data)
         
+        # Send payment data to Chinese API for "Pay on App" orders
+        try:
+            print(f"Sending app payment data to Chinese API for order {order.id}")
+            
+            # Get Chinese model ID from order data or device_id from request
+            device_id = request.order_data.get('device_id', 'APP_PAYMENT')  # Fallback for app payments
+            chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
+            
+            if chinese_model_id:
+                # Generate third_id for Chinese API
+                from backend.utils.helpers import generate_third_id
+                third_id = generate_third_id()
+                
+                # Send to Chinese API with pay_type: 12 for app payments
+                from backend.services.chinese_payment_service import send_payment_to_chinese_api
+                
+                chinese_response = send_payment_to_chinese_api(
+                    mobile_model_id=chinese_model_id,
+                    device_id=device_id,
+                    third_id=third_id,
+                    pay_amount=float(session.amount_total / 100),
+                    pay_type=12  # App payment type
+                )
+                
+                print(f"Chinese API response for app payment: {chinese_response}")
+                
+                # Store Chinese payment info in order
+                if chinese_response.get('code') == 200:
+                    order.third_party_payment_id = third_id
+                    order.chinese_payment_id = chinese_response.get('data', {}).get('id')
+                    order.chinese_payment_status = 3  # Paid status in Chinese system
+                    db.commit()
+                    print(f"Successfully sent app payment to Chinese API: {chinese_response.get('data', {}).get('id')}")
+                else:
+                    print(f"Chinese API returned error for app payment: {chinese_response.get('msg')}")
+                    
+            else:
+                print(f"No Chinese model ID found for app payment, skipping Chinese API integration")
+                
+        except Exception as chinese_error:
+            print(f"Failed to send app payment to Chinese API: {str(chinese_error)}")
+            import traceback
+            traceback.print_exc()
+            # Don't fail the order if Chinese API fails, just log the error
+        
         # Generate queue number for display
         queue_no = f"Q{str(order.created_at.timestamp())[-6:]}"
         

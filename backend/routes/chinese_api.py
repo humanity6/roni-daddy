@@ -423,8 +423,8 @@ async def send_payment_data_to_chinese_api(
             validation_errors.append("third_id is required")
         if request.pay_amount <= 0:
             validation_errors.append("pay_amount must be greater than 0")
-        if request.pay_type not in [5, 6]:
-            validation_errors.append("pay_type must be 5 (vending machine) or 6 (card)")
+        if request.pay_type not in [5, 6, 12]:
+            validation_errors.append("pay_type must be 5 (vending machine), 6 (card), or 12 (app)")
             
         if validation_errors:
             logger.error(f"Validation errors: {validation_errors}")
