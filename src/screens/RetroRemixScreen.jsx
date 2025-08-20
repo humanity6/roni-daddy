@@ -15,7 +15,7 @@ import aiImageService from '../services/aiImageService'
 const RetroRemixScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 4 } = location.state || {}
+  const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 4, selectedModelData, deviceId } = location.state || {}
 
   /* --------------------------------------------------------------------
    * UI STATE
@@ -90,7 +90,7 @@ const RetroRemixScreen = () => {
    * NAVIGATION HANDLERS
    * ------------------------------------------------------------------*/
   const handleBack = () => {
-    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform } })
+    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform, selectedModelData, deviceId } })
   }
 
   const handleSubmit = () => {
@@ -104,7 +104,9 @@ const RetroRemixScreen = () => {
         keyword,
         optionalText,
         transform,
-        aiCredits
+        aiCredits,
+        selectedModelData,
+        deviceId
       }
     })
   }

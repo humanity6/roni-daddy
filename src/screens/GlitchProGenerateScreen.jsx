@@ -27,7 +27,9 @@ const GlitchProGenerateScreen = () => {
     template,
     uploadedImage,
     mode = 'retro',
-    transform: initialTransform
+    transform: initialTransform,
+    selectedModelData,
+    deviceId
   } = location.state || {}
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState(null)
@@ -91,7 +93,9 @@ const GlitchProGenerateScreen = () => {
         template,
         uploadedImage: generatedImage || uploadedImage,
         mode,
-        transform
+        transform,
+        selectedModelData,
+        deviceId
       }
     })
   }

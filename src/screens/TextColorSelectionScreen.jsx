@@ -10,7 +10,7 @@ import { fonts as availableFonts } from '../utils/fontManager'
 const TextColorSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, selectedFont, fontSize, textPosition, transform: initialTransform, stripCount } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, selectedFont, fontSize, textPosition, transform: initialTransform, stripCount, selectedModelData, deviceId } = location.state || {}
   
   // Local state for adjustable text position
   const [adjustedTextPosition, setAdjustedTextPosition] = useState(textPosition || { x: 50, y: 50 })
@@ -87,7 +87,9 @@ const TextColorSelectionScreen = () => {
         textPosition: adjustedTextPosition,
         selectedTextColor,
         transform: initialTransform,
-        stripCount
+        stripCount,
+        selectedModelData,
+        deviceId
       } 
     })
   }
@@ -108,7 +110,9 @@ const TextColorSelectionScreen = () => {
         selectedTextColor,
         textPosition: adjustedTextPosition,
         transform: initialTransform,
-        stripCount
+        stripCount,
+        selectedModelData,
+        deviceId
       }
     })
   }

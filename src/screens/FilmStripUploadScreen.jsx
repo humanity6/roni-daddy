@@ -17,7 +17,7 @@ import { enhanceImage } from '../utils/imageEnhancer'
 const FilmStripUploadScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, stripCount, uploadedImages: incomingImages, imageTransforms: incomingTransforms, imageOrientations: incomingOrientations } = location.state || {}
+  const { brand, model, color, template, stripCount, uploadedImages: incomingImages, imageTransforms: incomingTransforms, imageOrientations: incomingOrientations, selectedModelData, deviceId } = location.state || {}
   const totalSlots = stripCount || 3
 
   const [uploadedImages, setUploadedImages] = useState(
@@ -44,7 +44,9 @@ const FilmStripUploadScreen = () => {
         uploadedImages,
         imageTransforms,
         imageOrientations,
-        stripCount
+        stripCount,
+        selectedModelData,
+        deviceId
       }
     })
   }
@@ -108,7 +110,9 @@ const FilmStripUploadScreen = () => {
         template,
         uploadedImages,
         imageTransforms,
-        stripCount
+        stripCount,
+        selectedModelData,
+        deviceId
       }
     })
   }

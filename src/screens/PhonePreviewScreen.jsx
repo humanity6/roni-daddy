@@ -18,7 +18,7 @@ import { enhanceImage } from '../utils/imageEnhancer'
 const PhonePreviewScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template } = location.state || {}
+  const { brand, model, color, template, selectedModelData, deviceId } = location.state || {}
   
   const [uploadedImage, setUploadedImage] = useState(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
@@ -60,7 +60,9 @@ const PhonePreviewScreen = () => {
       state: { 
         brand, 
         model, 
-        color 
+        color,
+        selectedModelData,
+        deviceId
       } 
     })
   }
@@ -74,7 +76,9 @@ const PhonePreviewScreen = () => {
           color,
           template,
           uploadedImage,
-          transform
+          transform,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.id === 'funny-toon') {
@@ -85,7 +89,9 @@ const PhonePreviewScreen = () => {
           color,
           template,
           uploadedImage,
-          transform
+          transform,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.id === 'footy-fan') {
@@ -96,7 +102,9 @@ const PhonePreviewScreen = () => {
           color,
           template,
           uploadedImage,
-          transform
+          transform,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.id === 'glitch-pro') {
@@ -107,7 +115,9 @@ const PhonePreviewScreen = () => {
           color,
           template,
           uploadedImage,
-          transform
+          transform,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.id === 'cover-shoot') {
@@ -118,7 +128,9 @@ const PhonePreviewScreen = () => {
           color,
           template,
           uploadedImage,
-          transform
+          transform,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.id?.startsWith('film-strip')) {
@@ -127,7 +139,9 @@ const PhonePreviewScreen = () => {
           brand,
           model,
           color,
-          template
+          template,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.imageCount && template.imageCount > 1) {
@@ -136,7 +150,9 @@ const PhonePreviewScreen = () => {
           brand,
           model,
           color,
-          template
+          template,
+          selectedModelData,
+          deviceId
         }
       })
     } else {
@@ -147,7 +163,9 @@ const PhonePreviewScreen = () => {
           color,
           template,
           uploadedImage,
-          transform
+          transform,
+          selectedModelData,
+          deviceId
         }
       })
     }

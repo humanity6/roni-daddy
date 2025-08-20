@@ -18,7 +18,9 @@ const RetroRemixGenerateScreen = () => {
     keyword = '',
     optionalText = '',
     transform: initialTransform,
-    generatedImage: initialGeneratedImage
+    generatedImage: initialGeneratedImage,
+    selectedModelData,
+    deviceId
   } = location.state || {}
   const [isGenerating,setIsGenerating] = useState(false)
   const [generatedImage,setGeneratedImage] = useState(initialGeneratedImage || null)
@@ -70,7 +72,7 @@ const RetroRemixGenerateScreen = () => {
 
   const handleGenerate = () => {
     navigate('/text-input',{
-      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,generatedImage,keyword,optionalText,transform}
+      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,generatedImage,keyword,optionalText,transform,selectedModelData,deviceId}
     })
   }
 

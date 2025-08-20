@@ -4,9 +4,8 @@ PimpMyCase QR URL Generator
 Generates valid test URLs for the pimpmycase.shop website that would normally be embedded in QR codes
 """
 
-import time
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 import argparse
 
 
@@ -22,36 +21,55 @@ def generate_session_id(machine_id: str) -> str:
     return f"{machine_id}_{date}_{time_str}_{random_suffix}"
 
 
-def generate_test_url(machine_id: str = "1CBRONIQRWQQ", location: str = None, mode: str = None, 
-                     custom_session: str = None) -> str:
-    """Generate a complete test URL for pimpmycase.shop"""
-    
+def generate_test_url(
+    machine_id: str = "1CBRONIQRWQQ",
+    location: str | None = None,
+    mode: str | None = None,
+    custom_session: str | None = None,
+) -> tuple[str, str]:
+    """Generate a complete test URL for pimpmycase.shop.
+
+    Returns (url, session_id) so the caller can reliably display/use the exact
+    session id embedded in the URL (preventing accidental regeneration).
+    """
+
     # Generate session ID if not provided
     session_id = custom_session or generate_session_id(machine_id)
-    
+
     # Build URL parameters exactly matching Chinese format
-    params = {
-        'qr': 'true',
-        'machine_id': machine_id,
-        'session_id': session_id,
-        'device_id': machine_id,  # device_id same as machine_id
-        'lang': 'en'
+    params: dict[str, str] = {
+        "qr": "true",
+        "machine_id": machine_id,
+        "session_id": session_id,
+        "device_id": machine_id,  # device_id same as machine_id for now
+        "lang": "en",
     }
-    
+
     # Only add optional parameters that don't interfere with Chinese format
-    if location and mode == 'debug':  # Only add location in debug mode
-        params['location'] = location
-    
-    # Build complete URL with exact Chinese format
-    base_url = 'https://pimpmycase.shop/'  # Note the trailing slash
+    if location and mode == "debug":  # Only add location in debug mode
+        params["location"] = location
+
+    # Potential future: include mode param if needed; currently intentionally excluded
+
+    base_url = "https://pimpmycase.shop/"  # Note trailing slash
     query_string = urlencode(params)
-    
-    return f"{base_url}?{query_string}"
+    return f"{base_url}?{query_string}", session_id
+
+
+def extract_session_id(url: str) -> str | None:
+    """Robustly extract session_id query param from a generated URL."""
+    try:
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query)
+        vals = qs.get("session_id")
+        return vals[0] if vals else None
+    except Exception:
+        return None
 
 
 def print_test_scenarios():
-    """Print various test scenarios with different configurations"""
-    
+    """Print various test scenarios with different configurations."""
+
     scenarios = [
         {
             'name': 'Basic Chinese API Test',
@@ -92,24 +110,21 @@ def print_test_scenarios():
     for i, scenario in enumerate(scenarios, 1):
         print(f"📱 Test Scenario {i}: {scenario['name']}")
         print("-" * 50)
-        
-        url = generate_test_url(
+        url, session_id = generate_test_url(
             machine_id=scenario['machine_id'],
             location=scenario.get('location'),
             mode=scenario.get('mode'),
             custom_session=scenario.get('custom_session')
         )
-        
         print(f"URL: {url}")
         print()
-        
-        # Extract session ID for display
-        session_start = url.find('sessionId=') + len('sessionId=')
-        session_end = url.find('&', session_start)
-        session_id = url[session_start:session_end] if session_end != -1 else url[session_start:]
-        session_id = session_id.split('%')[0]  # Remove URL encoding artifacts
-        
+
+        # Fallback to extraction (paranoia) if something changed
+        extracted = extract_session_id(url) or session_id
+
         print(f"Session ID: {session_id}")
+        if extracted != session_id:
+            print(f"(Extracted Session ID differs: {extracted})")
         print(f"Machine ID: {scenario['machine_id']}")
         if scenario.get('location'):
             print(f"Location: {scenario['location']}")
@@ -135,28 +150,28 @@ def main():
     
     if args.scenarios:
         print_test_scenarios()
-    else:
-        url = generate_test_url(
-            machine_id=args.machine_id,
-            location=args.location,
-            mode=args.mode,
-            custom_session=args.session_id
-        )
-        
-        print("Generated Test URL:")
-        print("=" * 50)
-        print(url)
-        print()
-        
-        # Show session details
-        session_id = args.session_id or generate_session_id(args.machine_id)
-        print("Session Details:")
-        print(f"  Session ID: {session_id}")
-        print(f"  Machine ID: {args.machine_id}")
-        if args.location:
-            print(f"  Location: {args.location}")
-        if args.mode:
-            print(f"  Mode: {args.mode}")
+        return
+
+    url, session_id_used = generate_test_url(
+        machine_id=args.machine_id,
+        location=args.location,
+        mode=args.mode,
+        custom_session=args.session_id,
+    )
+
+    print("Generated Test URL:")
+    print("=" * 50)
+    print(url)
+    print()
+
+    # Show session details using the actual embedded session id
+    print("Session Details:")
+    print(f"  Session ID: {session_id_used}")
+    print(f"  Machine ID: {args.machine_id}")
+    if args.location:
+        print(f"  Location: {args.location}")
+    if args.mode:
+        print(f"  Mode: {args.mode}")
 
 
 if __name__ == '__main__':

@@ -28,6 +28,13 @@ const VendingPaymentWaitingScreen = () => {
       try {
         // Get vending session info
         const sessionId = state.vendingMachineSession?.sessionId
+        const sessionStatus = state.vendingMachineSession?.sessionStatus
+        if (sessionStatus === 'registration_failed') {
+          console.warn('Skipping payment status polling: vending session registration failed')
+          setPaymentStatus('failed')
+          setError('Vending session not established. Please rescan the QR code to try again.')
+          return
+        }
         if (!sessionId) {
           console.error('No vending session ID available')
           setPaymentStatus('failed')
@@ -44,6 +51,11 @@ const VendingPaymentWaitingScreen = () => {
         })
 
         if (!response.ok) {
+          if (response.status === 404) {
+            // Session status not yet initialized on backend; keep waiting silently
+            setPaymentStatus(prev => (prev === 'failed' ? 'waiting' : prev))
+            return
+          }
           throw new Error('Failed to check payment status')
         }
 
@@ -73,7 +85,8 @@ const VendingPaymentWaitingScreen = () => {
         
       } catch (error) {
         console.error('Payment status polling error:', error)
-        setPaymentStatus('failed')
+        // Network / transient errors: stay in waiting to avoid scaring user
+        setPaymentStatus(prev => prev === 'completed' ? prev : 'waiting')
       }
     }
 
@@ -81,7 +94,7 @@ const VendingPaymentWaitingScreen = () => {
     pollPaymentStatus()
 
     // Set up polling interval every 3 seconds
-    const pollInterval = setInterval(pollPaymentStatus, 3000)
+  const pollInterval = setInterval(pollPaymentStatus, 3000)
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval)

@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect } from 'react'
+import { createContext, useContext, useReducer, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 const AppStateContext = createContext()
@@ -185,11 +185,18 @@ const appStateReducer = (state, action) => {
       }
     
     case ACTIONS.SET_VENDING_MACHINE_SESSION:
-      return {
-        ...state,
-        vendingMachineSession: {
+      {
+        const merged = {
           ...state.vendingMachineSession,
           ...action.payload
+        }
+        // Auto-promote to vending if we have identifying info
+        if (!merged.isVendingMachine && (merged.deviceId || merged.machineId || state.qrSession)) {
+          merged.isVendingMachine = true
+        }
+        return {
+          ...state,
+          vendingMachineSession: merged
         }
       }
     
@@ -222,6 +229,9 @@ const appStateReducer = (state, action) => {
 export const AppStateProvider = ({ children }) => {
   const [state, dispatch] = useReducer(appStateReducer, initialState)
   const [searchParams] = useSearchParams()
+  // Prevent duplicate registration attempts (e.g., double render / remount)
+  const registrationAttemptedRef = useRef(false)
+  const registrationRetryCountRef = useRef(0)
 
   // Initialize QR session on mount
   useEffect(() => {
@@ -261,13 +271,35 @@ export const AppStateProvider = ({ children }) => {
         type: ACTIONS.SET_VENDING_MACHINE_SESSION,
         payload: vendingMachineData
       })
+
+      // Persist deviceId immediately for refresh resilience
+      if (deviceId) {
+        localStorage.setItem('pimpMyCase_deviceId', deviceId)
+      }
       
       // Register user with vending machine session if we have session ID
-      if (vendingSessionId && machineId) {
+      if (vendingSessionId && machineId && !registrationAttemptedRef.current) {
+        registrationAttemptedRef.current = true
         registerWithVendingMachine(vendingSessionId, machineId, location)
       }
     }
   }, [searchParams])
+
+  // Recovery: if deviceId lost (e.g., after registration overwrite) but we have stored value, restore it
+  useEffect(() => {
+    if (!state.vendingMachineSession.deviceId) {
+      const storedDeviceId = localStorage.getItem('pimpMyCase_deviceId')
+      if (storedDeviceId) {
+        dispatch({
+          type: ACTIONS.SET_VENDING_MACHINE_SESSION,
+          payload: {
+            deviceId: storedDeviceId,
+            isVendingMachine: state.vendingMachineSession.isVendingMachine || state.qrSession
+          }
+        })
+      }
+    }
+  }, [state.vendingMachineSession.deviceId, state.qrSession])
   
   // Function to create a new vending machine session (for test scenarios)
   const createVendingMachineSession = async (machineId, location) => {
@@ -330,13 +362,15 @@ export const AppStateProvider = ({ children }) => {
 
       // If initial registration failed or returned 400/404, create a new session
       if (!response || !response.ok) {
-        console.log('Session not found or registration failed, creating new session for testing...')
-        
+        if (registrationRetryCountRef.current >= 3) {
+          console.warn('Max vending registration retries reached; giving up.')
+          throw new Error('Failed to create and register session')
+        }
+        console.log('Session not found or registration failed, attempting to create new session (attempt', registrationRetryCountRef.current + 1, ')')
+
         try {
-          // Create a new session
           finalSessionId = await createVendingMachineSession(machineId, location)
-          
-          // Update the app state with the new session ID
+          registrationRetryCountRef.current += 1
           dispatch({
             type: ACTIONS.SET_VENDING_MACHINE_SESSION,
             payload: {
@@ -345,13 +379,10 @@ export const AppStateProvider = ({ children }) => {
               sessionStatus: 'session_created'
             }
           })
-          
-          // Now register with the new session
+          // Register new session
           response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${finalSessionId}/register-user`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               machine_id: machineId,
               session_id: finalSessionId,
@@ -360,6 +391,16 @@ export const AppStateProvider = ({ children }) => {
               ip_address: null
             })
           })
+          if (!response.ok) {
+            if (response.status === 429) {
+              // Backoff retry
+              const delay = 1000 * registrationRetryCountRef.current
+              console.warn('Create/register rate limited (429). Retrying after', delay, 'ms')
+              setTimeout(() => registerWithVendingMachine(sessionId, machineId, location), delay)
+              return
+            }
+            throw new Error('Registration failed after new session creation')
+          }
         } catch (createError) {
           console.error('Failed to create session:', createError)
           throw new Error('Failed to create and register session')
@@ -371,13 +412,23 @@ export const AppStateProvider = ({ children }) => {
         dispatch({
           type: ACTIONS.SET_VENDING_MACHINE_SESSION,
           payload: {
-            ...sessionData.machine_info,
+            // Preserve existing critical fields if machine_info doesn't provide them
+            isVendingMachine: true,
+            deviceId: state.vendingMachineSession.deviceId || sessionData.machine_info?.device_id || machineId,
+            machineId: state.vendingMachineSession.machineId || sessionData.machine_info?.machine_id || machineId,
+            location: state.vendingMachineSession.location || sessionData.machine_info?.location || '',
             sessionId: finalSessionId,
             sessionStatus: 'registered',
             expiresAt: sessionData.expires_at,
-            userProgress: sessionData.user_progress
+            userProgress: sessionData.user_progress,
+            // Spread any additional machine info (non-destructive for already set keys)
+            ...sessionData.machine_info
           }
         })
+        // Re-persist deviceId
+        if (state.vendingMachineSession.deviceId) {
+          localStorage.setItem('pimpMyCase_deviceId', state.vendingMachineSession.deviceId)
+        }
         console.log(`Successfully registered with session: ${finalSessionId}`)
       } else {
         throw new Error('Registration failed after session creation')
@@ -387,6 +438,14 @@ export const AppStateProvider = ({ children }) => {
       dispatch({
         type: ACTIONS.SET_ERROR,
         payload: 'Failed to connect to vending machine. Please try scanning the QR code again.'
+      })
+      // Mark registration failed but keep vending mode for device-specific flows
+      dispatch({
+        type: ACTIONS.SET_VENDING_MACHINE_SESSION,
+        payload: {
+          isVendingMachine: true,
+          sessionStatus: 'registration_failed'
+        }
       })
     }
   }
@@ -402,21 +461,25 @@ export const AppStateProvider = ({ children }) => {
     localStorage.setItem('pimpMyCase_state', JSON.stringify(stateToSave))
   }, [state])
 
-  // Load state from localStorage on mount
+  // Load state from localStorage on mount (but DO NOT override live QR session params if present in URL)
   useEffect(() => {
     const savedState = localStorage.getItem('pimpMyCase_state')
     if (savedState) {
       try {
         const parsedState = JSON.parse(savedState)
-        // Merge with current state, keeping QR session params
-        dispatch({
-          type: 'LOAD_STATE',
-          payload: {
-            ...parsedState,
-            sessionId: state.sessionId,
-            qrSession: state.qrSession
-          }
-        })
+        const hasQrParams = searchParams.has('qr') && (searchParams.get('machine_id') || searchParams.get('device_id'))
+        if (!hasQrParams) {
+          dispatch({
+            type: 'LOAD_STATE',
+            payload: {
+              ...parsedState,
+              sessionId: state.sessionId,
+              qrSession: state.qrSession
+            }
+          })
+        } else {
+          console.log('Skipping localStorage state hydrate to preserve live QR vending machine params')
+        }
       } catch (error) {
         console.error('Failed to load saved state:', error)
       }

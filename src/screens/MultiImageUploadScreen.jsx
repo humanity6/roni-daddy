@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Upload, RefreshCw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, ArrowRight as ArrowForward, ArrowUp, ArrowDown, ArrowLeft as ArrowBack } from 'lucide-react'
+import { ArrowLeft, Upload, RefreshCw, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, ArrowRight as ArrowForward, ArrowUp, ArrowDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import { enhanceImage } from '../utils/imageEnhancer'
 
 const MultiImageUploadScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template } = location.state || {}
+  const { brand, model, color, template, selectedModelData, deviceId } = location.state || {}
   const requiredCount = template?.imageCount || 2
 
   // Each slot keeps src + transform data
@@ -19,7 +19,7 @@ const MultiImageUploadScreen = () => {
 
   const handleBack = () => {
     navigate('/template-selection', {
-      state: { brand, model, color }
+      state: { brand, model, color, selectedModelData, deviceId }
     })
   }
 
@@ -162,6 +162,8 @@ const MultiImageUploadScreen = () => {
         model,
         color,
         template,
+        selectedModelData,
+        deviceId,
         uploadedImages: imageUrls,
         uploadedImage: images[0]?.src || null, // keep first for backward compat
         imageTransforms: imageTransforms
@@ -359,7 +361,7 @@ const MultiImageUploadScreen = () => {
             disabled={!images[getActiveImageIndex()]?.src}
             className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${images[getActiveImageIndex()]?.src ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
           >
-            <ArrowBack size={20} className={images[getActiveImageIndex()]?.src ? "text-gray-700" : "text-gray-400"}/>
+            <ArrowLeft size={20} className={images[getActiveImageIndex()]?.src ? "text-gray-700" : "text-gray-400"}/>
           </button>
           <button 
             onClick={moveDown} 

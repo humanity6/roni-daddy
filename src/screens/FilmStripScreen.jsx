@@ -17,7 +17,7 @@ const FilmStripScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   //  brand / model / colour / template passed from previous screens if needed
-  const { brand, model, color, template, uploadedImages, imageTransforms, imageOrientations, stripCount: incomingStripCount } = location.state || {}
+  const { brand, model, color, template, uploadedImages, imageTransforms, imageOrientations, stripCount: incomingStripCount, selectedModelData, deviceId } = location.state || {}
 
   // keep track of user flow
   const [stripCount, setStripCount] = useState(incomingStripCount || null) // 3 or 4
@@ -54,7 +54,7 @@ const FilmStripScreen = () => {
   const handleBack = () => {
     // go back to template selection
     navigate('/template-selection', {
-      state: { brand, model, color }
+      state: { brand, model, color, selectedModelData, deviceId }
     })
   }
 
@@ -68,7 +68,9 @@ const FilmStripScreen = () => {
         stripCount,
         uploadedImages,
         imageTransforms,
-        imageOrientations
+        imageOrientations,
+        selectedModelData,
+        deviceId
       }
     })
   }

@@ -16,6 +16,7 @@ const PaymentScreen = () => {
   // Get vending machine session info and device_id from multiple sources
   const { vendingMachineSession } = appState
   const isVendingMachine = vendingMachineSession?.isVendingMachine || false
+  const isRegisteredVending = isVendingMachine && vendingMachineSession?.sessionStatus === 'registered'
   
   // Extract device_id from multiple sources
   const currentUrl = window.location.href
@@ -46,6 +47,9 @@ const PaymentScreen = () => {
   console.log('PaymentScreen - Phone Selection:', phoneSelection)
   console.log('PaymentScreen - Chinese Model ID:', chineseModelId)
   console.log('PaymentScreen - App State:', appState)
+  if (isVendingMachine && !isRegisteredVending) {
+    console.warn('PaymentScreen - Vending session not registered. sessionStatus:', vendingMachineSession?.sessionStatus)
+  }
 
   // Expecting these values from previous step, otherwise use sensible defaults
   const {
@@ -142,7 +146,12 @@ const PaymentScreen = () => {
       const { brand, model, color } = location.state || {}
       const selectedModelData = location.state?.selectedModelData || phoneSelection
       
-      console.log('PaymentScreen - Order data:', { brand, model, color, selectedModelData })
+      // Extract order data from app state and location state consistently
+      const brandFromState = appState.brand || selectedModelData?.brand || brand
+      const modelFromState = appState.model || selectedModelData?.model || model
+      const colorFromState = appState.color || selectedModelData?.color || color
+      
+      console.log('PaymentScreen - Order data:', { brandFromState, modelFromState, colorFromState, selectedModelData })
       
       // Store current order data in localStorage for success page
       const orderData = {
@@ -150,9 +159,9 @@ const PaymentScreen = () => {
         uploadedImages,
         imageTransforms,
         price: effectivePrice,
-        brand: selectedModelData?.brand || brand || 'iPhone',
-        model: selectedModelData?.model || model || 'iPhone 15 Pro',
-        color: color || 'Natural Titanium',
+        brand: brandFromState || 'iPhone',
+        model: modelFromState || 'iPhone 15 Pro',
+        color: colorFromState || 'Natural Titanium',
         chinese_model_id: selectedModelData?.chinese_model_id,
         device_id: deviceId,
         template,
@@ -174,9 +183,9 @@ const PaymentScreen = () => {
         body: JSON.stringify({
           amount: effectivePrice,
           template_id: template?.id || 'classic',
-          brand: brand || 'iPhone',
-          model: model || 'iPhone 15 Pro',
-          color: color || 'Natural Titanium',
+          brand: brandFromState || 'iPhone',
+          model: modelFromState || 'iPhone 15 Pro',
+          color: colorFromState || 'Natural Titanium',
           design_image: designImage
         }),
       })
@@ -216,7 +225,14 @@ const PaymentScreen = () => {
         throw new Error('Chinese model ID is required for payment processing')
       }
       
-      console.log('PaymentScreen - Vending machine payment data:', { brand, model, color, selectedModelData, deviceId })
+      // Extract order data from app state and location state properly
+      const brandFromState = appState.brand || selectedModelData?.brand || brand
+      const modelFromState = appState.model || selectedModelData?.model || model
+      const colorFromState = appState.color || selectedModelData?.color || color
+      
+      console.log('PaymentScreen - Vending machine payment data:', { 
+        brandFromState, modelFromState, colorFromState, selectedModelData, deviceId 
+      })
       
       // Store current order data in localStorage
       const orderData = {
@@ -224,9 +240,9 @@ const PaymentScreen = () => {
         uploadedImages,
         imageTransforms,
         price: effectivePrice,
-        brand: selectedModelData?.brand || brand || 'iPhone',
-        model: selectedModelData?.model || model || 'iPhone 15 Pro',
-        color: color || 'Natural Titanium',
+        brand: brandFromState || 'iPhone',
+        model: modelFromState || 'iPhone 15 Pro',
+        color: colorFromState || 'Natural Titanium',
         chinese_model_id: selectedModelData?.chinese_model_id,
         device_id: deviceId,
         template,
@@ -242,7 +258,37 @@ const PaymentScreen = () => {
       // Chinese API activation will be handled by the vending session for proper device_id management
       
       // If in vending machine mode, send order summary to vending machine
-      if (isVendingMachine && vendingMachineSession?.sessionId) {
+  if (isRegisteredVending && vendingMachineSession?.sessionId) {
+        // Prepare order data in the format expected by the backend API
+        const backendOrderData = {
+          brand: brandFromState || 'iPhone',
+          brand_id: (brandFromState || 'iPhone').toLowerCase(),
+          model: modelFromState || 'iPhone 15 Pro',
+          template: template ? {
+            id: template.id,
+            name: template.name || template.id
+          } : null,
+          color: colorFromState || 'Natural Titanium',
+          inputText: inputText || '',
+          selectedFont: selectedFont || 'Arial',
+          selectedTextColor: selectedTextColor || '#ffffff',
+          images: uploadedImages || [],
+          colors: {
+            background: selectedBackgroundColor || '#ffffff',
+            text: selectedTextColor || '#ffffff'
+          },
+          price: effectivePrice,
+          chinese_model_id: selectedModelData?.chinese_model_id,
+          device_id: deviceId
+        }
+
+        console.log('Sending order summary to vending machine:', {
+          session_id: vendingMachineSession.sessionId,
+          payment_amount: effectivePrice,
+          currency: 'GBP',
+          order_data: backendOrderData
+        })
+
         const orderSummaryResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/order-summary`, {
           method: 'POST',
           headers: {
@@ -250,7 +296,7 @@ const PaymentScreen = () => {
           },
           body: JSON.stringify({
             session_id: vendingMachineSession.sessionId,
-            order_data: orderData,
+            order_data: backendOrderData,
             payment_amount: effectivePrice,
             currency: 'GBP'
           })
@@ -276,6 +322,7 @@ const PaymentScreen = () => {
           }
 
           const third_id = generateThirdId()
+          const correlationId = `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
           
           // Prepare payment data for Chinese API using correct Chinese model ID and device ID
           const chinesePaymentData = {
@@ -283,30 +330,74 @@ const PaymentScreen = () => {
             device_id: deviceId, // Use device_id from QR parameters
             third_id: third_id,
             pay_amount: effectivePrice,
-            pay_type: 6 // Card payment for vending machines
+            pay_type: 5 // Vending machine payment (changed from 6 to 5 as requested by Chinese team)
           }
 
-          console.log('Sending payment data to Chinese API:', chinesePaymentData)
+          console.log(`=== CHINESE API PAYMENT REQUEST START (${correlationId}) ===`)
+          console.log('Timestamp:', new Date().toISOString())
+          console.log('API Endpoint:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`)
+          console.log('Payment Data:', JSON.stringify(chinesePaymentData, null, 2))
+          console.log('Device ID Source:', {
+            fromSession: deviceIdFromSession,
+            fromUrl: deviceIdFromUrl,
+            fromState: deviceIdFromState,
+            finalDeviceId: deviceId
+          })
+          console.log('Model Data:', {
+            selectedModelData,
+            chineseModelId: selectedModelData?.chinese_model_id,
+            phoneSelection
+          })
+          console.log('=== REQUEST DETAILS ===')
+          
+          const requestStart = Date.now()
 
           const chinesePaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'X-Correlation-ID': correlationId
             },
             body: JSON.stringify(chinesePaymentData)
           })
           
+          const requestDuration = Date.now() - requestStart
+          console.log(`Request duration: ${requestDuration}ms`)
+          
+          console.log(`=== CHINESE API RESPONSE (${correlationId}) ===`)
+          console.log('HTTP Status:', chinesePaymentResponse.status)
+          console.log('HTTP Status Text:', chinesePaymentResponse.statusText)
+          console.log('Response Headers:', Object.fromEntries(chinesePaymentResponse.headers.entries()))
+          
           if (chinesePaymentResponse.ok) {
             const chineseResult = await chinesePaymentResponse.json()
-            console.log('Payment data sent successfully to Chinese API:', chineseResult)
+            console.log('Response Body:', JSON.stringify(chineseResult, null, 2))
+            console.log('=== CHINESE API PAYMENT REQUEST END ===')
             
-            if (chineseResult.code !== 200) {
-              console.warn('Chinese API returned error:', chineseResult.msg)
-              throw new Error(`Chinese API error: ${chineseResult.msg}`)
+            if (chineseResult.code === 200) {
+              console.log('SUCCESS: Payment data sent successfully to Chinese API')
+              console.log('Chinese Payment ID:', chineseResult.data?.id)
+            } else {
+              console.error('ERROR: Chinese API returned non-200 code:', chineseResult.code)
+              console.error('Error Message:', chineseResult.msg)
+              throw new Error(`Chinese API error (code ${chineseResult.code}): ${chineseResult.msg}`)
             }
           } else {
-            console.error('Failed to send payment data to Chinese API:', chinesePaymentResponse.status)
-            throw new Error(`Chinese API call failed with status: ${chinesePaymentResponse.status}`)
+            let errorBody = 'No response body'
+            try {
+              const errorText = await chinesePaymentResponse.text()
+              errorBody = errorText
+              console.error('Error Response Body:', errorText)
+            } catch (e) {
+              console.error('Could not read error response body:', e)
+            }
+            
+            console.log('=== CHINESE API PAYMENT REQUEST END (FAILED) ===')
+            console.error('FAILED: Chinese API call failed')
+            console.error('HTTP Status:', chinesePaymentResponse.status)
+            console.error('Error Body:', errorBody)
+            
+            throw new Error(`Chinese API HTTP error ${chinesePaymentResponse.status}: ${errorBody}`)
           }
         } catch (chineseError) {
           console.error('Chinese payment data transmission failed:', chineseError)
@@ -325,6 +416,17 @@ const PaymentScreen = () => {
             price: effectivePrice,
             vendingMachineSession,
             isVendingMachine: true
+          } 
+        })
+      } else if (isVendingMachine && !isRegisteredVending) {
+        // Degraded mode: vending detected but not registered; inform user and fallback to app payment flow
+        alert('Machine connection not established (machine busy). You can pay in-app instead.')
+        navigate('/vending-payment-waiting', { 
+          state: { 
+            orderData,
+            price: effectivePrice,
+            vendingMachineSession: { ...vendingMachineSession, sessionStatus: 'registration_failed' },
+            isVendingMachine: false
           } 
         })
       } else {

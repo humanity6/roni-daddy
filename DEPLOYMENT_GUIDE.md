@@ -25,7 +25,7 @@ This guide covers deploying your entire PimpMyCase application stack using only 
 3. **Configure Database:**
    ```
    Name: pimpmycase-database
-   Database: pimpmycase_db
+   Database: pimpmycase_db_puu4
    User: pimpmycase_user
    Region: Oregon (US West) or Frankfurt (EU Central)
    PostgreSQL Version: 15

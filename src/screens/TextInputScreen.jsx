@@ -21,7 +21,9 @@ const TextInputScreen = () => {
     stripCount,
     fontSize: initialFontSize,
     selectedFont: initialFont,
-    selectedTextColor
+    selectedTextColor,
+    selectedModelData,
+    deviceId
   } = location.state || {}
   const { generatedImage, keyword, optionalText, aiCredits } = location.state || {}
   
@@ -92,7 +94,9 @@ const TextInputScreen = () => {
           template,
           stripCount,
           uploadedImages,
-          imageTransforms
+          imageTransforms,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.imageCount && template.imageCount > 1) {
@@ -103,7 +107,9 @@ const TextInputScreen = () => {
           color,
           template,
           imageTransforms,
-          stripCount
+          stripCount,
+          selectedModelData,
+          deviceId
         }
       })
     } else if (template?.id === 'retro-remix') {
@@ -117,7 +123,9 @@ const TextInputScreen = () => {
           keyword,
           optionalText,
           aiCredits,
-          transform: initialTransform
+          transform: initialTransform,
+          selectedModelData,
+          deviceId
         }
       })
     } else {
@@ -130,7 +138,9 @@ const TextInputScreen = () => {
           uploadedImage,
           transform: initialTransform,
           imageTransforms,
-          stripCount
+          stripCount,
+          selectedModelData,
+          deviceId
         } 
       })
     }
@@ -152,7 +162,9 @@ const TextInputScreen = () => {
         fontSize,
         selectedFont,
         selectedTextColor,
-        transform: initialTransform
+        transform: initialTransform,
+        selectedModelData,
+        deviceId
       } 
     })
   }

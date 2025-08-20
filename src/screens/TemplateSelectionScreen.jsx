@@ -7,7 +7,7 @@ import { getTemplatePriceDisplay } from '../config/templatePricing'
 const TemplateSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, uploadedImage } = location.state || {}
+  const { brand, model, color, uploadedImage, selectedModelData, deviceId } = location.state || {}
   
   // State kept only for quick visual selection feedback (optional)
   const [selectedTemplate, setSelectedTemplate] = useState('')
@@ -141,7 +141,9 @@ const TemplateSelectionScreen = () => {
           brand,
           model,
           color,
-          template
+          template,
+          selectedModelData,
+          deviceId
         }
       })
     }
@@ -152,7 +154,9 @@ const TemplateSelectionScreen = () => {
           brand,
           model,
           color,
-          template
+          template,
+          selectedModelData,
+          deviceId
         }
       })
     } else {
@@ -161,7 +165,9 @@ const TemplateSelectionScreen = () => {
           brand,
           model,
           color,
-          template
+          template,
+          selectedModelData,
+          deviceId
         }
       })
     }

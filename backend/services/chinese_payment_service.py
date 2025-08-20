@@ -137,22 +137,39 @@ class ChinesePaymentAPIClient:
         return self.login()
 
     def send_payment_data(self, mobile_model_id: str, third_id: str, 
-                         pay_amount: float, pay_type: int = 6, 
+                         pay_amount: float, pay_type: int = 5, 
                          device_id: Optional[str] = None) -> Dict[str, Any]:
-        """Send payment data to Chinese manufacturers for card payment processing"""
+        """Send payment data to Chinese manufacturers for vending machine payment processing"""
         try:
-            logger.info(f"Sending payment data to Chinese API: third_id={third_id}, amount={pay_amount}")
+            logger.info(f"=== CHINESE PAYMENT SERVICE START ===")
+            logger.info(f"Target URL: {self.base_url}/order/payData") 
+            logger.info(f"Payment details: third_id={third_id}, amount={pay_amount}, pay_type={pay_type}")
+            logger.info(f"Mobile model ID: {mobile_model_id}")
+            logger.info(f"Device ID: {device_id}")
             
             # Ensure we're authenticated
+            logger.info("Checking authentication status...")
+            auth_start = time.time()
             if not self.ensure_authenticated():
+                logger.error("Authentication failed - cannot proceed with payment")
                 return {
                     "msg": "Authentication failed",
                     "code": 500,
                     "data": {"id": "", "third_id": third_id}
                 }
             
+            auth_duration = time.time() - auth_start
+            logger.info(f"Authentication successful in {auth_duration:.2f}s, token: {self.token[:20] if self.token else 'None'}...")
+            
             # Use provided device_id or fall back to configured one
             effective_device_id = device_id or self.device_id
+            if not effective_device_id:
+                logger.error("No device_id provided and no default configured")
+                return {
+                    "msg": "Device ID is required",
+                    "code": 400,
+                    "data": {"id": "", "third_id": third_id}
+                }
             
             payload = {
                 "mobile_model_id": mobile_model_id,
@@ -162,61 +179,133 @@ class ChinesePaymentAPIClient:
                 "pay_type": pay_type
             }
             
-            logger.debug(f"Payment payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
+            logger.info(f"=== PAYLOAD TO CHINESE API ===")
+            logger.info(f"Request payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
             
+            # Generate signature
+            logger.info("Generating signature...")
+            signature_start = time.time()
             signature = self.generate_signature(payload)
+            signature_duration = time.time() - signature_start
+            logger.info(f"Signature generated in {signature_duration:.3f}s: {signature}")
             
             headers = {
                 "Authorization": self.token,
                 "sign": signature,
-                "req_source": "en"
+                "req_source": "en",
+                "Content-Type": "application/json",
+                "User-Agent": "PimpMyCase-API/2.0.0"
             }
             
+            logger.info(f"=== REQUEST HEADERS ===")
+            # Log headers but mask sensitive data
+            safe_headers = headers.copy()
+            if safe_headers.get("Authorization"):
+                safe_headers["Authorization"] = safe_headers["Authorization"][:20] + "..." if len(safe_headers["Authorization"]) > 20 else safe_headers["Authorization"]
+            logger.info(f"Headers: {json.dumps(safe_headers, indent=2, ensure_ascii=False)}")
+            
+            # Make the request
+            full_url = f"{self.base_url}/order/payData"
+            logger.info(f"Making POST request to: {full_url}")
+            request_start = time.time()
+            
             response = self.session.post(
-                f"{self.base_url}/order/payData",
+                full_url,
                 json=payload,
                 headers=headers,
                 timeout=self.timeout
             )
             
-            logger.info(f"PayData response status: {response.status_code}")
+            request_duration = time.time() - request_start
+            logger.info(f"HTTP request completed in {request_duration:.2f}s")
+            
+            logger.info(f"=== CHINESE API HTTP RESPONSE ===")
+            logger.info(f"HTTP Status: {response.status_code} {response.reason}")
+            logger.info(f"Response headers: {dict(response.headers)}")
             
             if response.status_code == 200:
-                data = response.json()
-                logger.debug(f"PayData response: {json.dumps(data, indent=2, ensure_ascii=False)}")
-                
-                # Log successful payment initiation
-                if data.get("code") == 200:
-                    logger.info(f"Payment data sent successfully: payment_id={data['data'].get('id')}, third_id={third_id}")
-                else:
-                    logger.warning(f"Payment data API returned error: {data.get('code')} - {data.get('msg')}")
-                
-                return data
+                try:
+                    data = response.json()
+                    logger.info(f"Response body: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                    
+                    # Check Chinese API response code
+                    if data.get("code") == 200:
+                        payment_id = data.get('data', {}).get('id', 'N/A')
+                        logger.info(f"SUCCESS: Payment data sent successfully!")
+                        logger.info(f"Chinese Payment ID: {payment_id}")
+                        logger.info(f"Third ID: {third_id}")
+                    else:
+                        logger.error(f"Chinese API returned error code: {data.get('code')}")
+                        logger.error(f"Error message: {data.get('msg', 'No message provided')}")
+                    
+                    logger.info(f"=== CHINESE PAYMENT SERVICE END (SUCCESS) ===")
+                    return data
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {e}")
+                    logger.error(f"Raw response text: {response.text[:1000]}")
+                    return {
+                        "msg": f"Invalid JSON response from Chinese API",
+                        "code": 502,
+                        "data": {"id": "", "third_id": third_id}
+                    }
             else:
-                error_msg = f"PayData failed - HTTP {response.status_code}"
-                logger.error(f"{error_msg}: {response.text}")
+                logger.error(f"HTTP request failed with status: {response.status_code}")
+                logger.error(f"Response reason: {response.reason}")
+                
+                error_body = "No response body"
+                try:
+                    error_body = response.text
+                    logger.error(f"Error response body: {error_body[:1000]}")
+                except Exception as e:
+                    logger.error(f"Could not read error response: {e}")
+                
+                logger.error(f"=== CHINESE PAYMENT SERVICE END (HTTP ERROR) ===")
                 return {
-                    "msg": error_msg,
+                    "msg": f"HTTP {response.status_code}: {error_body}",
                     "code": response.status_code,
                     "data": {"id": "", "third_id": third_id},
-                    "response": response.text
+                    "http_error": True
                 }
                 
-        except requests.RequestException as e:
-            error_msg = f"PayData request failed: {str(e)}"
-            logger.error(error_msg)
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Request timeout after {self.timeout}s: {str(e)}")
+            logger.error(f"=== CHINESE PAYMENT SERVICE END (TIMEOUT) ===")
             return {
-                "msg": error_msg,
+                "msg": f"Request timeout after {self.timeout}s",
+                "code": 504,
+                "data": {"id": "", "third_id": third_id},
+                "timeout": True
+            }
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error to Chinese API: {str(e)}")
+            logger.error(f"Target URL: {self.base_url}/order/payData")
+            logger.error(f"=== CHINESE PAYMENT SERVICE END (CONNECTION ERROR) ===")
+            return {
+                "msg": f"Connection failed to Chinese API: {str(e)}",
+                "code": 503,
+                "data": {"id": "", "third_id": third_id},
+                "connection_error": True
+            }
+        except requests.RequestException as e:
+            logger.error(f"Request error: {str(e)}")
+            logger.error(f"=== CHINESE PAYMENT SERVICE END (REQUEST ERROR) ===")
+            return {
+                "msg": f"Request failed: {str(e)}",
                 "code": 500,
-                "data": {"id": "", "third_id": third_id}
+                "data": {"id": "", "third_id": third_id},
+                "request_error": True
             }
         except Exception as e:
-            error_msg = f"PayData exception: {str(e)}"
-            logger.error(error_msg)
+            logger.error(f"Unexpected error in payment service: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"=== CHINESE PAYMENT SERVICE END (UNEXPECTED ERROR) ===")
             return {
-                "msg": error_msg,
+                "msg": f"Unexpected error: {str(e)}",
                 "code": 500,
-                "data": {"id": "", "third_id": third_id}
+                "data": {"id": "", "third_id": third_id},
+                "unexpected_error": True
             }
 
     def get_brand_list(self) -> Dict[str, Any]:
@@ -414,7 +503,7 @@ def get_chinese_payment_client() -> ChinesePaymentAPIClient:
     return _chinese_client
 
 def send_payment_to_chinese_api(mobile_model_id: str, device_id: str, third_id: str, 
-                               pay_amount: float, pay_type: int = 6) -> Dict[str, Any]:
+                               pay_amount: float, pay_type: int = 5) -> Dict[str, Any]:
     """Convenience function to send payment data to Chinese API"""
     client = get_chinese_payment_client()
     return client.send_payment_data(

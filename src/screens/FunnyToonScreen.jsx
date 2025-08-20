@@ -17,7 +17,7 @@ import PastelBlobs from '../components/PastelBlobs'
 const FunnyToonScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform } = location.state || {}
+  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform, selectedModelData, deviceId } = location.state || {}
 
   const [uploadedImage, setUploadedImage] = useState(initialImage || null)
   const [toonStyle, setToonStyle] = useState('') // no style selected initially
@@ -56,7 +56,9 @@ const FunnyToonScreen = () => {
         color,
         template,
         uploadedImage,
-        transform
+        transform,
+        selectedModelData,
+        deviceId
       }
     })
   }
@@ -70,7 +72,9 @@ const FunnyToonScreen = () => {
         template,
         uploadedImage,
         toonStyle,
-        transform
+        transform,
+        selectedModelData,
+        deviceId
       }
     })
   }

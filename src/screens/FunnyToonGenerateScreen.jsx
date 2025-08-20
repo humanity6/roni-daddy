@@ -27,7 +27,9 @@ const FunnyToonGenerateScreen = () => {
     template,
     uploadedImage,
     toonStyle,
-    transform: initialTransform
+    transform: initialTransform,
+    selectedModelData,
+    deviceId
   } = location.state || {}
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState(null) // Start with no generated image
@@ -158,7 +160,9 @@ const FunnyToonGenerateScreen = () => {
         template,
         uploadedImage: generatedImage || uploadedImage, // Use generated image if available
         toonStyle,
-        transform
+        transform,
+        selectedModelData,
+        deviceId
       }
     })
   }

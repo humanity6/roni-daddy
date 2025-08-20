@@ -15,7 +15,7 @@ import aiImageService from '../services/aiImageService'
 const CoverShootScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 4 } = location.state || {}
+  const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 4, selectedModelData, deviceId } = location.state || {}
 
   /* --------------------------------------------------------------------
    * UI STATE
@@ -68,7 +68,7 @@ const CoverShootScreen = () => {
    * NAVIGATION HANDLERS
    * ------------------------------------------------------------------*/
   const handleBack = () => {
-    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform } })
+    navigate('/phone-preview', { state: { brand, model, color, template, uploadedImage, transform, selectedModelData, deviceId } })
   }
 
   const handleSubmit = () => {
@@ -81,7 +81,9 @@ const CoverShootScreen = () => {
         uploadedImage,
         selectedStyle,
         transform,
-        aiCredits
+        aiCredits,
+        selectedModelData,
+        deviceId
       }
     })
   }

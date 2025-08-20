@@ -26,7 +26,11 @@
       "Bash(mv:*)",
       "Bash(move:*)",
       "Bash(set PYTHONIOENCODING=utf-8)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(find:*)",
+      "Bash(timeout 10 npm run dev)",
+      "Bash(rg:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   }

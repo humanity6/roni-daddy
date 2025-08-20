@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, ArrowUp, ArrowDown, ArrowLeft as ArrowLeftIcon, ArrowRight as ArrowRightIcon, Type, Minus, Plus, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ArrowUp, ArrowDown, ArrowRight as ArrowRightIcon, Type, Minus, Plus, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { useTextBoundaries, validateFontSize, createPositionHandlers } from '../utils/textBoundaryManager'
@@ -9,7 +9,7 @@ import { fonts as availableFonts } from '../utils/fontManager'
 const FontSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount, selectedTextColor } = location.state || {}
+  const { brand, model, color, template, uploadedImage, uploadedImages, imageTransforms, inputText, textPosition, transform: initialTransform, stripCount, selectedTextColor, selectedModelData, deviceId } = location.state || {}
   
   const [selectedFont, setSelectedFont] = useState(location.state?.selectedFont || 'Arial')
   const [fontSize, setFontSize] = useState(location.state?.fontSize || 30)
@@ -74,7 +74,9 @@ const FontSelectionScreen = () => {
         textPosition: adjustedTextPosition, // Pass the adjusted position back
         selectedTextColor,
         transform: initialTransform,
-        stripCount
+        stripCount,
+        selectedModelData,
+        deviceId
       } 
     })
   }
@@ -95,7 +97,9 @@ const FontSelectionScreen = () => {
         textPosition: adjustedTextPosition, // Pass the adjusted position forward
         selectedTextColor,
         transform: initialTransform,
-        stripCount
+        stripCount,
+        selectedModelData,
+        deviceId
       } 
     })
   }
@@ -407,7 +411,7 @@ const FontSelectionScreen = () => {
                 onClick={positionHandlers.moveLeft}
                 className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg active:scale-95 transition-transform"
               >
-                <ArrowLeftIcon size={20} className="text-gray-600" />
+                <ArrowLeft size={20} className="text-gray-600" />
               </button>
               <button 
                 onClick={positionHandlers.moveRight}

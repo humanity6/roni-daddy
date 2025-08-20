@@ -27,7 +27,9 @@ const CoverShootGenerateScreen = () => {
     template,
     uploadedImage,
     selectedStyle,
-    transform: initialTransform
+    transform: initialTransform,
+    selectedModelData,
+    deviceId
   } = location.state || {}
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImage, setGeneratedImage] = useState(null)
@@ -101,7 +103,7 @@ const CoverShootGenerateScreen = () => {
 
   const handleGenerate = () => {
     navigate('/text-input',{
-      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,transform}
+      state:{brand,model,color,template,uploadedImage:generatedImage||uploadedImage,transform,selectedModelData,deviceId}
     })
   }
 

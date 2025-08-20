@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft, Type, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RefreshCw, ArrowRight as ArrowForward, ArrowLeft as ArrowBack, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowLeft, Type, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RefreshCw, ArrowRight as ArrowForward, ArrowUp, ArrowDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { fonts as availableFonts } from '../utils/fontManager'
+import { useAppState } from '../contexts/AppStateContext'
 
 const BackgroundColorSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { state: appState } = useAppState()
+
+  // First extract location state to get deviceIdFromState
   const { 
     brand, 
     model, 
@@ -22,8 +26,17 @@ const BackgroundColorSelectionScreen = () => {
     textPosition, 
     transform: initialTransform, 
     stripCount,
-    selectedTextColor 
+    selectedTextColor,
+    selectedModelData,
+    deviceId: deviceIdFromState
   } = location.state || {}
+
+  // Extract device_id (needed later on PaymentScreen)
+  const currentUrl = window.location.href
+  const urlParams = new URLSearchParams(window.location.search)
+  const deviceIdMatch = currentUrl.match(/device_id=([^&]+)/)
+  const deviceIdFromUrl = urlParams.get('device_id') || (deviceIdMatch ? deviceIdMatch[1] : null)
+  const deviceId = deviceIdFromState || appState?.vendingMachineSession?.deviceId || deviceIdFromUrl || null
 
   // Maintain local copy of image transforms for live editing
   const [imageTransforms, setImageTransforms] = useState(initialImageTransforms || (uploadedImages ? uploadedImages.map(() => ({ x: 0, y: 0, scale: 1 })) : []))
@@ -96,13 +109,17 @@ const BackgroundColorSelectionScreen = () => {
         textPosition,
         transform: initialTransform,
         stripCount,
-        selectedTextColor
+        selectedTextColor,
+        selectedModelData,
+        deviceId
       } 
     })
   }
 
   const handleNext = () => {
-    navigate('/payment', {
+    // Preserve original query parameters (keeps device_id & session data in URL for refresh safety)
+    const search = window.location.search || ''
+    navigate('/payment' + search, {
       state: {
         designImage: uploadedImage,
         uploadedImages,
@@ -115,7 +132,8 @@ const BackgroundColorSelectionScreen = () => {
         textPosition,
         transform: initialTransform,
         template,
-        stripCount
+        stripCount,
+        deviceId // pass through explicitly so PaymentScreen can still read it even if query params are lost
       }
     })
   }
@@ -373,7 +391,7 @@ const BackgroundColorSelectionScreen = () => {
               <ArrowForward size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
             </button>
             <button onClick={moveLeft} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
-              <ArrowBack size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
+              <ArrowLeft size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />
             </button>
             <button onClick={moveDown} disabled={!hasImage} className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${hasImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}>
               <ArrowDown size={20} className={hasImage ? 'text-gray-700' : 'text-gray-400'} />

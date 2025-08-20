@@ -386,10 +386,17 @@ async def send_payment_data_to_chinese_api(
     db: Session = Depends(get_db)
 ):
     """Send payment data to Chinese manufacturers for card payment processing"""
+    # Extract correlation ID from headers for tracing
+    correlation_id = http_request.headers.get('X-Correlation-ID', f"BACKEND_{int(time.time())}")
+    
     try:
         # Security validation
         security_info = validate_relaxed_api_security(http_request)
-        print(f"Chinese payment data request from {security_info['client_ip']}: {request.third_id}")
+        
+        logger.info(f"=== CHINESE API PAYDATA REQUEST START ({correlation_id}) ===")
+        logger.info(f"Client IP: {security_info['client_ip']}")
+        logger.info(f"Request payload: {request.dict()}")
+        logger.info(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
         
         # Validate that the mobile model exists in our database
         model = db.query(PhoneModel).filter(
@@ -398,10 +405,34 @@ async def send_payment_data_to_chinese_api(
         ).first()
         
         if not model:
-            print(f"Warning: Mobile model {request.mobile_model_id} not found in database, proceeding anyway")
+            logger.warning(f"Mobile model {request.mobile_model_id} not found in database, proceeding anyway")
+        else:
+            logger.info(f"Found mobile model: {model.name} (chinese_id: {model.chinese_model_id})")
+        
+        # Validate required fields
+        validation_errors = []
+        if not request.device_id:
+            validation_errors.append("device_id is required")
+        if not request.mobile_model_id:
+            validation_errors.append("mobile_model_id is required") 
+        if not request.third_id:
+            validation_errors.append("third_id is required")
+        if request.pay_amount <= 0:
+            validation_errors.append("pay_amount must be greater than 0")
+        if request.pay_type not in [5, 6]:
+            validation_errors.append("pay_type must be 5 (vending machine) or 6 (card)")
+            
+        if validation_errors:
+            logger.error(f"Validation errors: {validation_errors}")
+            return {
+                "msg": f"Validation failed: {', '.join(validation_errors)}",
+                "code": 400,
+                "data": {"id": "", "third_id": request.third_id}
+            }
         
         # Store the payment initiation in our system for tracking
         payment_record = {
+            "correlation_id": correlation_id,
             "third_id": request.third_id,
             "device_id": request.device_id,
             "mobile_model_id": request.mobile_model_id,
@@ -410,10 +441,13 @@ async def send_payment_data_to_chinese_api(
             "initiated_at": datetime.now(timezone.utc).isoformat(),
             "client_ip": security_info["client_ip"]
         }
-        print(f"Payment initiation: {payment_record}")
+        logger.info(f"Payment record: {json.dumps(payment_record, indent=2, ensure_ascii=False)}")
         
         # Make actual HTTP request to Chinese manufacturer API
         from backend.services.chinese_payment_service import send_payment_to_chinese_api
+        
+        logger.info("Calling Chinese payment service...")
+        request_start = time.time()
         
         chinese_response = send_payment_to_chinese_api(
             mobile_model_id=request.mobile_model_id,
@@ -423,18 +457,32 @@ async def send_payment_data_to_chinese_api(
             pay_type=request.pay_type
         )
         
-        # Log the response
-        print(f"Chinese API response: {chinese_response}")
+        request_duration = time.time() - request_start
+        logger.info(f"Chinese API call completed in {request_duration:.2f}s")
+        
+        # Log the response in detail
+        logger.info(f"=== CHINESE API RESPONSE ({correlation_id}) ===")
+        logger.info(f"Response: {json.dumps(chinese_response, indent=2, ensure_ascii=False)}")
+        
+        if chinese_response.get("code") == 200:
+            logger.info("SUCCESS: Payment data sent successfully to Chinese API")
+            logger.info(f"Chinese Payment ID: {chinese_response.get('data', {}).get('id')}")
+        else:
+            logger.error(f"Chinese API returned error code: {chinese_response.get('code')}")
+            logger.error(f"Error message: {chinese_response.get('msg')}")
+        
+        logger.info(f"=== CHINESE API PAYDATA REQUEST END ({correlation_id}) ===")
         
         return chinese_response
         
     except Exception as e:
-        print(f"Chinese payment data error: {str(e)}")
+        logger.error(f"=== CHINESE API PAYDATA REQUEST FAILED ({correlation_id}) ===")
+        logger.error(f"Error: {str(e)}")
         import traceback
-        traceback.print_exc()
+        logger.error(f"Traceback: {traceback.format_exc()}")
         
         # Return error in Chinese API format
-        return {
+        error_response = {
             "msg": f"Failed to send payment data: {str(e)}",
             "code": 500,
             "data": {
@@ -442,6 +490,8 @@ async def send_payment_data_to_chinese_api(
                 "third_id": request.third_id if hasattr(request, 'third_id') else ""
             }
         }
+        logger.error(f"Error response: {json.dumps(error_response, indent=2, ensure_ascii=False)}")
+        return error_response
 
 @router.get("/equipment/{equipment_id}/info")
 async def get_equipment_info(

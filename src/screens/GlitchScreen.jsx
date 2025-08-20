@@ -18,7 +18,7 @@ import aiImageService from '../services/aiImageService'
 const GlitchScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform } = location.state || {}
+  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform, selectedModelData, deviceId } = location.state || {}
 
   const [uploadedImage, setUploadedImage] = useState(initialImage || null)
   const [glitchMode, setGlitchMode] = useState('') // no mode selected initially
@@ -59,7 +59,9 @@ const GlitchScreen = () => {
         color,
         template,
         uploadedImage,
-        transform
+        transform,
+        selectedModelData,
+        deviceId
       }
     })
   }
@@ -73,7 +75,9 @@ const GlitchScreen = () => {
         template,
         uploadedImage,
         glitchMode,
-        transform
+        transform,
+        selectedModelData,
+        deviceId
       }
     })
   }
