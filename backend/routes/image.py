@@ -175,3 +175,69 @@ async def get_template_styles(template_id: str):
         return {"modes": list(template_config["modes"].keys())}
     else:
         return {"options": []}
+
+@router.post("/upload-final")
+async def upload_final_composed_image(
+    template_id: str = Form(...),
+    order_id: Optional[str] = Form(None),
+    final_image_data: str = Form(...),  # Base64 encoded image data
+    metadata: str = Form("{}"),  # JSON string with additional metadata
+    db: Session = Depends(get_db)
+):
+    """Upload final composed image with all user customizations applied"""
+    
+    try:
+        print(f"🔄 API - Upload final image request received")
+        print(f"🔄 API - template_id: {template_id}")
+        print(f"🔄 API - order_id: {order_id}")
+        print(f"🔄 API - metadata: {metadata}")
+        print(f"🔄 API - final_image_data length: {len(final_image_data)} chars")
+        
+        # Parse metadata
+        try:
+            metadata_dict = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata_dict = {}
+        
+        # Validate base64 data
+        if not final_image_data.startswith('data:image/'):
+            raise HTTPException(status_code=400, detail="Invalid image data format")
+        
+        # Extract base64 data (remove data:image/png;base64, prefix)
+        base64_data = final_image_data.split(',', 1)[1] if ',' in final_image_data else final_image_data
+        
+        # Save the final composed image
+        file_path, filename = save_generated_image(base64_data, template_id)
+        print(f"🔄 API - Final image saved: {filename}")
+        
+        # Add image to order if order_id provided
+        if order_id:
+            try:
+                OrderImageService.add_order_image(
+                    db, 
+                    order_id, 
+                    file_path, 
+                    "final_composed", 
+                    {
+                        "template_id": template_id, 
+                        "composition_metadata": metadata_dict,
+                        "image_type": "final_with_customizations"
+                    }
+                )
+                print(f"🔄 API - Final image added to order {order_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to add final image to order: {e}")
+                # Don't fail the whole request if order linking fails
+        
+        return {
+            "success": True,
+            "filename": filename,
+            "file_path": file_path,
+            "template_id": template_id,
+            "order_id": order_id,
+            "image_type": "final_composed"
+        }
+    
+    except Exception as e:
+        print(f"❌ Error uploading final image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

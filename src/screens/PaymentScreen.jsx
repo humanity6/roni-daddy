@@ -175,6 +175,7 @@ const PaymentScreen = () => {
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
       
       // Create Stripe checkout session
+      console.log('PaymentScreen - Creating Stripe checkout session...')
       const checkoutResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/create-checkout-session`, {
         method: 'POST',
         headers: {
@@ -190,11 +191,32 @@ const PaymentScreen = () => {
         }),
       })
       
+      console.log('PaymentScreen - Checkout response status:', checkoutResponse.status)
+      
       if (!checkoutResponse.ok) {
-        throw new Error('Checkout session creation failed')
+        const errorText = await checkoutResponse.text()
+        console.error('PaymentScreen - Checkout session creation failed:', errorText)
+        throw new Error(`Checkout session creation failed: ${errorText}`)
       }
       
-      const { checkout_url } = await checkoutResponse.json()
+      const responseData = await checkoutResponse.json()
+      console.log('PaymentScreen - Checkout response data:', responseData)
+      
+      const { checkout_url } = responseData
+      
+      if (!checkout_url) {
+        console.error('PaymentScreen - No checkout_url in response')
+        throw new Error('No checkout URL received from server')
+      }
+      
+      console.log('PaymentScreen - Redirecting to Stripe checkout:', checkout_url)
+      
+      // Add a small delay and fallback for redirect
+      setTimeout(() => {
+        console.log('PaymentScreen - Redirect timeout, showing fallback message')
+        setPaymentError('Redirect taking too long. Click here to continue: ' + checkout_url)
+        setIsProcessingPayment(false)
+      }, 3000)
       
       // Redirect to Stripe hosted checkout
       window.location.href = checkout_url
@@ -325,6 +347,7 @@ const PaymentScreen = () => {
           const correlationId = `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
           
           // Prepare payment data for Chinese API using correct Chinese model ID and device ID
+          // Pay types: 5 = vending machine, 6 = card, 12 = app (as per Chinese API validation)
           const chinesePaymentData = {
             mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
             device_id: deviceId, // Use device_id from QR parameters
@@ -337,6 +360,7 @@ const PaymentScreen = () => {
           console.log('Timestamp:', new Date().toISOString())
           console.log('API Endpoint:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`)
           console.log('Payment Data:', JSON.stringify(chinesePaymentData, null, 2))
+          console.log('IMPORTANT - PAY_TYPE CHECK:', chinesePaymentData.pay_type, '(should be 5 for vending machine)')
           console.log('Device ID Source:', {
             fromSession: deviceIdFromSession,
             fromUrl: deviceIdFromUrl,

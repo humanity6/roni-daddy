@@ -360,13 +360,19 @@ export const AppStateProvider = ({ children }) => {
         response = null
       }
 
-      // If initial registration failed or returned 400/404, create a new session
+      // If initial registration failed or returned 400/404, handle appropriately
       if (!response || !response.ok) {
+        if (response?.status === 404) {
+          // QR session expired - user needs to scan a fresh QR code
+          console.error('QR session expired or not found. Machine needs to generate fresh QR code.')
+          throw new Error('QR session expired. Please scan a fresh QR code from the vending machine.')
+        }
+        
         if (registrationRetryCountRef.current >= 3) {
           console.warn('Max vending registration retries reached; giving up.')
           throw new Error('Failed to create and register session')
         }
-        console.log('Session not found or registration failed, attempting to create new session (attempt', registrationRetryCountRef.current + 1, ')')
+        console.log('Session registration failed, attempting to create new session (attempt', registrationRetryCountRef.current + 1, ')')
 
         try {
           finalSessionId = await createVendingMachineSession(machineId, location)

@@ -114,7 +114,7 @@ app.include_router(router)
 
 # Include modular route modules
 app.include_router(basic_router)
-app.include_router(image_router)
+app.include_router(image_router, prefix="/api/images")
 app.include_router(payment_router)
 app.include_router(vending_router)
 app.include_router(chinese_router)

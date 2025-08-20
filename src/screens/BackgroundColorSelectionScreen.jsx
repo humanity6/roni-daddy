@@ -5,6 +5,7 @@ import PastelBlobs from '../components/PastelBlobs'
 import CircleSubmitButton from '../components/CircleSubmitButton'
 import { fonts as availableFonts } from '../utils/fontManager'
 import { useAppState } from '../contexts/AppStateContext'
+import { composeFinalImage } from '../utils/finalImageComposer'
 
 const BackgroundColorSelectionScreen = () => {
   const navigate = useNavigate()
@@ -116,13 +117,15 @@ const BackgroundColorSelectionScreen = () => {
     })
   }
 
-  const handleNext = () => {
-    // Preserve original query parameters (keeps device_id & session data in URL for refresh safety)
-    const search = window.location.search || ''
-    navigate('/payment' + search, {
-      state: {
-        designImage: uploadedImage,
+  const handleNext = async () => {
+    try {
+      console.log('🔄 Composing and uploading final image...')
+      
+      // Compose the final image with all customizations
+      const finalImageData = await composeFinalImage({
+        template,
         uploadedImages,
+        uploadedImage,
         imageTransforms,
         inputText,
         selectedFont,
@@ -130,12 +133,99 @@ const BackgroundColorSelectionScreen = () => {
         selectedTextColor,
         selectedBackgroundColor,
         textPosition,
-        transform: initialTransform,
-        template,
-        stripCount,
-        deviceId // pass through explicitly so PaymentScreen can still read it even if query params are lost
+        transform: initialTransform
+      })
+      
+      console.log('✅ Final image composed successfully')
+      
+      // Upload final composed image to server
+      const uploadSuccess = await uploadFinalImage(finalImageData, template)
+      
+      if (uploadSuccess) {
+        console.log('✅ Final image uploaded successfully')
+      } else {
+        console.warn('⚠️ Final image upload failed, continuing with local image')
       }
-    })
+      
+      // Preserve original query parameters (keeps device_id & session data in URL for refresh safety)
+      const search = window.location.search || ''
+      navigate('/payment' + search, {
+        state: {
+          designImage: finalImageData, // Use the composed final image
+          uploadedImages,
+          imageTransforms,
+          inputText,
+          selectedFont,
+          fontSize,
+          selectedTextColor,
+          selectedBackgroundColor,
+          textPosition,
+          transform: initialTransform,
+          template,
+          stripCount,
+          deviceId // pass through explicitly so PaymentScreen can still read it even if query params are lost
+        }
+      })
+      
+    } catch (error) {
+      console.error('❌ Error creating final image:', error)
+      // Fallback to original behavior if composition fails
+      const search = window.location.search || ''
+      navigate('/payment' + search, {
+        state: {
+          designImage: uploadedImage, // Fallback to original image
+          uploadedImages,
+          imageTransforms,
+          inputText,
+          selectedFont,
+          fontSize,
+          selectedTextColor,
+          selectedBackgroundColor,
+          textPosition,
+          transform: initialTransform,
+          template,
+          stripCount,
+          deviceId
+        }
+      })
+    }
+  }
+
+  const uploadFinalImage = async (finalImageData, template) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/images/upload-final`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          template_id: template?.id || 'classic',
+          final_image_data: finalImageData,
+          metadata: JSON.stringify({
+            inputText,
+            selectedFont,
+            fontSize,
+            selectedTextColor,
+            selectedBackgroundColor,
+            textPosition,
+            uploadTimestamp: new Date().toISOString()
+          })
+        })
+      })
+      
+      if (!response.ok) {
+        console.error('Final image upload failed:', response.status, await response.text())
+        return false
+      }
+      
+      const result = await response.json()
+      console.log('Final image upload result:', result)
+      return true
+      
+    } catch (error) {
+      console.error('Error uploading final image:', error)
+      return false
+    }
   }
 
   const getPreviewStyle = () => {
