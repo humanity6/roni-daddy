@@ -15,6 +15,10 @@ from db_services import OrderService, OrderImageService
 from models import Order, PhoneModel, VendingMachine
 from datetime import datetime, timezone
 import time
+import logging
+import json
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chinese")
 
