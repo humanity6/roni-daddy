@@ -240,7 +240,7 @@ async def initialize_vending_payment(
             device_id=session.machine_id,  # Use actual machine ID as device ID
             third_id=third_id,
             pay_amount=float(payment_amount),
-            pay_type=6  # Card payment for vending machines
+            pay_type=5  # Vending machine payment (corrected from 6 to 5)
         )
         
         # Call Chinese API endpoint
