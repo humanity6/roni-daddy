@@ -32,6 +32,11 @@ async def create_vending_session(
 ):
     """Create a new vending machine session for QR code generation"""
     try:
+        print(f"=== CREATE VENDING SESSION START ===")
+        print(f"Request: {request.dict()}")
+        print(f"Machine ID: {request.machine_id}")
+        print(f"Location: {request.location}")
+        
         # Security validation
         security_info = validate_machine_security(http_request, request.machine_id)
         
@@ -46,13 +51,36 @@ async def create_vending_session(
         if request.metadata and not security_manager.validate_json_size(request.metadata, 10):
             raise HTTPException(status_code=400, detail="Metadata too large")
         
-        # Validate vending machine exists and is active
+        # Validate vending machine exists and is active, or auto-create for Chinese integrations
         vending_machine = db.query(VendingMachine).filter(
             VendingMachine.id == machine_id,
             VendingMachine.is_active == True
         ).first()
+        
         if not vending_machine:
-            raise HTTPException(status_code=404, detail="Vending machine not found or inactive")
+            # Auto-create vending machine for Chinese API integrations
+            print(f"Auto-creating vending machine for device_id: {machine_id}")
+            
+            vending_machine = VendingMachine(
+                id=machine_id,
+                name=f"Chinese Vending Machine {machine_id}",
+                location=location or "Chinese Integration - Location TBD",
+                is_active=True,
+                qr_config={
+                    "auto_created": True,
+                    "created_for": "chinese_integration",
+                    "timeout_minutes": timeout_minutes
+                },
+                created_at=datetime.now(timezone.utc)
+            )
+            
+            try:
+                db.add(vending_machine)
+                db.flush()  # Flush to get the ID assigned
+                print(f"Successfully auto-created vending machine: {machine_id}")
+            except Exception as e:
+                print(f"Failed to auto-create vending machine: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to create vending machine: {str(e)}")
         
         # Check machine session limit
         if not security_manager.validate_machine_session_limit(machine_id):
@@ -97,6 +125,12 @@ async def create_vending_session(
         qr_url = f"https://pimpmycase.shop/?qr=true&machine_id={machine_id}&session_id={session_id}"
         if location:
             qr_url += f"&location={quote(location)}"
+        
+        print(f"Successfully created vending session:")
+        print(f"- Session ID: {session_id}")
+        print(f"- Machine: {vending_machine.name} ({vending_machine.id})")
+        print(f"- QR URL: {qr_url}")
+        print(f"=== CREATE VENDING SESSION END ===")
         
         return {
             "success": True,
@@ -338,6 +372,10 @@ async def register_user_with_session(
 ):
     """Register user with vending machine session when they scan QR code"""
     try:
+        print(f"=== REGISTER USER WITH SESSION START ===")
+        print(f"Session ID: {session_id}")
+        print(f"Request: {request.dict()}")
+        
         # Security validation
         security_info = validate_session_security(http_request, session_id)
         
@@ -383,6 +421,12 @@ async def register_user_with_session(
         
         db.commit()
         db.refresh(session)
+        
+        print(f"Successfully registered user with session:")
+        print(f"- Session ID: {session_id}")
+        print(f"- Machine: {session.machine_id}")
+        print(f"- User Progress: {session.user_progress}")
+        print(f"=== REGISTER USER WITH SESSION END ===")
         
         return {
             "success": True,
