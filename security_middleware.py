@@ -135,8 +135,8 @@ class SecurityManager:
         if identifier in self.failed_attempts:
             del self.failed_attempts[identifier]
     
-    def validate_payment_amount(self, amount: float, expected_range: tuple = (1.0, 500.0)) -> bool:
-        """Validate payment amount is within reasonable range"""
+    def validate_payment_amount(self, amount: float, expected_range: tuple = (0.01, 500.0)) -> bool:
+        """Validate payment amount is within reasonable range (including test prices)"""
         if not isinstance(amount, (int, float)):
             return False
         return expected_range[0] <= amount <= expected_range[1]

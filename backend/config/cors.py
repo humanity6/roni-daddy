@@ -43,6 +43,9 @@ ALLOWED_HEADERS = [
     "Origin",
     "Access-Control-Request-Method",
     "Access-Control-Request-Headers",
+    "X-Correlation-ID",
+    "req_source",
+    "sign",
 ]
 
 # CORS configuration dictionary for easy use
