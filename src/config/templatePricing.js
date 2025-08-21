@@ -37,6 +37,30 @@ export const TEMPLATE_PRICING = {
     currency: '£',
     category: 'ai',
     displayPrice: '£21.99'
+  },
+  'retro-remix': {
+    price: 21.99,
+    currency: '£',
+    category: 'ai',
+    displayPrice: '£21.99'
+  },
+  'cover-shoot': {
+    price: 21.99,
+    currency: '£',
+    category: 'ai',
+    displayPrice: '£21.99'
+  },
+  'glitch-pro': {
+    price: 21.99,
+    currency: '£',
+    category: 'ai',
+    displayPrice: '£21.99'
+  },
+  'footy-fan': {
+    price: 23.99,
+    currency: '£',
+    category: 'ai',
+    displayPrice: '£23.99'
   }
 }
 

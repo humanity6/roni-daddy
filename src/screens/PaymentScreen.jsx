@@ -104,13 +104,17 @@ const PaymentScreen = () => {
     }
   ]
 
-  // Get the effective price from template pricing config
-  const effectivePrice = 
-    typeof price === 'number' && !isNaN(price)
-      ? price
-      : template?.id 
-        ? getTemplatePrice(template.id)
-        : 19.99
+  // Always use template pricing (ignore any external price sources)
+  const effectivePrice = template?.id 
+    ? getTemplatePrice(template.id)
+    : 19.99
+  
+  console.log('PaymentScreen - Pricing Info:', {
+    templateId: template?.id,
+    templateBasedPrice: effectivePrice,
+    externalPrice: price,
+    usingTemplatePrice: true
+  })
 
   // Compute style helpers reused from previous screens
   const getPreviewStyle = () => ({

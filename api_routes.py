@@ -236,7 +236,7 @@ async def get_phone_models(brand_id: str, device_id: str, db: Session = Depends(
                     "chinese_model_id": item.get("mobile_model_id"),
                     "name": item.get("mobile_model_name"),
                     "display_name": item.get("mobile_model_name"),
-                    "price": float(item.get("price", 10)),
+                    "price": float(item.get("price", 10)),  # Chinese API test price (NOT used for payments - we use template pricing)
                     "stock": item.get("stock", 0),
                     "is_available": True
                 })
