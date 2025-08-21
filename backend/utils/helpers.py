@@ -4,9 +4,14 @@ import time
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-def generate_third_id():
-    """Generate third_id in Chinese API format: PYEN + yyMMdd + 6digits
-    Example: PYEN250604000001
+def generate_third_id(prefix="PYEN"):
+    """Generate third_id in Chinese API format: PREFIX + yyMMdd + 6digits
+    Examples: 
+    - PYEN250604000001 (for payments)
+    - OREN250604000001 (for orders)
+    
+    Args:
+        prefix (str): Prefix to use. Default "PYEN" for payments, use "OREN" for orders
     """
     # Get current date in yyMMdd format
     current_date = datetime.now()
@@ -19,7 +24,7 @@ def generate_third_id():
     if len(timestamp_suffix) < 6:
         timestamp_suffix = timestamp_suffix.zfill(6)
     
-    third_id = f"PYEN{date_str}{timestamp_suffix}"
+    third_id = f"{prefix}{date_str}{timestamp_suffix}"
     return third_id
 
 def get_mobile_model_id(phone_model, db: Session):

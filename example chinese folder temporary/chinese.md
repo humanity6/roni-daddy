@@ -235,6 +235,61 @@ Example: `PYEN250811908177`
 }
 ```
 
+### Report Order Information
+**Endpoint:** `order/orderData`
+**Method:** POST
+**Auth:** Required
+
+**Request:**
+```json
+{
+  "third_pay_id": "PYEN250811908177",
+  "third_id": "OREN250811908177", 
+  "mobile_model_id": "MM1020250226000002",
+  "pic": "https://example.com/print-image.jpg",
+  "device_id": "1CBRONIQRWQQ"
+}
+```
+
+**Parameters:**
+- `third_pay_id`: Third-party payment ID (from payData response)
+- `third_id`: Third-party order ID (Format: `OREN + yyMMdd + 6 digits`)
+- `mobile_model_id`: Model ID
+- `pic`: Print image URL
+- `device_id`: Device ID
+
+**Response:**
+```json
+{
+  "msg": "操作成功",
+  "code": 200,
+  "data": {
+    "id": "ORDER123456789",
+    "third_id": "OREN250811908177",
+    "queue_no": "001",
+    "status": 8
+  }
+}
+```
+
+**Order Status Codes:**
+- 1: Waiting for payment
+- 2: Cancelled  
+- 3: Paying
+- 4: Paid
+- 5: Payment failed
+- 6: Refunding
+- 7: Refund
+- 8: Waiting for printing
+- 9: Picking up
+- 10: Pickup completed
+- 11: Printing
+- 12: Printed
+- 13: Printing failed
+- 14: Printing canceled
+- 15: Shipping
+- 16: Shipping completed
+
 ## 6. Usage Examples
 
 ### Python Client Usage
@@ -272,6 +327,15 @@ payment = client.pay_data(
     pay_amount=10.0,
     pay_type=1
 )
+
+# Report order information
+order = client.order_data(
+    third_pay_id="PYEN250811908177",  # From payment response
+    third_id="OREN250811908177",     # Auto-generated or custom
+    mobile_model_id="MM1020250226000002",
+    pic="https://example.com/print-image.jpg",
+    device_id="1CBRONIQRWQQ"
+)
 ```
 
 ### CLI Usage
@@ -294,6 +358,9 @@ python chinese_api.py goods --shop-id SP102507070001
 
 # Test payment
 python chinese_api.py pay --mobile-model-id MM1020250226000002
+
+# Report order information
+python chinese_api.py order --third-pay-id PYEN250811908177 --mobile-model-id MM1020250226000002 --pic "https://example.com/image.jpg"
 ```
 
 ## 7. Environment Variables

@@ -203,47 +203,156 @@ async def process_payment_success(
             }
             order = OrderService.create_order(db, order_data)
         
-        # Send payment data to Chinese API for "Pay on App" orders
+        # Complete Chinese API integration for "Pay on App" orders - all 3 endpoints
         try:
-            print(f"Sending app payment data to Chinese API for order {order.id}")
+            print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
             
             # Get Chinese model ID from order data or device_id from request
             device_id = request.order_data.get('device_id', 'APP_PAYMENT')  # Fallback for app payments
             chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
             
+            # Get third_id from request data if available (from PaymentScreen.jsx)
+            existing_third_id = request.order_data.get('third_id')
+            
             if chinese_model_id:
-                # Generate third_id for Chinese API
+                # Generate third_id for Chinese API if not provided from frontend
                 from backend.utils.helpers import generate_third_id
-                third_id = generate_third_id()
+                third_id = existing_third_id or generate_third_id()
                 
-                # Send to Chinese API with pay_type: 12 for app payments
-                from backend.services.chinese_payment_service import send_payment_to_chinese_api
+                print(f"Chinese API integration: device_id={device_id}, model_id={chinese_model_id}, third_id={third_id}")
                 
-                chinese_response = send_payment_to_chinese_api(
-                    mobile_model_id=chinese_model_id,
-                    device_id=device_id,
-                    third_id=third_id,
-                    pay_amount=float(session.amount_total / 100),
-                    pay_type=12  # App payment type
+                # Import Chinese API functions
+                from backend.services.chinese_payment_service import (
+                    send_payment_to_chinese_api, 
+                    send_payment_status_to_chinese_api,
+                    send_order_data_to_chinese_api
                 )
                 
-                print(f"Chinese API response for app payment: {chinese_response}")
+                # STEP 1: Send payment data to Chinese API (if not already done by frontend)
+                print(f"STEP 1: Sending payment data to Chinese API...")
+                chinese_payment_response = None
                 
-                # Store Chinese payment info in order
-                if chinese_response.get('code') == 200:
+                if not existing_third_id:
+                    # Frontend didn't call payData, so we need to call it now
+                    chinese_payment_response = send_payment_to_chinese_api(
+                        mobile_model_id=chinese_model_id,
+                        device_id=device_id,
+                        third_id=third_id,
+                        pay_amount=float(session.amount_total / 100),
+                        pay_type=12  # App payment type
+                    )
+                    print(f"Chinese API payData response: {chinese_payment_response}")
+                else:
+                    print(f"Payment data already sent by frontend with third_id: {third_id}")
+                    # Create a mock response for consistency
+                    chinese_payment_response = {
+                        'code': 200,
+                        'data': {'id': request.order_data.get('chinese_payment_id', 'FRONTEND_SENT')}
+                    }
+                
+                # STEP 2: Send payment status notification (NEW)
+                print(f"STEP 2: Sending payment status notification to Chinese API...")
+                try:
+                    payment_status_response = send_payment_status_to_chinese_api(
+                        third_id=third_id,
+                        status=3,  # 3 = Paid status in Chinese system
+                        pay_amount=float(session.amount_total / 100)
+                    )
+                    print(f"Chinese API payStatus response: {payment_status_response}")
+                    
+                    if payment_status_response.get('code') == 200:
+                        print("SUCCESS: Payment status notification sent to Chinese API")
+                    else:
+                        print(f"WARNING: Payment status notification failed: {payment_status_response.get('msg')}")
+                        
+                except Exception as status_error:
+                    print(f"WARNING: Payment status notification failed: {str(status_error)}")
+                    # Continue with order data submission even if status notification fails
+                
+                # STEP 3: Generate design image URL and send order data
+                print(f"STEP 3: Preparing order data for Chinese API...")
+                
+                try:
+                    # Get final design image URL for Chinese API
+                    design_image_url = None
+                    
+                    # Priority 1: Use the uploaded final image URL (permanent, hosted on render.com)
+                    if request.order_data.get('finalImagePublicUrl'):
+                        design_image_url = request.order_data.get('finalImagePublicUrl')
+                        print(f"✅ Using uploaded final image URL: {design_image_url}")
+                        
+                    # Priority 2: Try to find session-based filename if we have session ID
+                    elif request.order_data.get('imageSessionId'):
+                        session_id = request.order_data.get('imageSessionId')
+                        # Try to construct URL based on session ID (this is a fallback)
+                        design_image_url = f"https://pimpmycase.onrender.com/image/order-{session_id}-final-*.png"
+                        print(f"⚠️ Using session-based URL pattern: {design_image_url}")
+                        
+                    # Priority 3: Check if designImage is already a permanent URL
+                    elif request.order_data.get('designImage') and request.order_data.get('designImage').startswith('https://pimpmycase.onrender.com'):
+                        design_image_url = request.order_data.get('designImage')
+                        print(f"✅ Using existing permanent URL: {design_image_url}")
+                        
+                    # Priority 4: Fallback for blob URLs or missing images
+                    else:
+                        print(f"⚠️ No permanent image URL found, using fallback")
+                        design_image_url = f"https://pimpmycase.onrender.com/api/generate-design-preview"
+                    
+                    # Generate order third_id (different from payment third_id) 
+                    # Use session ID as base if available for consistency
+                    order_prefix = "OREN"
+                    if request.order_data.get('imageSessionId'):
+                        order_third_id = f"{order_prefix}-{request.order_data.get('imageSessionId')}"
+                    else:
+                        order_third_id = generate_third_id("OREN")
+                    
+                    print(f"Sending order data: third_pay_id={third_id}, third_id={order_third_id}")
+                    print(f"Design image URL: {design_image_url}")
+                    
+                    order_data_response = send_order_data_to_chinese_api(
+                        third_pay_id=third_id,  # Payment ID from step 1
+                        third_id=order_third_id,  # Order ID 
+                        mobile_model_id=chinese_model_id,
+                        pic=design_image_url,
+                        device_id=device_id
+                    )
+                    
+                    print(f"Chinese API orderData response: {order_data_response}")
+                    
+                    if order_data_response.get('code') == 200:
+                        print("SUCCESS: Order data sent to Chinese API for printing")
+                        order_data = order_data_response.get('data', {})
+                        
+                        # Store Chinese order information
+                        order.chinese_order_id = order_data.get('id')
+                        order.queue_number = order_data.get('queue_no')
+                        order.chinese_order_status = order_data.get('status', 8)  # 8 = Waiting for printing
+                        
+                    else:
+                        print(f"WARNING: Order data submission failed: {order_data_response.get('msg')}")
+                        
+                except Exception as order_error:
+                    print(f"WARNING: Order data submission failed: {str(order_error)}")
+                    import traceback
+                    traceback.print_exc()
+                
+                # Store Chinese payment info in order (from step 1)
+                if chinese_payment_response and chinese_payment_response.get('code') == 200:
                     order.third_party_payment_id = third_id
-                    order.chinese_payment_id = chinese_response.get('data', {}).get('id')
+                    order.chinese_payment_id = chinese_payment_response.get('data', {}).get('id')
                     order.chinese_payment_status = 3  # Paid status in Chinese system
                     db.commit()
-                    print(f"Successfully sent app payment to Chinese API: {chinese_response.get('data', {}).get('id')}")
+                    print(f"Successfully completed Chinese API integration")
                 else:
-                    print(f"Chinese API returned error for app payment: {chinese_response.get('msg')}")
+                    print(f"Chinese API payment failed: {chinese_payment_response.get('msg') if chinese_payment_response else 'No response'}")
                     
+                print(f"=== COMPLETE CHINESE API INTEGRATION END ===")
+                
             else:
                 print(f"No Chinese model ID found for app payment, skipping Chinese API integration")
                 
         except Exception as chinese_error:
-            print(f"Failed to send app payment to Chinese API: {str(chinese_error)}")
+            print(f"CRITICAL: Chinese API integration failed: {str(chinese_error)}")
             import traceback
             traceback.print_exc()
             # Don't fail the order if Chinese API fails, just log the error

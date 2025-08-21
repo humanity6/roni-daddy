@@ -157,9 +157,21 @@ const PaymentScreen = () => {
       
       console.log('PaymentScreen - Order data:', { brandFromState, modelFromState, colorFromState, selectedModelData })
       
+      // Get final image data from location state
+      const finalImagePublicUrl = location.state?.finalImagePublicUrl
+      const imageSessionId = location.state?.imageSessionId
+      
+      console.log('PaymentScreen - Final image data:', { 
+        designImage, 
+        finalImagePublicUrl, 
+        imageSessionId 
+      })
+      
       // Store current order data in localStorage for success page
       const orderData = {
         designImage, 
+        finalImagePublicUrl, // Store the permanent URL separately
+        imageSessionId, // Store session ID for tracking
         uploadedImages,
         imageTransforms,
         price: effectivePrice,
@@ -178,7 +190,92 @@ const PaymentScreen = () => {
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
       
-      // Create Stripe checkout session
+      // STEP 1: Call Chinese API payData with pay_type=12 BEFORE creating Stripe checkout
+      console.log('PaymentScreen - Calling Chinese API payData for app payment...')
+      
+      if (selectedModelData?.chinese_model_id && deviceId) {
+        try {
+          // Generate third_id for app payment
+          const generateThirdId = () => {
+            const now = new Date()
+            const dateStr = now.getFullYear().toString().slice(-2) + 
+                          String(now.getMonth() + 1).padStart(2, '0') + 
+                          String(now.getDate()).padStart(2, '0')
+            const timestampSuffix = String(Date.now()).slice(-6)
+            return `PYEN${dateStr}${timestampSuffix}`
+          }
+
+          const third_id = generateThirdId()
+          const correlationId = `APP_PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          
+          // Prepare Chinese API payment data for app payment (pay_type=12)
+          const chinesePaymentData = {
+            mobile_model_id: selectedModelData.chinese_model_id,
+            device_id: deviceId,
+            third_id: third_id,
+            pay_amount: effectivePrice,
+            pay_type: 12 // App payment type as specified by Chinese API
+          }
+
+          console.log(`=== CHINESE API APP PAYMENT REQUEST START (${correlationId}) ===`)
+          console.log('Timestamp:', new Date().toISOString())
+          console.log('API Endpoint:', `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`)
+          console.log('Payment Data:', JSON.stringify(chinesePaymentData, null, 2))
+          console.log('PAY_TYPE:', chinesePaymentData.pay_type, '(12 = app payment)')
+          
+          const requestStart = Date.now()
+
+          const chinesePaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Correlation-ID': correlationId
+            },
+            body: JSON.stringify(chinesePaymentData)
+          })
+          
+          const requestDuration = Date.now() - requestStart
+          console.log(`Chinese API request duration: ${requestDuration}ms`)
+          
+          console.log(`=== CHINESE API APP PAYMENT RESPONSE (${correlationId}) ===`)
+          console.log('HTTP Status:', chinesePaymentResponse.status)
+          
+          if (chinesePaymentResponse.ok) {
+            const chineseResult = await chinesePaymentResponse.json()
+            console.log('Response Body:', JSON.stringify(chineseResult, null, 2))
+            
+            if (chineseResult.code === 200) {
+              console.log('SUCCESS: App payment data sent successfully to Chinese API')
+              console.log('Chinese Payment ID:', chineseResult.data?.id)
+              
+              // Store Chinese payment info in order data for later use
+              orderData.chinese_payment_id = chineseResult.data?.id
+              orderData.third_id = third_id
+              localStorage.setItem('pendingOrder', JSON.stringify(orderData))
+              
+            } else {
+              console.error('WARNING: Chinese API returned non-200 code:', chineseResult.code)
+              console.error('Error Message:', chineseResult.msg)
+              // Continue to Stripe anyway, but log the issue
+            }
+          } else {
+            const errorText = await chinesePaymentResponse.text()
+            console.error('WARNING: Chinese API call failed:', chinesePaymentResponse.status, errorText)
+            // Continue to Stripe anyway, but log the issue
+          }
+          
+          console.log('=== CHINESE API APP PAYMENT REQUEST END ===')
+          
+        } catch (chineseError) {
+          console.error('WARNING: Chinese payment data call failed:', chineseError)
+          // Don't fail the entire payment flow if Chinese API fails
+          // Continue to Stripe checkout
+        }
+      } else {
+        console.warn('WARNING: Missing Chinese model ID or device ID for app payment - skipping Chinese API call')
+      }
+      
+      // STEP 2: Create Stripe checkout session (regardless of Chinese API success/failure)
       console.log('PaymentScreen - Creating Stripe checkout session...')
       const checkoutResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/create-checkout-session`, {
         method: 'POST',

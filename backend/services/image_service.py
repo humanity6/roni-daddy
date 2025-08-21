@@ -49,14 +49,31 @@ def convert_image_for_api(image_file):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error processing image: {str(e)}")
 
-def save_generated_image(base64_data: str, template_id: str) -> tuple:
-    """Save generated image and return path and filename with UK hosting URL"""
+def save_generated_image(base64_data: str, template_id: str, session_id: str = None, 
+                        image_type: str = "generated") -> tuple:
+    """Save generated image and return path and filename with session-based naming
+    
+    Args:
+        base64_data: Base64 encoded image data
+        template_id: Template identifier 
+        session_id: Optional session/order ID for unique naming
+        image_type: Type of image (generated, final, uploaded)
+    
+    Returns:
+        tuple: (file_path, filename)
+    """
     try:
         image_bytes = base64.b64decode(base64_data)
         
         timestamp = int(time.time())
         random_id = str(uuid.uuid4())[:8]
-        filename = f"{template_id}-{timestamp}-{random_id}.png"
+        
+        # Create session-based filename if session_id provided
+        if session_id:
+            filename = f"order-{session_id}-{image_type}-{timestamp}-{random_id}.png"
+        else:
+            # Fallback to original naming for backward compatibility
+            filename = f"{template_id}-{timestamp}-{random_id}.png"
         
         generated_dir = ensure_directories()
         file_path = generated_dir / filename
@@ -64,7 +81,13 @@ def save_generated_image(base64_data: str, template_id: str) -> tuple:
         with open(file_path, 'wb') as f:
             f.write(image_bytes)
         
+        print(f"✅ Image saved: {filename} ({len(image_bytes)} bytes)")
         return str(file_path), filename
     
     except Exception as e:
+        print(f"❌ Error saving image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error saving image: {str(e)}")
+
+def get_image_public_url(filename: str) -> str:
+    """Get public URL for accessing stored image"""
+    return f"https://pimpmycase.onrender.com/image/{filename}"

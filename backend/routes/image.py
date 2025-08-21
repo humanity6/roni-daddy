@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from database import get_db
 from backend.services.ai_service import generate_image_gpt_image_1, get_openai_client
-from backend.services.image_service import convert_image_for_api, save_generated_image, ensure_directories
+from backend.services.image_service import convert_image_for_api, save_generated_image, ensure_directories, get_image_public_url
 from backend.services.file_service import generate_secure_download_token
 from backend.utils.helpers import generate_third_id
 from backend.config.settings import JWT_SECRET_KEY
@@ -72,10 +72,18 @@ async def generate_image(
         if not response or not response.data:
             raise HTTPException(status_code=500, detail="No image generated")
         
-        # Extract and save image (handle both URL and base64 responses)
+        # Extract and save image (handle both URL and base64 responses)  
+        # Use order_id as session_id for AI generated images if available
+        session_id = order_id if order_id else None
+        
         if hasattr(response.data[0], 'b64_json') and response.data[0].b64_json:
             # Base64 response (GPT-image-1 style)
-            file_path, filename = save_generated_image(response.data[0].b64_json, template_id)
+            file_path, filename = save_generated_image(
+                base64_data=response.data[0].b64_json, 
+                template_id=template_id,
+                session_id=session_id,
+                image_type="ai_generated"
+            )
         elif hasattr(response.data[0], 'url') and response.data[0].url:
             # URL response (DALL-E 3 style) - download and save
             img_response = requests.get(response.data[0].url)
@@ -124,40 +132,8 @@ async def generate_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/image/{filename}")
-async def get_image_with_auth(filename: str, token: str = None):
-    """Serve generated image with optional token validation for Chinese partners"""
-    generated_dir = ensure_directories()
-    file_path = generated_dir / filename
-    
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Image not found")
-    
-    # If token provided, validate it
-    if token:
-        try:
-            timestamp_str, signature = token.split(':', 1)
-            timestamp = int(timestamp_str)
-            
-            # Check if token has expired
-            if time.time() > timestamp:
-                raise HTTPException(status_code=403, detail="Download token expired")
-            
-            # Verify signature
-            message = f"{filename}:{timestamp_str}"
-            expected_signature = hmac.new(
-                JWT_SECRET_KEY.encode(),
-                message.encode(),
-                hashlib.sha256
-            ).hexdigest()
-            
-            if not hmac.compare_digest(signature, expected_signature):
-                raise HTTPException(status_code=403, detail="Invalid download token")
-                
-        except (ValueError, IndexError):
-            raise HTTPException(status_code=403, detail="Malformed download token")
-    
-    return FileResponse(file_path)
+# Image serving route moved to api_routes.py to be at root level 
+# (was causing issues being under /api/images prefix)
 
 @router.get("/styles/{template_id}")
 async def get_template_styles(template_id: str):
@@ -206,22 +182,38 @@ async def upload_final_composed_image(
         # Extract base64 data (remove data:image/png;base64, prefix)
         base64_data = final_image_data.split(',', 1)[1] if ',' in final_image_data else final_image_data
         
-        # Save the final composed image
-        file_path, filename = save_generated_image(base64_data, template_id)
+        # Generate session ID for unique naming (use order_id or create one)
+        session_id = order_id if order_id else f"session_{int(time.time())}"
+        
+        # Save the final composed image with session-based naming
+        file_path, filename = save_generated_image(
+            base64_data=base64_data, 
+            template_id=template_id,
+            session_id=session_id,
+            image_type="final"
+        )
+        
+        # Get public URL for the image
+        public_url = get_image_public_url(filename)
+        
         print(f"🔄 API - Final image saved: {filename}")
+        print(f"🔄 API - Public URL: {public_url}")
         
         # Add image to order if order_id provided
         if order_id:
             try:
                 OrderImageService.add_order_image(
-                    db, 
-                    order_id, 
-                    file_path, 
-                    "final_composed", 
-                    {
+                    db=db, 
+                    order_id=order_id, 
+                    image_path=file_path, 
+                    image_type="final_composed", 
+                    ai_params={
                         "template_id": template_id, 
                         "composition_metadata": metadata_dict,
-                        "image_type": "final_with_customizations"
+                        "image_type": "final_with_customizations",
+                        "public_url": public_url,
+                        "filename": filename,
+                        "session_id": session_id
                     }
                 )
                 print(f"🔄 API - Final image added to order {order_id}")
@@ -233,6 +225,8 @@ async def upload_final_composed_image(
             "success": True,
             "filename": filename,
             "file_path": file_path,
+            "public_url": public_url,
+            "session_id": session_id,
             "template_id": template_id,
             "order_id": order_id,
             "image_type": "final_composed"

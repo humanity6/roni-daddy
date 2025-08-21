@@ -139,10 +139,16 @@ const BackgroundColorSelectionScreen = () => {
       console.log('✅ Final image composed successfully')
       
       // Upload final composed image to server
-      const uploadSuccess = await uploadFinalImage(finalImageData, template)
+      const uploadResult = await uploadFinalImage(finalImageData, template)
       
-      if (uploadSuccess) {
+      let finalImageUrl = finalImageData // Fallback to local blob URL
+      let imageSessionId = null
+      
+      if (uploadResult && uploadResult.success) {
         console.log('✅ Final image uploaded successfully')
+        console.log('📄 Public URL:', uploadResult.public_url)
+        finalImageUrl = uploadResult.public_url // Use the permanent URL
+        imageSessionId = uploadResult.session_id
       } else {
         console.warn('⚠️ Final image upload failed, continuing with local image')
       }
@@ -151,7 +157,9 @@ const BackgroundColorSelectionScreen = () => {
       const search = window.location.search || ''
       navigate('/payment' + search, {
         state: {
-          designImage: finalImageData, // Use the composed final image
+          designImage: finalImageUrl, // Use permanent URL if available, fallback to blob URL
+          finalImagePublicUrl: uploadResult?.public_url, // Store separately for Chinese API
+          imageSessionId: imageSessionId, // For tracking
           uploadedImages,
           imageTransforms,
           inputText,
@@ -220,7 +228,14 @@ const BackgroundColorSelectionScreen = () => {
       
       const result = await response.json()
       console.log('Final image upload result:', result)
-      return true
+      
+      // Return both success status and the image data for tracking
+      return {
+        success: true,
+        public_url: result.public_url,
+        filename: result.filename,
+        session_id: result.session_id
+      }
       
     } catch (error) {
       console.error('Error uploading final image:', error)

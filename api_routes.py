@@ -8,6 +8,7 @@ from models import *
 from typing import Optional, List, Dict, Any
 import json
 from decimal import Decimal
+from pathlib import Path
 from security_middleware import validate_relaxed_api_security, security_manager
 from pydantic import BaseModel
 from backend.services.chinese_api_service import get_chinese_api_service
@@ -1158,4 +1159,54 @@ async def add_order_image(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add image: {str(e)}")
+
+# Image serving route (must be at root level, not under /api prefix)
+@router.get("/image/{filename}")
+async def serve_image(filename: str, token: str = None):
+    """Serve generated image with optional token validation for Chinese partners"""
+    from backend.services.image_service import ensure_directories
+    from backend.config.settings import JWT_SECRET_KEY
+    from fastapi.responses import FileResponse
+    import hmac
+    import hashlib
+    import time
+    
+    generated_dir = ensure_directories()
+    file_path = generated_dir / filename
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    # If token provided, validate it
+    if token:
+        try:
+            timestamp_str, signature = token.split(':', 1)
+            timestamp = int(timestamp_str)
+            
+            # Check if token has expired
+            if time.time() > timestamp:
+                raise HTTPException(status_code=403, detail="Download token expired")
+            
+            # Verify signature
+            message = f"{filename}:{timestamp_str}"
+            expected_signature = hmac.new(
+                JWT_SECRET_KEY.encode(),
+                message.encode(),
+                hashlib.sha256
+            ).hexdigest()
+            
+            if not hmac.compare_digest(signature, expected_signature):
+                raise HTTPException(status_code=403, detail="Invalid download token")
+                
+        except (ValueError, TypeError) as e:
+            raise HTTPException(status_code=400, detail="Invalid token format")
+    
+    return FileResponse(
+        path=file_path,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+            "Access-Control-Allow-Origin": "*"  # Allow cross-origin requests for Chinese partners
+        }
+    )
 

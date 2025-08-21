@@ -468,6 +468,242 @@ class ChinesePaymentAPIClient:
                 "stock_items": []
             }
 
+    def send_payment_status(self, third_id: str, status: int, pay_amount: float = None) -> Dict[str, Any]:
+        """Send payment status notification to Chinese manufacturers after payment completion"""
+        try:
+            logger.info(f"=== CHINESE PAYMENT STATUS NOTIFICATION START ===")
+            logger.info(f"Target URL: {self.base_url}/order/payStatus")
+            logger.info(f"Payment status details: third_id={third_id}, status={status}, amount={pay_amount}")
+            
+            # Ensure we're authenticated
+            logger.info("Checking authentication status...")
+            if not self.ensure_authenticated():
+                logger.error("Authentication failed - cannot proceed with payment status")
+                return {
+                    "msg": "Authentication failed",
+                    "code": 500,
+                    "data": {"third_id": third_id, "status": status}
+                }
+            
+            # Prepare payload for payment status notification
+            payload = {
+                "third_id": third_id,
+                "status": status
+            }
+            
+            # Add amount if provided
+            if pay_amount is not None:
+                payload["pay_amount"] = pay_amount
+            
+            logger.info(f"=== PAYMENT STATUS PAYLOAD ===")
+            logger.info(f"Request payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
+            
+            # Generate signature
+            signature = self.generate_signature(payload)
+            
+            headers = {
+                "Authorization": self.token,
+                "sign": signature,
+                "req_source": "en",
+                "Content-Type": "application/json",
+                "User-Agent": "PimpMyCase-API/2.0.0"
+            }
+            
+            # Make the request
+            full_url = f"{self.base_url}/order/payStatus"
+            logger.info(f"Making POST request to: {full_url}")
+            request_start = time.time()
+            
+            response = self.session.post(
+                full_url,
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            request_duration = time.time() - request_start
+            logger.info(f"Payment status request completed in {request_duration:.2f}s")
+            
+            logger.info(f"=== CHINESE API PAYMENT STATUS RESPONSE ===")
+            logger.info(f"HTTP Status: {response.status_code} {response.reason}")
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    logger.info(f"Response body: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                    
+                    if data.get("code") == 200:
+                        logger.info(f"SUCCESS: Payment status sent successfully!")
+                    else:
+                        logger.error(f"Chinese API returned error code: {data.get('code')}")
+                        logger.error(f"Error message: {data.get('msg', 'No message provided')}")
+                    
+                    logger.info(f"=== CHINESE PAYMENT STATUS NOTIFICATION END (SUCCESS) ===")
+                    return data
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {e}")
+                    return {
+                        "msg": f"Invalid JSON response from Chinese API",
+                        "code": 502,
+                        "data": {"third_id": third_id, "status": status}
+                    }
+            else:
+                logger.error(f"HTTP request failed with status: {response.status_code}")
+                error_body = response.text if response.text else "No response body"
+                logger.error(f"Error response body: {error_body[:1000]}")
+                
+                logger.error(f"=== CHINESE PAYMENT STATUS NOTIFICATION END (HTTP ERROR) ===")
+                return {
+                    "msg": f"HTTP {response.status_code}: {error_body}",
+                    "code": response.status_code,
+                    "data": {"third_id": third_id, "status": status}
+                }
+                
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Request timeout after {self.timeout}s: {str(e)}")
+            return {
+                "msg": f"Request timeout after {self.timeout}s",
+                "code": 504,
+                "data": {"third_id": third_id, "status": status}
+            }
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error to Chinese API: {str(e)}")
+            return {
+                "msg": f"Connection failed to Chinese API: {str(e)}",
+                "code": 503,
+                "data": {"third_id": third_id, "status": status}
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in payment status service: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {
+                "msg": f"Unexpected error: {str(e)}",
+                "code": 500,
+                "data": {"third_id": third_id, "status": status}
+            }
+
+    def send_order_data(self, third_pay_id: str, third_id: str, mobile_model_id: str, 
+                       pic: str, device_id: str) -> Dict[str, Any]:
+        """Send order data to Chinese manufacturers for printing"""
+        try:
+            logger.info(f"=== CHINESE ORDER DATA SUBMISSION START ===")
+            logger.info(f"Target URL: {self.base_url}/order/orderData")
+            logger.info(f"Order details: third_pay_id={third_pay_id}, third_id={third_id}")
+            logger.info(f"Mobile model ID: {mobile_model_id}, device_id: {device_id}")
+            logger.info(f"Design image URL: {pic}")
+            
+            # Ensure we're authenticated
+            if not self.ensure_authenticated():
+                logger.error("Authentication failed - cannot proceed with order submission")
+                return {
+                    "msg": "Authentication failed",
+                    "code": 500,
+                    "data": {"third_pay_id": third_pay_id, "third_id": third_id}
+                }
+            
+            payload = {
+                "third_pay_id": third_pay_id,
+                "third_id": third_id,
+                "mobile_model_id": mobile_model_id,
+                "pic": pic,
+                "device_id": device_id
+            }
+            
+            logger.info(f"=== ORDER DATA PAYLOAD ===")
+            logger.info(f"Request payload: {json.dumps(payload, indent=2, ensure_ascii=False)}")
+            
+            # Generate signature
+            signature = self.generate_signature(payload)
+            
+            headers = {
+                "Authorization": self.token,
+                "sign": signature,
+                "req_source": "en",
+                "Content-Type": "application/json",
+                "User-Agent": "PimpMyCase-API/2.0.0"
+            }
+            
+            # Make the request
+            full_url = f"{self.base_url}/order/orderData"
+            logger.info(f"Making POST request to: {full_url}")
+            request_start = time.time()
+            
+            response = self.session.post(
+                full_url,
+                json=payload,
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            request_duration = time.time() - request_start
+            logger.info(f"Order data request completed in {request_duration:.2f}s")
+            
+            logger.info(f"=== CHINESE API ORDER DATA RESPONSE ===")
+            logger.info(f"HTTP Status: {response.status_code} {response.reason}")
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    logger.info(f"Response body: {json.dumps(data, indent=2, ensure_ascii=False)}")
+                    
+                    if data.get("code") == 200:
+                        order_id = data.get('data', {}).get('id', 'N/A')
+                        queue_no = data.get('data', {}).get('queue_no', 'N/A')
+                        logger.info(f"SUCCESS: Order data sent successfully!")
+                        logger.info(f"Chinese Order ID: {order_id}")
+                        logger.info(f"Queue Number: {queue_no}")
+                    else:
+                        logger.error(f"Chinese API returned error code: {data.get('code')}")
+                        logger.error(f"Error message: {data.get('msg', 'No message provided')}")
+                    
+                    logger.info(f"=== CHINESE ORDER DATA SUBMISSION END (SUCCESS) ===")
+                    return data
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response: {e}")
+                    return {
+                        "msg": f"Invalid JSON response from Chinese API",
+                        "code": 502,
+                        "data": {"third_pay_id": third_pay_id, "third_id": third_id}
+                    }
+            else:
+                logger.error(f"HTTP request failed with status: {response.status_code}")
+                error_body = response.text if response.text else "No response body"
+                logger.error(f"Error response body: {error_body[:1000]}")
+                
+                logger.error(f"=== CHINESE ORDER DATA SUBMISSION END (HTTP ERROR) ===")
+                return {
+                    "msg": f"HTTP {response.status_code}: {error_body}",
+                    "code": response.status_code,
+                    "data": {"third_pay_id": third_pay_id, "third_id": third_id}
+                }
+                
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Request timeout after {self.timeout}s: {str(e)}")
+            return {
+                "msg": f"Request timeout after {self.timeout}s",
+                "code": 504,
+                "data": {"third_pay_id": third_pay_id, "third_id": third_id}
+            }
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error to Chinese API: {str(e)}")
+            return {
+                "msg": f"Connection failed to Chinese API: {str(e)}",
+                "code": 503,
+                "data": {"third_pay_id": third_pay_id, "third_id": third_id}
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in order data service: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {
+                "msg": f"Unexpected error: {str(e)}",
+                "code": 500,
+                "data": {"third_pay_id": third_pay_id, "third_id": third_id}
+            }
+
     def test_connection(self) -> Dict[str, Any]:
         """Test connection and authentication with Chinese API"""
         try:
@@ -528,3 +764,20 @@ def get_chinese_stock(device_id: str, brand_id: str) -> Dict[str, Any]:
     """Convenience function to get stock list from Chinese API"""
     client = get_chinese_payment_client()
     return client.get_stock_list(device_id, brand_id)
+
+def send_payment_status_to_chinese_api(third_id: str, status: int, pay_amount: float = None) -> Dict[str, Any]:
+    """Convenience function to send payment status to Chinese API"""
+    client = get_chinese_payment_client()
+    return client.send_payment_status(third_id=third_id, status=status, pay_amount=pay_amount)
+
+def send_order_data_to_chinese_api(third_pay_id: str, third_id: str, mobile_model_id: str, 
+                                  pic: str, device_id: str) -> Dict[str, Any]:
+    """Convenience function to send order data to Chinese API"""
+    client = get_chinese_payment_client()
+    return client.send_order_data(
+        third_pay_id=third_pay_id,
+        third_id=third_id,
+        mobile_model_id=mobile_model_id,
+        pic=pic,
+        device_id=device_id
+    )
