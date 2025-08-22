@@ -565,7 +565,10 @@ async def get_payment_status(
                 "status": 1  # Default to waiting
             }
         
-        return {
+        # Determine if polling should stop
+        polling_complete = order.chinese_payment_status in [3, 4, 5]  # paid, failed, or error
+        
+        response = {
             "success": True,
             "third_id": third_id,
             "status": order.chinese_payment_status,
@@ -575,8 +578,16 @@ async def get_payment_status(
             "currency": order.currency,
             "created_at": order.created_at.isoformat(),
             "updated_at": order.updated_at.isoformat() if order.updated_at else None,
-            "paid_at": order.paid_at.isoformat() if order.paid_at else None
+            "paid_at": order.paid_at.isoformat() if order.paid_at else None,
+            "polling_complete": polling_complete
         }
+        
+        # Add completion message for Chinese team
+        if polling_complete:
+            status_text = {3: "PAID", 4: "FAILED", 5: "ERROR"}.get(order.chinese_payment_status, "FINAL")
+            response["message"] = f"Payment is {status_text}. Stop polling."
+            
+        return response
         
     except Exception as e:
         return {

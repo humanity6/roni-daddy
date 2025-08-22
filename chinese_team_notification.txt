@@ -1,0 +1,37 @@
+
+🚨 IMPORTANT: POLLING BEHAVIOR UPDATE
+
+Dear Chinese API Integration Team,
+
+We have detected continuous polling from your system (IP: 103.213.96.36) 
+to our payment status endpoint: /api/chinese/payment/{third_id}/status
+
+CURRENT ISSUE:
+- Your system polls completed payments indefinitely
+- This creates unnecessary server load and log noise
+- Payments with status=3 (PAID) should stop being polled
+
+SOLUTION IMPLEMENTED:
+- Our endpoint now returns "polling_complete": true for final statuses
+- Added "message" field indicating when to stop polling
+- Status 3=PAID, 4=FAILED, 5=ERROR are all FINAL states
+
+RECOMMENDED ACTIONS:
+1. Update your polling logic to stop when "polling_complete": true
+2. Implement timeout/max attempts (e.g., stop after 5 minutes)
+3. Consider implementing webhook notifications instead of polling
+
+ARCHITECTURAL NOTE:
+According to your API documentation, you should be sending US webhook 
+notifications about payment status changes, not polling our custom endpoint.
+
+The proper flow should be:
+1. We send payData to you ✅ 
+2. We send orderData to you ✅
+3. YOU send payStatus webhooks to US ❌ (currently missing)
+
+Please coordinate with your development team to implement proper 
+webhook notifications or update your polling logic.
+
+Best regards,
+PimpMyCase API Team
