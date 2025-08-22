@@ -250,8 +250,12 @@ const PaymentScreen = () => {
               console.log('Chinese Payment ID:', chineseResult.data?.id)
               
               // Store Chinese payment info in order data for later use
-              orderData.chinese_payment_id = chineseResult.data?.id
-              orderData.third_id = third_id
+              orderData.chinesePaymentData = {
+                third_id: third_id,
+                chinese_payment_id: chineseResult.data?.id
+              }
+              orderData.deviceId = deviceId
+              orderData.selectedModelData = selectedModelData
               localStorage.setItem('pendingOrder', JSON.stringify(orderData))
               
               // Send order data to Chinese API for app payments as well
@@ -268,9 +272,9 @@ const PaymentScreen = () => {
               const chineseOrderData = {
                 third_pay_id: third_id, // The payment ID from the previous call
                 third_id: orderThirdId, // Order ID 
-                mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
-                pic: finalImagePublicUrl || designImage || '', // Use the final image URL
-                device_id: deviceId || 'APP-PAYMENT'
+                mobile_model_id: selectedModelData?.chinese_model_id,
+                pic: finalImagePublicUrl || designImage, // Use the final image URL
+                device_id: deviceId
               }
               
               console.log('Sending app order data to Chinese API:', JSON.stringify(chineseOrderData, null, 2))
@@ -599,8 +603,8 @@ const PaymentScreen = () => {
               const chineseOrderData = {
                 third_pay_id: third_id, // The payment ID from the previous call
                 third_id: orderThirdId, // Order ID 
-                mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
-                pic: finalImagePublicUrl || designImage || '', // Use the final image URL
+                mobile_model_id: selectedModelData?.chinese_model_id,
+                pic: finalImagePublicUrl || designImage, // Use the final image URL
                 device_id: deviceId
               }
               

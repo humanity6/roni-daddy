@@ -25,6 +25,31 @@ const PaymentSuccessScreen = () => {
         // Get pending order data from localStorage
         const pendingOrderData = JSON.parse(localStorage.getItem('pendingOrder') || '{}')
         
+        // Prepare order data with Chinese API information
+        const orderData = {
+          pic: pendingOrderData.designImage
+        }
+        
+        // Include Chinese API data if available (from app payment flow)
+        if (pendingOrderData.selectedModelData?.chinese_model_id) {
+          orderData.chinese_model_id = pendingOrderData.selectedModelData.chinese_model_id
+          orderData.mobile_model_id = pendingOrderData.selectedModelData.chinese_model_id
+        }
+        
+        if (pendingOrderData.deviceId) {
+          orderData.device_id = pendingOrderData.deviceId
+        }
+        
+        if (pendingOrderData.chinesePaymentData?.third_id) {
+          orderData.third_id = pendingOrderData.chinesePaymentData.third_id
+        }
+        
+        if (pendingOrderData.chinesePaymentData?.chinese_payment_id) {
+          orderData.chinese_payment_id = pendingOrderData.chinesePaymentData.chinese_payment_id
+        }
+        
+        console.log('Sending order data to backend:', orderData)
+        
         // Process payment success with backend
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/process-payment-success`, {
           method: 'POST',
@@ -33,10 +58,7 @@ const PaymentSuccessScreen = () => {
           },
           body: JSON.stringify({
             session_id: sessionId,
-            order_data: {
-              mobile_model_id: "MM020250701000001",
-              pic: pendingOrderData.designImage
-            }
+            order_data: orderData
           }),
         })
 

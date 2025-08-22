@@ -208,7 +208,9 @@ async def process_payment_success(
             print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
             
             # Get Chinese model ID from order data or device_id from request
-            device_id = request.order_data.get('device_id', 'APP-PAYMENT')  # Fallback for app payments
+            device_id = request.order_data.get('device_id')
+            if not device_id:
+                raise HTTPException(status_code=400, detail="device_id is required for Chinese API integration")
             chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
             
             # Get third_id from request data if available (from PaymentScreen.jsx)
@@ -333,11 +335,24 @@ async def process_payment_success(
                     else:
                         order_third_id = generate_third_id("OREN")
                     
-                    print(f"Sending order data: third_pay_id={third_id}, third_id={order_third_id}")
+                    # Get Chinese payment ID from database mapping (MSPY...) instead of using PYEN...
+                    from backend.routes.chinese_api import get_payment_mapping
+                    chinese_payment_id = None
+                    
+                    if third_id.startswith('PYEN'):
+                        chinese_payment_id = get_payment_mapping(db, third_id)
+                        if not chinese_payment_id:
+                            print(f"⚠️ WARNING: No Chinese payment ID found for {third_id} - this may cause orderData to fail")
+                    
+                    # Use Chinese payment ID (MSPY...) for third_pay_id if available, otherwise use original
+                    effective_third_pay_id = chinese_payment_id if chinese_payment_id else third_id
+                    
+                    print(f"Sending order data: third_pay_id={effective_third_pay_id} (Chinese ID), third_id={order_third_id}")
+                    print(f"Original payment ID: {third_id}")
                     print(f"Design image URL: {design_image_url}")
                     
                     order_data_response = send_order_data_to_chinese_api(
-                        third_pay_id=third_id,  # Payment ID from step 1
+                        third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
                         third_id=order_third_id,  # Order ID 
                         mobile_model_id=chinese_model_id,
                         pic=design_image_url,
