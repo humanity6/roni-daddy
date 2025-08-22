@@ -15,6 +15,8 @@ from db_services import OrderService, OrderImageService
 from models import Order, PhoneModel, VendingMachine
 from datetime import datetime, timezone, timedelta
 import time
+import logging
+import traceback
 
 # In-memory mapping: frontend payment third_id (PYEN...) -> Chinese payment ID (MSPY...)
 # This fixes orderData failures caused by sending PYEN id instead of required MSPY id in third_pay_id.
@@ -562,7 +564,11 @@ async def send_order_data_to_chinese_api(
             "client_ip": security_info['client_ip']
         }
         
-        logger.info("Order data record: {json.dumps(order_data_record, indent=2, ensure_ascii=False)}")
+        # Correct f-string logging of order data record
+        try:
+            logger.info(f"Order data record: {json.dumps(order_data_record, indent=2, ensure_ascii=False)}")
+        except Exception as log_err:
+            logger.warning(f"Failed to serialize order_data_record for logging: {log_err}")
         logger.info("Calling Chinese order data service...")
 
         # Import Chinese API helpers (NOTE: function name collision with this route)
@@ -584,6 +590,7 @@ async def send_order_data_to_chinese_api(
 
         # 2. Attempt initial orderData submission
         request_start = time.time()
+        attempted_third_pay_ids = [effective_third_pay_id]
         chinese_response = svc_send_order_data(
             third_pay_id=effective_third_pay_id,
             third_id=request.third_id,
@@ -629,7 +636,34 @@ async def send_order_data_to_chinese_api(
                 logger.info("Retry succeeded after initial 'device unavailable' error.")
                 chinese_response = retry_response
             else:
-                logger.warning("Retry did not succeed; returning original failure response.")
+                logger.warning("Retry did not succeed; evaluating fallback with original PYEN id (if different and not yet tried)...")
+                # Fallback: If we substituted MSPY id and original starts with PYEN and not already tried, attempt with original id
+                if (
+                    original_third_pay_id != effective_third_pay_id and
+                    original_third_pay_id.startswith('PYEN') and
+                    original_third_pay_id not in attempted_third_pay_ids
+                ):
+                    logger.info(f"Attempting fallback orderData submission using original third_pay_id {original_third_pay_id} (PYEN) after MSPY attempt(s) failed.")
+                    attempted_third_pay_ids.append(original_third_pay_id)
+                    fb_start = time.time()
+                    fb_response = svc_send_order_data(
+                        third_pay_id=original_third_pay_id,
+                        third_id=request.third_id,
+                        mobile_model_id=request.mobile_model_id,
+                        pic=request.pic,
+                        device_id=request.device_id
+                    )
+                    fb_duration = time.time() - fb_start
+                    logger.info(f"Fallback orderData attempt completed in {fb_duration:.2f}s")
+                    logger.info(f"Fallback response: {json.dumps(fb_response, indent=2, ensure_ascii=False)}")
+                    # If fallback succeeds, adopt it
+                    if isinstance(fb_response, dict) and fb_response.get('code') == 200:
+                        logger.info("Fallback with original PYEN third_pay_id succeeded.")
+                        chinese_response = fb_response
+                    else:
+                        logger.warning("Fallback with original PYEN third_pay_id also failed.")
+                else:
+                    logger.info("No viable fallback third_pay_id to attempt or already tried.")
         
         # Log the response in detail
         logger.info(f"=== CHINESE API RESPONSE ({correlation_id}) ===")
@@ -644,6 +678,12 @@ async def send_order_data_to_chinese_api(
         
         logger.info(f"=== CHINESE API ORDERDATA REQUEST END ({correlation_id}) ===")
         
+        # Attach debug metadata for client-side troubleshooting (non-breaking)
+        if isinstance(chinese_response, dict):
+            chinese_response.setdefault('_debug', {})
+            chinese_response['_debug']['attempted_third_pay_ids'] = attempted_third_pay_ids
+            chinese_response['_debug']['original_third_pay_id'] = original_third_pay_id
+            chinese_response['_debug']['effective_first_third_pay_id'] = effective_third_pay_id
         return chinese_response
         
     except Exception as e:
