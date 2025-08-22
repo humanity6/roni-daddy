@@ -12,22 +12,54 @@ from backend.services.file_service import generate_uk_download_url, generate_sec
 from backend.utils.helpers import generate_third_id, get_mobile_model_id
 from security_middleware import validate_relaxed_api_security, security_manager
 from db_services import OrderService, OrderImageService
-from models import Order, PhoneModel, VendingMachine
+from models import Order, PhoneModel, VendingMachine, PaymentMapping
 from datetime import datetime, timezone, timedelta
 import time
 import urllib.parse
 import logging
 import traceback
-
-# In-memory mapping: frontend payment third_id (PYEN...) -> Chinese payment ID (MSPY...)
-# This fixes orderData failures caused by sending PYEN id instead of required MSPY id in third_pay_id.
-CHINESE_PAYMENT_ID_MAP: dict[str, str] = {}
 import logging
 import json
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chinese")
+
+def store_payment_mapping(db: Session, third_id: str, chinese_payment_id: str, 
+                         device_id: str = None, mobile_model_id: str = None, 
+                         pay_amount: float = None, pay_type: int = None) -> bool:
+    """Store payment mapping in database"""
+    try:
+        mapping = PaymentMapping(
+            third_id=third_id,
+            chinese_payment_id=chinese_payment_id,
+            device_id=device_id,
+            mobile_model_id=mobile_model_id,
+            pay_amount=pay_amount,
+            pay_type=pay_type
+        )
+        db.add(mapping)
+        db.commit()
+        logger.info(f"Stored payment mapping: {third_id} -> {chinese_payment_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to store payment mapping: {str(e)}")
+        db.rollback()
+        return False
+
+def get_payment_mapping(db: Session, third_id: str) -> str:
+    """Get Chinese payment ID from database mapping"""
+    try:
+        mapping = db.query(PaymentMapping).filter(PaymentMapping.third_id == third_id).first()
+        if mapping:
+            logger.info(f"Found payment mapping: {third_id} -> {mapping.chinese_payment_id}")
+            return mapping.chinese_payment_id
+        else:
+            logger.warning(f"No payment mapping found for {third_id}")
+            return None
+    except Exception as e:
+        logger.error(f"Failed to get payment mapping: {str(e)}")
+        return None
 
 @router.get("/test-connection")
 async def test_chinese_connection(http_request: Request):
@@ -293,6 +325,19 @@ async def receive_payment_status_update(
                 logger.error(f"No order_summary found in session {vending_session.session_id}")
                 return {
                     "msg": "Payment received but order data missing",
+                    "code": 400,
+                    "third_id": request.third_id,
+                    "status": request.status
+                }
+            
+            # Validate required order data fields
+            required_fields = ['chinese_model_id', 'device_id']
+            missing_fields = [field for field in required_fields if not order_summary.get(field)]
+            
+            if missing_fields:
+                logger.error(f"Missing required order data fields in session {vending_session.session_id}: {missing_fields}")
+                return {
+                    "msg": f"Payment received but order data incomplete - missing: {', '.join(missing_fields)}",
                     "code": 400,
                     "third_id": request.third_id,
                     "status": request.status
@@ -598,7 +643,15 @@ async def send_payment_data_to_chinese_api(
             try:
                 chinese_payment_id = chinese_response.get('data', {}).get('id')
                 if chinese_payment_id and request.third_id:
-                    CHINESE_PAYMENT_ID_MAP[request.third_id] = chinese_payment_id
+                    store_payment_mapping(
+                        db=db,
+                        third_id=request.third_id,
+                        chinese_payment_id=chinese_payment_id,
+                        device_id=request.device_id,
+                        mobile_model_id=request.mobile_model_id,
+                        pay_amount=request.pay_amount,
+                        pay_type=request.pay_type
+                    )
                     logger.info(f"Mapped payment third_id {request.third_id} -> Chinese payment id {chinese_payment_id}")
             except Exception as map_err:
                 logger.warning(f"Failed to store payment id mapping: {map_err}")
@@ -662,12 +715,15 @@ async def send_order_data_to_chinese_api(
         original_third_pay_id = request.third_pay_id
         effective_third_pay_id = original_third_pay_id
         if original_third_pay_id.startswith('PYEN'):
-            mapped = CHINESE_PAYMENT_ID_MAP.get(original_third_pay_id)
+            mapped = get_payment_mapping(db, original_third_pay_id)
             if mapped:
                 logger.info(f"Substituting third_pay_id PYEN -> MSPY. Using mapped Chinese payment id {mapped} for orderData.")
                 effective_third_pay_id = mapped
             else:
-                logger.warning(f"No Chinese payment id mapping found for {original_third_pay_id}. OrderData may fail. Available keys: {list(CHINESE_PAYMENT_ID_MAP.keys())[-5:]}")
+                # Get recent mappings for debugging
+                recent_mappings = db.query(PaymentMapping).order_by(PaymentMapping.created_at.desc()).limit(5).all()
+                recent_third_ids = [m.third_id for m in recent_mappings]
+                logger.warning(f"No Chinese payment id mapping found for {original_third_pay_id}. OrderData may fail. Recent payment IDs: {recent_third_ids}")
 
         # Store order data record for tracking (use effective_third_pay_id)
         order_data_record = {

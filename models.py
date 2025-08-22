@@ -235,6 +235,19 @@ class OrderImage(Base):
     # Relationships
     order = relationship("Order", back_populates="images")
 
+class PaymentMapping(Base):
+    """Persistent mapping between frontend payment IDs (PYEN...) and Chinese payment IDs (MSPY...)"""
+    __tablename__ = "payment_mappings"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    third_id = Column(String(100), unique=True, nullable=False)  # Frontend payment ID (PYEN250822067351)
+    chinese_payment_id = Column(String(100), nullable=False)  # Chinese API payment ID (MSPY10250822000041)
+    device_id = Column(String(100))  # Device that initiated the payment
+    mobile_model_id = Column(String(100))  # Phone model for the payment
+    pay_amount = Column(DECIMAL(10, 2))  # Payment amount
+    pay_type = Column(Integer)  # Payment type (5=vending, 12=app, etc.)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 class AdminUser(Base):
     """Admin users for the dashboard"""
     __tablename__ = "admin_users"

@@ -208,7 +208,7 @@ async def process_payment_success(
             print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
             
             # Get Chinese model ID from order data or device_id from request
-            device_id = request.order_data.get('device_id', 'APP_PAYMENT')  # Fallback for app payments
+            device_id = request.order_data.get('device_id', 'APP-PAYMENT')  # Fallback for app payments
             chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
             
             # Get third_id from request data if available (from PaymentScreen.jsx)

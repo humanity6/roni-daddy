@@ -270,7 +270,7 @@ const PaymentScreen = () => {
                 third_id: orderThirdId, // Order ID 
                 mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
                 pic: finalImagePublicUrl || designImage || '', // Use the final image URL
-                device_id: deviceId || 'APP_PAYMENT'
+                device_id: deviceId || 'APP-PAYMENT'
               }
               
               console.log('Sending app order data to Chinese API:', JSON.stringify(chineseOrderData, null, 2))
