@@ -15,6 +15,10 @@ from db_services import OrderService, OrderImageService
 from models import Order, PhoneModel, VendingMachine
 from datetime import datetime, timezone, timedelta
 import time
+
+# In-memory mapping: frontend payment third_id (PYEN...) -> Chinese payment ID (MSPY...)
+# This fixes orderData failures caused by sending PYEN id instead of required MSPY id in third_pay_id.
+CHINESE_PAYMENT_ID_MAP: dict[str, str] = {}
 import logging
 import json
 
@@ -471,6 +475,14 @@ async def send_payment_data_to_chinese_api(
         if chinese_response.get("code") == 200:
             logger.info("SUCCESS: Payment data sent successfully to Chinese API")
             logger.info(f"Chinese Payment ID: {chinese_response.get('data', {}).get('id')}")
+            # Persist mapping for subsequent orderData call
+            try:
+                chinese_payment_id = chinese_response.get('data', {}).get('id')
+                if chinese_payment_id and request.third_id:
+                    CHINESE_PAYMENT_ID_MAP[request.third_id] = chinese_payment_id
+                    logger.info(f"Mapped payment third_id {request.third_id} -> Chinese payment id {chinese_payment_id}")
+            except Exception as map_err:
+                logger.warning(f"Failed to store payment id mapping: {map_err}")
         else:
             logger.error(f"Chinese API returned error code: {chinese_response.get('code')}")
             logger.error(f"Error message: {chinese_response.get('msg')}")
@@ -527,10 +539,21 @@ async def send_order_data_to_chinese_api(
         else:
             logger.info(f"Found mobile model: {model.name} (chinese_id: {model.chinese_model_id})")
         
-        # Store order data record for tracking
+        # Determine correct third_pay_id (Chinese payment id MSPY...) using mapping if user sent PYEN...
+        original_third_pay_id = request.third_pay_id
+        effective_third_pay_id = original_third_pay_id
+        if original_third_pay_id.startswith('PYEN'):
+            mapped = CHINESE_PAYMENT_ID_MAP.get(original_third_pay_id)
+            if mapped:
+                logger.info(f"Substituting third_pay_id PYEN -> MSPY. Using mapped Chinese payment id {mapped} for orderData.")
+                effective_third_pay_id = mapped
+            else:
+                logger.warning(f"No Chinese payment id mapping found for {original_third_pay_id}. OrderData may fail. Available keys: {list(CHINESE_PAYMENT_ID_MAP.keys())[-5:]}")
+
+        # Store order data record for tracking (use effective_third_pay_id)
         order_data_record = {
             "correlation_id": correlation_id,
-            "third_pay_id": request.third_pay_id,
+            "third_pay_id": effective_third_pay_id,
             "third_id": request.third_id,
             "device_id": request.device_id,
             "mobile_model_id": request.mobile_model_id,
@@ -562,7 +585,7 @@ async def send_order_data_to_chinese_api(
         # 2. Attempt initial orderData submission
         request_start = time.time()
         chinese_response = svc_send_order_data(
-            third_pay_id=request.third_pay_id,
+            third_pay_id=effective_third_pay_id,
             third_id=request.third_id,
             mobile_model_id=request.mobile_model_id,
             pic=request.pic,
@@ -591,7 +614,7 @@ async def send_order_data_to_chinese_api(
 
             retry_start = time.time()
             retry_response = svc_send_order_data(
-                third_pay_id=request.third_pay_id,
+                third_pay_id=effective_third_pay_id,
                 third_id=request.third_id,
                 mobile_model_id=request.mobile_model_id,
                 pic=request.pic,
