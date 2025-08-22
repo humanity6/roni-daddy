@@ -158,7 +158,7 @@ const BackgroundColorSelectionScreen = () => {
       navigate('/payment' + search, {
         state: {
           designImage: finalImageUrl, // Use permanent URL if available, fallback to blob URL
-          finalImagePublicUrl: uploadResult?.public_url, // Store separately for Chinese API
+          finalImagePublicUrl: uploadResult?.public_url || finalImageUrl, // Store separately for Chinese API with fallback
           imageSessionId: imageSessionId, // For tracking
           uploadedImages,
           imageTransforms,
@@ -182,6 +182,7 @@ const BackgroundColorSelectionScreen = () => {
       navigate('/payment' + search, {
         state: {
           designImage: uploadedImage, // Fallback to original image
+          finalImagePublicUrl: uploadedImage, // Provide fallback for Chinese API
           uploadedImages,
           imageTransforms,
           inputText,

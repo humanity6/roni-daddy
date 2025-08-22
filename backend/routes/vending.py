@@ -82,9 +82,14 @@ async def create_vending_session(
                 print(f"Failed to auto-create vending machine: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Failed to create vending machine: {str(e)}")
         
-        # Check machine session limit
-        if not security_manager.validate_machine_session_limit(machine_id):
-            raise HTTPException(status_code=429, detail="Machine session limit exceeded")
+        # Check machine session limit with automatic cleanup
+        if not security_manager.validate_machine_session_limit(machine_id, db_session=db):
+            retry_info = security_manager.get_retry_delay(machine_id, attempt_count=1)
+            raise HTTPException(
+                status_code=429, 
+                detail=f"Machine session limit exceeded. {retry_info['message']}",
+                headers={"Retry-After": str(int(retry_info['retry_after_seconds']))}
+            )
         
         # Generate unique session ID with enhanced randomness
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -150,6 +155,65 @@ async def create_vending_session(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
+
+@router.get("/session/{session_id}/health")
+async def check_session_health(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """Check if a vending session is still valid and active"""
+    try:
+        session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
+        if not session:
+            return {
+                "valid": False,
+                "status": "not_found",
+                "message": "Session not found. Please rescan the QR code to start a new session."
+            }
+        
+        # Check if session has expired
+        now = datetime.now(timezone.utc)
+        if now > session.expires_at:
+            # Update session status if needed
+            if session.status == "active":
+                session.status = "expired"
+                db.commit()
+                security_manager.decrement_machine_sessions(session.machine_id)
+            
+            return {
+                "valid": False,
+                "status": "expired", 
+                "message": "Session has expired. Please rescan the QR code to start a new session.",
+                "expired_at": session.expires_at.isoformat()
+            }
+        
+        # Check session status
+        if session.status != "active":
+            return {
+                "valid": False,
+                "status": session.status,
+                "message": f"Session is {session.status}. Please rescan the QR code to start a new session."
+            }
+        
+        # Calculate time remaining
+        time_remaining = (session.expires_at - now).total_seconds()
+        
+        return {
+            "valid": True,
+            "status": "active",
+            "message": "Session is active",
+            "expires_at": session.expires_at.isoformat(),
+            "time_remaining_seconds": int(time_remaining),
+            "machine_id": session.machine_id,
+            "user_progress": session.user_progress
+        }
+        
+    except Exception as e:
+        return {
+            "valid": False,
+            "status": "error",
+            "message": "Unable to check session health. Please rescan the QR code to start a new session."
+        }
 
 @router.post("/session/{session_id}/init-payment")
 async def initialize_vending_payment(
@@ -390,7 +454,15 @@ async def register_user_with_session(
         
         # Check if session has expired
         if datetime.now(timezone.utc) > session.expires_at:
-            raise HTTPException(status_code=410, detail="Session has expired")
+            # Update session status to expired
+            session.status = "expired"
+            db.commit()
+            # Decrement machine session count
+            security_manager.decrement_machine_sessions(session.machine_id)
+            raise HTTPException(
+                status_code=410, 
+                detail="Vending session has expired. Please rescan the QR code to start a new session."
+            )
         
         # Validate machine ID matches session machine
         if session.machine_id != request.machine_id:

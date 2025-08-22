@@ -110,6 +110,22 @@ class SecurityManager:
         self.rate_limit_storage[identifier].append(now)
         return False
     
+    def get_retry_delay(self, identifier: str, attempt_count: int = 1) -> dict:
+        """Calculate retry delay with exponential backoff for rate-limited requests"""
+        # Base delay starts at 1 second, doubles with each attempt, max 30 seconds
+        base_delay = min(1 * (2 ** (attempt_count - 1)), 30)
+        
+        # Add jitter to prevent thundering herd
+        import random
+        jitter = random.uniform(0.1, 0.5)
+        total_delay = base_delay + jitter
+        
+        return {
+            "retry_after_seconds": total_delay,
+            "attempt_count": attempt_count,
+            "message": f"Request rate limited. Please wait {total_delay:.1f} seconds before retrying."
+        }
+    
     def is_ip_blocked(self, ip_address: str) -> bool:
         """Check if IP address is temporarily blocked"""
         if ip_address in self.blocked_ips:
@@ -176,8 +192,17 @@ class SecurityManager:
         self.session_attempts[session_id].append(now)
         return True
     
-    def validate_machine_session_limit(self, machine_id: str, max_concurrent: int = 5) -> bool:
-        """Validate machine doesn't exceed concurrent session limit"""
+    def validate_machine_session_limit(self, machine_id: str, max_concurrent: int = 5, db_session=None) -> bool:
+        """Validate machine doesn't exceed concurrent session limit with automatic cleanup"""
+        # Clean up expired sessions if database session provided
+        if db_session:
+            self._cleanup_expired_sessions_for_machine(machine_id, db_session)
+            
+            # Periodically reconcile session counts (every 50th request to avoid overhead)
+            import random
+            if random.randint(1, 50) == 1:
+                self.reconcile_machine_session_counts(db_session)
+        
         return self.machine_sessions[machine_id] < max_concurrent
     
     def increment_machine_sessions(self, machine_id: str):
@@ -188,6 +213,78 @@ class SecurityManager:
         """Decrement active session count for machine"""
         if self.machine_sessions[machine_id] > 0:
             self.machine_sessions[machine_id] -= 1
+    
+    def _cleanup_expired_sessions_for_machine(self, machine_id: str, db_session):
+        """Clean up expired sessions for a specific machine and update session count"""
+        try:
+            from models import VendingMachineSession
+            from datetime import datetime, timezone
+            
+            # Find expired sessions for this machine
+            expired_sessions = db_session.query(VendingMachineSession).filter(
+                VendingMachineSession.machine_id == machine_id,
+                VendingMachineSession.status == "active",
+                VendingMachineSession.expires_at < datetime.now(timezone.utc)
+            ).all()
+            
+            # Update their status and decrement session count
+            cleanup_count = 0
+            for session in expired_sessions:
+                session.status = "expired"
+                cleanup_count += 1
+            
+            if cleanup_count > 0:
+                # Adjust in-memory session count
+                current_count = self.machine_sessions[machine_id]
+                new_count = max(0, current_count - cleanup_count)
+                self.machine_sessions[machine_id] = new_count
+                
+                db_session.commit()
+                print(f"Cleaned up {cleanup_count} expired sessions for machine {machine_id}, session count: {current_count} -> {new_count}")
+                
+        except Exception as e:
+            print(f"Error during session cleanup for machine {machine_id}: {str(e)}")
+            # Don't let cleanup errors break the validation
+    
+    def reconcile_machine_session_counts(self, db_session):
+        """Reconcile in-memory session counts with actual database state"""
+        try:
+            from models import VendingMachineSession
+            from datetime import datetime, timezone
+            from collections import defaultdict
+            
+            # Get actual active session counts from database
+            active_sessions = db_session.query(VendingMachineSession).filter(
+                VendingMachineSession.status == "active",
+                VendingMachineSession.expires_at > datetime.now(timezone.utc)
+            ).all()
+            
+            # Count sessions by machine
+            actual_counts = defaultdict(int)
+            for session in active_sessions:
+                actual_counts[session.machine_id] += 1
+            
+            # Update in-memory counts to match reality
+            reconciled_machines = []
+            for machine_id in list(self.machine_sessions.keys()):
+                old_count = self.machine_sessions[machine_id]
+                new_count = actual_counts[machine_id]
+                
+                if old_count != new_count:
+                    self.machine_sessions[machine_id] = new_count
+                    reconciled_machines.append(f"{machine_id}: {old_count} -> {new_count}")
+            
+            # Add any machines that have sessions in DB but not in memory
+            for machine_id, count in actual_counts.items():
+                if machine_id not in self.machine_sessions:
+                    self.machine_sessions[machine_id] = count
+                    reconciled_machines.append(f"{machine_id}: 0 -> {count} (new)")
+            
+            if reconciled_machines:
+                print(f"Reconciled session counts: {reconciled_machines}")
+                
+        except Exception as e:
+            print(f"Error during session count reconciliation: {str(e)}")
     
     def generate_session_token(self, session_id: str, secret_key: str) -> str:
         """Generate signed token for session validation"""

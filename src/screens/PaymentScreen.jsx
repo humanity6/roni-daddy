@@ -157,14 +157,15 @@ const PaymentScreen = () => {
       
       console.log('PaymentScreen - Order data:', { brandFromState, modelFromState, colorFromState, selectedModelData })
       
-      // Get final image data from location state
-      const finalImagePublicUrl = location.state?.finalImagePublicUrl
+      // Get final image data from location state with fallback
+      const finalImagePublicUrl = location.state?.finalImagePublicUrl || designImage
       const imageSessionId = location.state?.imageSessionId
       
       console.log('PaymentScreen - Final image data:', { 
         designImage, 
         finalImagePublicUrl, 
-        imageSessionId 
+        imageSessionId,
+        fallbackUsed: !location.state?.finalImagePublicUrl
       })
       
       // Store current order data in localStorage for success page
@@ -408,6 +409,17 @@ const PaymentScreen = () => {
       
       console.log('PaymentScreen - Vending machine payment data:', { 
         brandFromState, modelFromState, colorFromState, selectedModelData, deviceId 
+      })
+      
+      // Get final image data with fallback for vending machine flow
+      const finalImagePublicUrl = location.state?.finalImagePublicUrl || designImage
+      const imageSessionId = location.state?.imageSessionId
+      
+      console.log('PaymentScreen - Vending final image data:', { 
+        designImage, 
+        finalImagePublicUrl, 
+        imageSessionId,
+        fallbackUsed: !location.state?.finalImagePublicUrl
       })
       
       // Store current order data in localStorage
@@ -748,10 +760,17 @@ const PaymentScreen = () => {
                     <img 
                       src={img} 
                       alt={`Photo ${idx + 1}`} 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       style={{
-                        objectPosition: `${imageTransforms?.[idx]?.x || 50}% ${imageTransforms?.[idx]?.y || 50}%`,
-                        transform: `scale(${imageTransforms?.[idx]?.scale || 1})`
+                        // RESTORE USER TRANSFORMS for film strip preview
+                        ...(imageTransforms && imageTransforms[idx] 
+                          ? { 
+                              transform: `scale(${imageTransforms[idx].scale})`,
+                              transformOrigin: 'center center',
+                              objectPosition: `${imageTransforms[idx].x || 50}% ${imageTransforms[idx].y || 50}%`
+                            }
+                          : {}),
+                        objectFit: 'contain'
                       }}
                     />
                   </div>
@@ -818,12 +837,17 @@ const PaymentScreen = () => {
                             <img 
                               src={img} 
                               alt={`design ${idx+1}`} 
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                               style={{
-                                transform: imageTransforms && imageTransforms[idx] 
-                                  ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
-                                  : 'translate(0%, 0%) scale(1)',
-                                transformOrigin: 'center center'
+                                // RESTORE USER TRANSFORMS for 4-image grid preview
+                                ...(imageTransforms && imageTransforms[idx] 
+                                  ? { 
+                                      transform: `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`,
+                                      transformOrigin: 'center center'
+                                    }
+                                  : {}),
+                                objectFit: 'contain',
+                                objectPosition: 'center'
                               }}
                             />
                           </div>
@@ -836,12 +860,17 @@ const PaymentScreen = () => {
                             <img 
                               src={img} 
                               alt={`design ${idx+1}`} 
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                               style={{
-                                transform: imageTransforms && imageTransforms[idx] 
-                                  ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
-                                  : 'translate(0%, 0%) scale(1)',
-                                transformOrigin: 'center center'
+                                // RESTORE USER TRANSFORMS for vertical multi-image preview
+                                ...(imageTransforms && imageTransforms[idx] 
+                                  ? { 
+                                      transform: `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`,
+                                      transformOrigin: 'center center'
+                                    }
+                                  : {}),
+                                objectFit: 'contain',
+                                objectPosition: 'center'
                               }}
                             />
                           </div>
@@ -854,7 +883,22 @@ const PaymentScreen = () => {
                     src={designImage} 
                     alt="Your design" 
                     className="phone-case-image-contain"
-                    style={initialTransform ? { transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`, transformOrigin: 'center center' } : undefined}
+                    style={{
+                      // RESTORE USER TRANSFORMS - show exactly what user finalized during cropping
+                      ...(imageTransforms && imageTransforms[0] 
+                        ? { 
+                            transform: `translate(${imageTransforms[0].x}%, ${imageTransforms[0].y}%) scale(${imageTransforms[0].scale})`,
+                            transformOrigin: 'center center'
+                          }
+                        : initialTransform 
+                        ? { 
+                            transform: `translate(${initialTransform.x}%, ${initialTransform.y}%) scale(${initialTransform.scale})`,
+                            transformOrigin: 'center center'
+                          }
+                        : {}),
+                      objectFit: 'contain',
+                      objectPosition: 'center'
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">No design</div>

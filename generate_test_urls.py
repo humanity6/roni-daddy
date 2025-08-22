@@ -1,178 +1,144 @@
 #!/usr/bin/env python3
 """
-PimpMyCase QR URL Generator
-Generates valid test URLs for the pimpmycase.shop website that would normally be embedded in QR codes
+PimpMyCase QR URL Generator - Simple Version
+Generates one valid test URL by creating actual sessions via API
 """
 
-from datetime import datetime
-from urllib.parse import urlencode, urlparse, parse_qs
-import argparse
+import requests
+import json
+from urllib.parse import urlencode
 
 
-def generate_session_id(machine_id: str) -> str:
-    """Generate session ID following the Chinese format: MACHINE_ID_YYYYMMDD_HHMMSS_RANDOM"""
-    import random
-    import string
-    now = datetime.now()
-    date = now.strftime('%Y%m%d')
-    time_str = now.strftime('%H%M%S')
-    # Generate random suffix like Chinese format (8 alphanumeric characters)
-    random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    return f"{machine_id}_{date}_{time_str}_{random_suffix}"
+def create_vending_session(machine_id, base_url="https://pimpmycase.onrender.com"):
+    """Create a real vending machine session via API"""
+    
+    create_payload = {
+        "machine_id": machine_id,
+        "location": "Test Location - Order Data Fix",
+        "session_timeout_minutes": 60,  # 1 hour for testing
+        "metadata": {"source": "generate_test_urls", "purpose": "order_data_fix_testing"}
+    }
+    
+    try:
+        print(f"Creating session for machine {machine_id}...")
+        response = requests.post(
+            f"{base_url}/api/vending/create-session",
+            json=create_payload,
+            headers={"Content-Type": "application/json"},
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            session_data = response.json()
+            session_id = session_data.get("session_id")
+            if session_id:
+                print(f"✅ Session created successfully: {session_id}")
+                return session_id, session_data
+            else:
+                print("❌ No session_id in response")
+                return None, None
+        else:
+            print(f"❌ Session creation failed: {response.status_code}")
+            print(f"Response: {response.text}")
+            return None, None
+            
+    except requests.exceptions.Timeout:
+        print("❌ Session creation timed out - API server may be slow")
+        return None, None
+    except requests.exceptions.ConnectionError:
+        print("❌ Connection error - API server may be unavailable")
+        return None, None
+    except Exception as e:
+        print(f"❌ Session creation error: {e}")
+        return None, None
 
 
-def generate_test_url(
-    machine_id: str = "1CBRONIQRWQQ",
-    location: str | None = None,
-    mode: str | None = None,
-    custom_session: str | None = None,
-) -> tuple[str, str]:
-    """Generate a complete test URL for pimpmycase.shop.
+def validate_session(session_id, base_url="https://pimpmycase.onrender.com"):
+    """Validate that the session exists and is active"""
+    
+    try:
+        print(f"Validating session {session_id}...")
+        response = requests.get(
+            f"{base_url}/api/vending/session/{session_id}/status",
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            session_status = response.json()
+            status = session_status.get("status")
+            expires_at = session_status.get("expires_at")
+            print(f"✅ Session valid - Status: {status}, Expires: {expires_at}")
+            return True
+        elif response.status_code == 404:
+            print("❌ Session not found - may have been deleted")
+            return False
+        elif response.status_code == 410:
+            print("❌ Session expired")
+            return False
+        else:
+            print(f"❌ Session validation failed: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"⚠️ Session validation error (but session may still work): {e}")
+        return True  # Assume valid if validation fails
 
-    Returns (url, session_id) so the caller can reliably display/use the exact
-    session id embedded in the URL (preventing accidental regeneration).
-    """
 
-    # Generate session ID if not provided
-    session_id = custom_session or generate_session_id(machine_id)
-
-    # Build URL parameters exactly matching Chinese format
-    params: dict[str, str] = {
+def generate_valid_test_url():
+    """Generate one 100% valid test URL by creating an actual session"""
+    
+    # Use the known working machine ID from Chinese API
+    machine_id = "1CBRONIQRWQQ"
+    
+    # Create actual session via API
+    session_id, session_data = create_vending_session(machine_id)
+    
+    if not session_id:
+        print("❌ Failed to create session - cannot generate valid URL")
+        return None, None, None
+    
+    # Validate the session was created properly
+    if not validate_session(session_id):
+        print("❌ Session validation failed - URL may not work")
+        return None, None, None
+    
+    # Build URL parameters exactly as expected by the backend
+    params = {
         "qr": "true",
         "machine_id": machine_id,
         "session_id": session_id,
-        "device_id": machine_id,  # device_id same as machine_id for now
-        "lang": "en",
+        "device_id": machine_id,
+        "lang": "en"
     }
-
-    # Only add optional parameters that don't interfere with Chinese format
-    if location and mode == "debug":  # Only add location in debug mode
-        params["location"] = location
-
-    # Potential future: include mode param if needed; currently intentionally excluded
-
-    base_url = "https://pimpmycase.shop/"  # Note trailing slash
+    
+    base_url = "https://pimpmycase.shop/"
     query_string = urlencode(params)
-    return f"{base_url}?{query_string}", session_id
-
-
-def extract_session_id(url: str) -> str | None:
-    """Robustly extract session_id query param from a generated URL."""
-    try:
-        parsed = urlparse(url)
-        qs = parse_qs(parsed.query)
-        vals = qs.get("session_id")
-        return vals[0] if vals else None
-    except Exception:
-        return None
-
-
-def print_test_scenarios():
-    """Print various test scenarios with different configurations."""
-
-    scenarios = [
-        {
-            'name': 'Basic Chinese API Test',
-            'machine_id': '1CBRONIQRWQQ',
-            'location': 'Chinese API Test Environment'
-        },
-        {
-            'name': 'Production Vending Machine',
-            'machine_id': '1CBRONIQRWQQ',
-            'location': 'Shopping Mall - Level 1',
-            'mode': 'production'
-        },
-        {
-            'name': 'Debug Mode Test',
-            'machine_id': '1CBRONIQRWQQ',
-            'location': 'Debug Environment',
-            'mode': 'debug'
-        },
-        {
-            'name': 'Demo Mode Test',
-            'machine_id': '1CBRONIQRWQQ',
-            'location': 'Demo Booth',
-            'mode': 'demo'
-        },
-        {
-            'name': 'Custom Session Test',
-            'machine_id': '1CBRONIQRWQQ',
-            'location': 'Test Lab',
-            'custom_session': '1CBRONIQRWQQ_20250819_120000_ABCDEF'
-        }
-    ]
+    url = f"{base_url}?{query_string}"
     
-    print("=" * 80)
-    print("🔗 PimpMyCase Test URL Generator")
-    print("=" * 80)
-    print()
-    
-    for i, scenario in enumerate(scenarios, 1):
-        print(f"📱 Test Scenario {i}: {scenario['name']}")
-        print("-" * 50)
-        url, session_id = generate_test_url(
-            machine_id=scenario['machine_id'],
-            location=scenario.get('location'),
-            mode=scenario.get('mode'),
-            custom_session=scenario.get('custom_session')
-        )
-        print(f"URL: {url}")
-        print()
-
-        # Fallback to extraction (paranoia) if something changed
-        extracted = extract_session_id(url) or session_id
-
-        print(f"Session ID: {session_id}")
-        if extracted != session_id:
-            print(f"(Extracted Session ID differs: {extracted})")
-        print(f"Machine ID: {scenario['machine_id']}")
-        if scenario.get('location'):
-            print(f"Location: {scenario['location']}")
-        if scenario.get('mode'):
-            print(f"Mode: {scenario['mode']}")
-        print()
-        print("=" * 80)
-        print()
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Generate PimpMyCase test URLs')
-    parser.add_argument('--machine-id', default='1CBRONIQRWQQ', 
-                       help='Machine ID (default: 1CBRONIQRWQQ)')
-    parser.add_argument('--location', help='Location description')
-    parser.add_argument('--mode', choices=['debug', 'demo', 'testing', 'production'],
-                       help='Test mode')
-    parser.add_argument('--session-id', help='Custom session ID')
-    parser.add_argument('--scenarios', action='store_true',
-                       help='Show all test scenarios')
-    
-    args = parser.parse_args()
-    
-    if args.scenarios:
-        print_test_scenarios()
-        return
-
-    url, session_id_used = generate_test_url(
-        machine_id=args.machine_id,
-        location=args.location,
-        mode=args.mode,
-        custom_session=args.session_id,
-    )
-
-    print("Generated Test URL:")
-    print("=" * 50)
-    print(url)
-    print()
-
-    # Show session details using the actual embedded session id
-    print("Session Details:")
-    print(f"  Session ID: {session_id_used}")
-    print(f"  Machine ID: {args.machine_id}")
-    if args.location:
-        print(f"  Location: {args.location}")
-    if args.mode:
-        print(f"  Mode: {args.mode}")
+    return url, session_id, machine_id
 
 
 if __name__ == '__main__':
-    main()
+    url, session_id, machine_id = generate_valid_test_url()
+    
+    if url and session_id and machine_id:
+        print("🔗 Valid Test URL for Order Data Size Fix:")
+        print("=" * 60)
+        print(url)
+        print()
+        print("Session Details:")
+        print(f"  Session ID: {session_id}")
+        print(f"  Machine ID: {machine_id}")
+        print(f"  Session Timeout: 60 minutes")
+        print()
+        print("✅ This URL will test:")
+        print("  - Session registration (no more 404 errors)")
+        print("  - Order-summary payload optimization")
+        print("  - Chinese API integration (payData + orderData)")
+        print("  - 500KB size limit validation")
+        print("  - Improved error handling")
+        print()
+        print("⚠️  Note: This session will expire in 1 hour")
+    else:
+        print("❌ Failed to generate valid test URL")
+        print("Check your internet connection and API availability")

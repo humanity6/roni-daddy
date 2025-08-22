@@ -18,15 +18,26 @@ export async function composeFinalImage(options) {
     transform = { x: 0, y: 0, scale: 1 }
   } = options
 
-  // Canvas dimensions - standard phone case size
-  const CANVAS_WIDTH = 695
-  const CANVAS_HEIGHT = 1271
+  // Canvas dimensions - high resolution for print quality
+  // Increased resolution for better quality (2x scaling)
+  const CANVAS_WIDTH = 1390  // 695 * 2
+  const CANVAS_HEIGHT = 2542 // 1271 * 2
 
-  // Create canvas
+  // Create canvas with high-quality settings
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_WIDTH
   canvas.height = CANVAS_HEIGHT
   const ctx = canvas.getContext('2d')
+  
+  // Enable high-quality rendering
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  
+  // Additional quality settings
+  ctx.textRenderingOptimization = 'optimizeQuality'
+  ctx.antialias = true
+  
+  console.log(`Canvas created: ${CANVAS_WIDTH}x${CANVAS_HEIGHT} (high resolution, quality optimized)`)
 
   // Set background color
   ctx.fillStyle = selectedBackgroundColor
@@ -60,8 +71,8 @@ export async function composeFinalImage(options) {
       })
     }
 
-    // Convert to data URL (final image)
-    return canvas.toDataURL('image/png', 0.95)
+    // Convert to data URL with maximum quality
+    return canvas.toDataURL('image/png', 1.0)
 
   } catch (error) {
     console.error('Error composing final image:', error)
@@ -74,25 +85,49 @@ async function drawSingleImage(ctx, imageDataUrl, transform, canvasWidth, canvas
     const img = new Image()
     img.onload = () => {
       try {
-        // Calculate position and size based on transform
+        // Calculate position and size based on transform (USER'S CROPPING CHOICES)
         const { x = 0, y = 0, scale = 1 } = transform
+        
+        // Calculate how to fit the image within the canvas (object-fit: contain logic)
+        const imageAspect = img.width / img.height
+        const canvasAspect = canvasWidth / canvasHeight
+        
+        let baseWidth, baseHeight
+        if (imageAspect > canvasAspect) {
+          // Image is wider - fit to canvas width
+          baseWidth = canvasWidth
+          baseHeight = canvasWidth / imageAspect
+        } else {
+          // Image is taller - fit to canvas height
+          baseHeight = canvasHeight
+          baseWidth = canvasHeight * imageAspect
+        }
+        
+        console.log(`Image scaling: ${img.width}x${img.height} -> ${baseWidth}x${baseHeight} (aspect: ${imageAspect.toFixed(2)})`)
+        console.log(`User transform: scale=${scale}, x=${x}, y=${y}`)
         
         // Apply transform
         ctx.save()
         
-        // Move to center for scaling
+        // Enable high-quality image rendering
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        
+        // Move to center for scaling and positioning
         const centerX = canvasWidth / 2
         const centerY = canvasHeight / 2
         ctx.translate(centerX, centerY)
         
-        // Apply scale
+        // Apply user's scale factor on top of the base fit-to-canvas scaling
         ctx.scale(scale, scale)
         
-        // Apply position offset
-        ctx.translate(x, y)
+        // Apply user's position offset (convert from percentage to pixels)
+        const offsetX = (x / 100) * canvasWidth
+        const offsetY = (y / 100) * canvasHeight
+        ctx.translate(offsetX, offsetY)
         
-        // Draw image centered
-        ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height)
+        // Draw image centered with calculated dimensions (WITH user transforms applied)
+        ctx.drawImage(img, -baseWidth / 2, -baseHeight / 2, baseWidth, baseHeight)
         
         ctx.restore()
         resolve()
@@ -148,21 +183,36 @@ async function drawImageInCell(ctx, imageDataUrl, transform, cellX, cellY, cellW
       try {
         ctx.save()
         
+        // Enable high-quality image rendering
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        
         // Clip to cell boundaries
         ctx.beginPath()
         ctx.rect(cellX, cellY, cellWidth, cellHeight)
         ctx.clip()
         
-        // Apply transform within cell
-        const { x = 0, y = 0, scale = 1 } = transform
+        // Calculate how to fit the image within the cell (object-fit: contain logic)
+        const imageAspect = img.width / img.height
+        const cellAspect = cellWidth / cellHeight
+        
+        let drawWidth, drawHeight
+        if (imageAspect > cellAspect) {
+          // Image is wider - fit to cell width
+          drawWidth = cellWidth
+          drawHeight = cellWidth / imageAspect
+        } else {
+          // Image is taller - fit to cell height
+          drawHeight = cellHeight
+          drawWidth = cellHeight * imageAspect
+        }
+        
+        // Center the image in the cell without user transforms for consistency
         const centerX = cellX + cellWidth / 2
         const centerY = cellY + cellHeight / 2
         
-        ctx.translate(centerX + x, centerY + y)
-        ctx.scale(scale, scale)
-        
-        // Draw image centered in cell
-        ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height)
+        // Draw image centered in cell with calculated dimensions (no user transforms)
+        ctx.drawImage(img, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight)
         
         ctx.restore()
         resolve()
@@ -221,27 +271,35 @@ function drawTextOverlay(ctx, options) {
   
   ctx.save()
   
-  // Set font
-  ctx.font = `${fontSize}px ${font}, sans-serif`
+  // Scale font size for high-resolution canvas (1390x2542)
+  // The UI uses 30px as base, but the canvas is much larger than typical preview
+  // Scale factor based on canvas width (1390px is about 5.4x larger than typical 256px preview)
+  const scaleFactor = Math.max(4.5, canvasWidth / 300) // Minimum 4.5x scaling for high-res canvas
+  const scaledFontSize = fontSize * scaleFactor
+  
+  console.log(`Text rendering: original ${fontSize}px -> scaled ${scaledFontSize}px (factor: ${scaleFactor})`)
+  
+  // Set font with scaled size
+  ctx.font = `${scaledFontSize}px ${font}, sans-serif`
   ctx.fillStyle = color
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   
-  // Enable text stroke for better visibility
+  // Enable text stroke for better visibility (also scale stroke width)
   ctx.strokeStyle = color === '#ffffff' ? '#000000' : '#ffffff'
-  ctx.lineWidth = 1
+  ctx.lineWidth = Math.max(2, scaleFactor * 0.5) // Scale stroke width
   
   // Calculate text position (percentage to pixel conversion)
   const textX = (position.x / 100) * canvasWidth
   const textY = (position.y / 100) * canvasHeight
   
-  // Handle multi-line text
+  // Handle multi-line text with scaled line height
   const lines = text.split('\n')
-  const lineHeight = fontSize * 1.2
+  const lineHeight = scaledFontSize * 1.2
   
   lines.forEach((line, index) => {
     const y = textY + (index * lineHeight)
-    if (y < canvasHeight - fontSize) { // Don't draw text outside canvas
+    if (y < canvasHeight - scaledFontSize) { // Don't draw text outside canvas
       // Draw stroke first (outline)
       ctx.strokeText(line, textX, y)
       // Draw fill text on top
