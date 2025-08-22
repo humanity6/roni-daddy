@@ -100,13 +100,13 @@ class PhoneModelService:
         """Create new phone model"""
         model = PhoneModel(
             name=model_data["name"],
+            display_name=model_data.get("display_name", model_data["name"]),
             brand_id=model_data["brand_id"],
             price=model_data["price"],
             chinese_model_id=model_data.get("chinese_model_id"),
             display_order=model_data.get("display_order", 0),
             stock=model_data.get("stock", 0),
-            is_available=model_data.get("is_available", True),
-            is_featured=model_data.get("is_featured", False)
+            is_available=model_data.get("is_available", True)
         )
         db.add(model)
         db.commit()

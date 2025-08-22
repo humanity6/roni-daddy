@@ -889,7 +889,13 @@ async def sync_models_from_chinese_api(
         chinese_brands = brands_response.get("brands", [])
         logger.info(f"Found {len(chinese_brands)} brands in Chinese API")
         
-        for brand_data in chinese_brands:
+        # Filter to only include iPhone, Samsung, and Google brands
+        target_brands = ["Apple", "SAMSUNG", "Google"]
+        filtered_brands = [brand for brand in chinese_brands if brand.get("e_name") in target_brands]
+        
+        logger.info(f"Filtered to {len(filtered_brands)} target brands: {[b.get('e_name') for b in filtered_brands]}")
+        
+        for brand_data in filtered_brands:
             try:
                 sync_results["brands_processed"] += 1
                 brand_name = brand_data.get("e_name", brand_data.get("name"))
@@ -912,8 +918,9 @@ async def sync_models_from_chinese_api(
                     # Create new brand
                     brand_create_data = {
                         "name": brand_name,
+                        "display_name": brand_name.upper(),
                         "chinese_brand_id": chinese_brand_id,
-                        "is_active": True
+                        "is_available": True
                     }
                     new_brand = BrandService.create_brand(db, brand_create_data)
                     sync_results["brands_added"] += 1
@@ -951,10 +958,11 @@ async def sync_models_from_chinese_api(
                                 # Create new model
                                 model_create_data = {
                                     "name": model_name,
+                                    "display_name": model_name,
                                     "brand_id": existing_brand.id,
                                     "chinese_model_id": chinese_model_id,
-                                    "is_active": True,
-                                    "base_price": float(price) if price.replace('.', '').isdigit() else 19.99
+                                    "is_available": True,
+                                    "price": float(price) if price.replace('.', '').isdigit() else 19.99
                                 }
                                 PhoneModelService.create_model(db, model_create_data)
                                 sync_results["models_added"] += 1
