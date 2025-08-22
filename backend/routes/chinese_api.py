@@ -15,6 +15,7 @@ from db_services import OrderService, OrderImageService
 from models import Order, PhoneModel, VendingMachine
 from datetime import datetime, timezone, timedelta
 import time
+import urllib.parse
 import logging
 import traceback
 
@@ -577,16 +578,19 @@ async def send_order_data_to_chinese_api(
             send_payment_status_to_chinese_api
         )
 
-        # 1. Proactively send payStatus notification (some devices require this BEFORE orderData)
-        try:
-            logger.info("Sending payStatus (status=3) prior to orderData to ensure device availability...")
-            pay_status_resp = send_payment_status_to_chinese_api(
-                third_id=request.third_pay_id,  # payment third_id from payData step
-                status=3
-            )
-            logger.info(f"payStatus response: {json.dumps(pay_status_resp, indent=2, ensure_ascii=False)}")
-        except Exception as ps_err:
-            logger.warning(f"Failed to send payStatus pre-notification: {ps_err}")
+        # Optional: pre payStatus disabled (returned 'status type does not exist'). Leave scaffold for re-enable.
+        PRE_SEND_PAY_STATUS = False
+        pay_status_resp = None
+        if PRE_SEND_PAY_STATUS:
+            try:
+                logger.info("Sending payStatus (status=3) prior to orderData to ensure device availability...")
+                pay_status_resp = send_payment_status_to_chinese_api(
+                    third_id=request.third_pay_id,
+                    status=3
+                )
+                logger.info(f"payStatus response: {json.dumps(pay_status_resp, indent=2, ensure_ascii=False)}")
+            except Exception as ps_err:
+                logger.warning(f"Failed to send payStatus pre-notification: {ps_err}")
 
         # 2. Attempt initial orderData submission
         request_start = time.time()
@@ -602,22 +606,24 @@ async def send_order_data_to_chinese_api(
 
         logger.info(f"Chinese API orderData call completed in {request_duration:.2f}s")
 
-        # 3. If device unavailable error returned, retry ONCE after ensuring payStatus
+        # 3. If device unavailable error returned, retry ONCE (optionally with payStatus if enabled)
         unavailable_msg = "device is unavailable"
         if (
             isinstance(chinese_response, dict) and
             chinese_response.get('code') == 500 and
             chinese_response.get('msg') and unavailable_msg in chinese_response.get('msg').lower()
         ):
-            logger.warning("Received 'device unavailable' from orderData. Retrying once after re-sending payStatus...")
-            try:
-                retry_status = send_payment_status_to_chinese_api(
-                    third_id=request.third_pay_id,
-                    status=3
-                )
-                logger.info(f"payStatus retry response: {json.dumps(retry_status, indent=2, ensure_ascii=False)}")
-            except Exception as ps_retry_err:
-                logger.warning(f"payStatus retry failed: {ps_retry_err}")
+            logger.warning("Received 'device unavailable' from orderData. Retrying once (payStatus disabled)...")
+            retry_status = None
+            if PRE_SEND_PAY_STATUS:
+                try:
+                    retry_status = send_payment_status_to_chinese_api(
+                        third_id=request.third_pay_id,
+                        status=3
+                    )
+                    logger.info(f"payStatus retry response: {json.dumps(retry_status, indent=2, ensure_ascii=False)}")
+                except Exception as ps_retry_err:
+                    logger.warning(f"payStatus retry failed: {ps_retry_err}")
 
             retry_start = time.time()
             retry_response = svc_send_order_data(
@@ -636,7 +642,7 @@ async def send_order_data_to_chinese_api(
                 logger.info("Retry succeeded after initial 'device unavailable' error.")
                 chinese_response = retry_response
             else:
-                logger.warning("Retry did not succeed; evaluating fallback with original PYEN id (if different and not yet tried)...")
+                logger.warning("Retry did not succeed; evaluating fallback strategies (original PYEN id and sanitized pic)...")
                 # Fallback: If we substituted MSPY id and original starts with PYEN and not already tried, attempt with original id
                 if (
                     original_third_pay_id != effective_third_pay_id and
@@ -664,6 +670,32 @@ async def send_order_data_to_chinese_api(
                         logger.warning("Fallback with original PYEN third_pay_id also failed.")
                 else:
                     logger.info("No viable fallback third_pay_id to attempt or already tried.")
+
+                # Additional fallback: try sanitized image URL without query string (token) if present
+                if (
+                    isinstance(chinese_response, dict) and chinese_response.get('code') == 500 and
+                    '?' in request.pic
+                ):
+                    parsed = urllib.parse.urlsplit(request.pic)
+                    sanitized_pic = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, parsed.path, '', ''))
+                    if sanitized_pic != request.pic:
+                        logger.info(f"Attempting fallback orderData with sanitized pic URL (removed query params): {sanitized_pic}")
+                        san_start = time.time()
+                        san_response = svc_send_order_data(
+                            third_pay_id=effective_third_pay_id,
+                            third_id=request.third_id,
+                            mobile_model_id=request.mobile_model_id,
+                            pic=sanitized_pic,
+                            device_id=request.device_id
+                        )
+                        san_duration = time.time() - san_start
+                        logger.info(f"Sanitized pic fallback completed in {san_duration:.2f}s")
+                        logger.info(f"Sanitized pic response: {json.dumps(san_response, indent=2, ensure_ascii=False)}")
+                        if isinstance(san_response, dict) and san_response.get('code') == 200:
+                            logger.info("Sanitized pic fallback succeeded.")
+                            chinese_response = san_response
+                        else:
+                            logger.warning("Sanitized pic fallback also failed.")
         
         # Log the response in detail
         logger.info(f"=== CHINESE API RESPONSE ({correlation_id}) ===")
@@ -681,9 +713,13 @@ async def send_order_data_to_chinese_api(
         # Attach debug metadata for client-side troubleshooting (non-breaking)
         if isinstance(chinese_response, dict):
             chinese_response.setdefault('_debug', {})
-            chinese_response['_debug']['attempted_third_pay_ids'] = attempted_third_pay_ids
-            chinese_response['_debug']['original_third_pay_id'] = original_third_pay_id
-            chinese_response['_debug']['effective_first_third_pay_id'] = effective_third_pay_id
+            debug_block = chinese_response['_debug']
+            debug_block['attempted_third_pay_ids'] = attempted_third_pay_ids
+            debug_block['original_third_pay_id'] = original_third_pay_id
+            debug_block['effective_first_third_pay_id'] = effective_third_pay_id
+            debug_block['pre_pay_status_attempted'] = PRE_SEND_PAY_STATUS
+            debug_block['pay_status_resp_code'] = pay_status_resp.get('code') if isinstance(pay_status_resp, dict) else None
+            debug_block['pic_had_query'] = '?' in request.pic
         return chinese_response
         
     except Exception as e:
