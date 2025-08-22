@@ -6,7 +6,7 @@ from sqlalchemy import desc
 from database import get_db
 from backend.schemas.chinese_api import (
     OrderStatusUpdateRequest, PrintCommandRequest, 
-    ChinesePayStatusRequest, ChinesePaymentDataRequest
+    ChinesePayStatusRequest, ChinesePaymentDataRequest, ChineseOrderDataRequest
 )
 from backend.services.file_service import generate_uk_download_url, generate_secure_download_token
 from backend.utils.helpers import generate_third_id, get_mobile_model_id
@@ -491,6 +491,100 @@ async def send_payment_data_to_chinese_api(
             "code": 500,
             "data": {
                 "id": "",
+                "third_id": request.third_id if hasattr(request, 'third_id') else ""
+            }
+        }
+        logger.error(f"Error response: {json.dumps(error_response, indent=2, ensure_ascii=False)}")
+        return error_response
+
+@router.post("/order/orderData")
+async def send_order_data_to_chinese_api(
+    request: ChineseOrderDataRequest,
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Send order data to Chinese manufacturers for printing"""
+    # Extract correlation ID from headers for tracing
+    correlation_id = http_request.headers.get('X-Correlation-ID', f"ORDER_{int(time.time())}")
+    
+    try:
+        # Security validation
+        security_info = validate_relaxed_api_security(http_request)
+        
+        logger.info(f"=== CHINESE API ORDERDATA REQUEST START ({correlation_id}) ===")
+        logger.info(f"Client IP: {security_info['client_ip']}")
+        logger.info(f"Request payload: {request.dict()}")
+        logger.info(f"Timestamp: {datetime.now(timezone.utc).isoformat()}")
+        
+        # Validate that the mobile model exists in our database
+        model = db.query(PhoneModel).filter(
+            (PhoneModel.chinese_model_id == request.mobile_model_id) | 
+            (PhoneModel.id == request.mobile_model_id)
+        ).first()
+        
+        if not model:
+            logger.warning(f"Mobile model {request.mobile_model_id} not found in database, proceeding anyway")
+        else:
+            logger.info(f"Found mobile model: {model.name} (chinese_id: {model.chinese_model_id})")
+        
+        # Store order data record for tracking
+        order_data_record = {
+            "correlation_id": correlation_id,
+            "third_pay_id": request.third_pay_id,
+            "third_id": request.third_id,
+            "device_id": request.device_id,
+            "mobile_model_id": request.mobile_model_id,
+            "pic": request.pic,
+            "initiated_at": datetime.now(timezone.utc).isoformat(),
+            "client_ip": security_info['client_ip']
+        }
+        
+        logger.info(f"Order data record: {json.dumps(order_data_record, indent=2, ensure_ascii=False)}")
+        logger.info("Calling Chinese order data service...")
+        
+        # Call the Chinese API service to send order data
+        from backend.services.chinese_payment_service import send_order_data_to_chinese_api
+        
+        request_start = time.time()
+        chinese_response = send_order_data_to_chinese_api(
+            third_pay_id=request.third_pay_id,
+            third_id=request.third_id,
+            mobile_model_id=request.mobile_model_id,
+            pic=request.pic,
+            device_id=request.device_id
+        )
+        request_duration = time.time() - request_start
+        
+        logger.info(f"Chinese API call completed in {request_duration:.2f}s")
+        
+        # Log the response in detail
+        logger.info(f"=== CHINESE API RESPONSE ({correlation_id}) ===")
+        logger.info(f"Response: {json.dumps(chinese_response, indent=2, ensure_ascii=False)}")
+        
+        if chinese_response.get("code") == 200:
+            logger.info("SUCCESS: Order data sent successfully to Chinese API")
+            logger.info(f"Chinese Order ID: {chinese_response.get('data', {}).get('id')}")
+        else:
+            logger.error(f"Chinese API returned error code: {chinese_response.get('code')}")
+            logger.error(f"Error message: {chinese_response.get('msg')}")
+        
+        logger.info(f"=== CHINESE API ORDERDATA REQUEST END ({correlation_id}) ===")
+        
+        return chinese_response
+        
+    except Exception as e:
+        logger.error(f"=== CHINESE API ORDERDATA REQUEST FAILED ({correlation_id}) ===")
+        logger.error(f"Error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Return error in Chinese API format
+        error_response = {
+            "msg": f"Failed to send order data: {str(e)}",
+            "code": 500,
+            "data": {
+                "id": "",
+                "third_pay_id": request.third_pay_id if hasattr(request, 'third_pay_id') else "",
                 "third_id": request.third_id if hasattr(request, 'third_id') else ""
             }
         }

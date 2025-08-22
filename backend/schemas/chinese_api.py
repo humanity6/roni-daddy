@@ -185,3 +185,57 @@ class ChinesePaymentDataRequest(BaseModel):
         if v not in valid_types:
             raise ValueError(f'Payment type must be one of: {valid_types}')
         return v
+
+class ChineseOrderDataRequest(BaseModel):
+    third_pay_id: str
+    third_id: str
+    mobile_model_id: str
+    pic: str
+    device_id: str
+    
+    @field_validator('third_pay_id')
+    @classmethod
+    def validate_third_pay_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Third party payment ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Third party payment ID too long')
+        return v.strip()
+    
+    @field_validator('third_id')
+    @classmethod
+    def validate_third_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Third ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Third ID too long')
+        return v.strip()
+    
+    @field_validator('mobile_model_id')
+    @classmethod
+    def validate_mobile_model_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Mobile model ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Mobile model ID too long')
+        return v.strip()
+    
+    @field_validator('pic')
+    @classmethod
+    def validate_pic(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Image URL cannot be empty')
+        if len(v) > 1000:
+            raise ValueError('Image URL too long')
+        if not (v.startswith('http://') or v.startswith('https://')):
+            raise ValueError('Image URL must start with http:// or https://')
+        return v.strip()
+    
+    @field_validator('device_id')
+    @classmethod
+    def validate_device_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Device ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Device ID too long')
+        return v.strip()
