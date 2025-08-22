@@ -458,9 +458,9 @@ async def send_order_summary_to_vending_machine(
         # Security validation including payment amount
         security_info = validate_payment_security(http_request, request.payment_amount, session_id)
         
-        # Validate order data size
-        if not security_manager.validate_json_size(request.order_data, 100):
-            raise HTTPException(status_code=400, detail="Order data too large")
+        # Validate order data size (increased limit to accommodate order metadata)
+        if not security_manager.validate_json_size(request.order_data, 500):
+            raise HTTPException(status_code=400, detail="Order data too large (max 500KB)")
         
         session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
         if not session:

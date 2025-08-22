@@ -88,6 +88,21 @@ def save_generated_image(base64_data: str, template_id: str, session_id: str = N
         print(f"❌ Error saving image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error saving image: {str(e)}")
 
-def get_image_public_url(filename: str) -> str:
-    """Get public URL for accessing stored image"""
-    return f"https://pimpmycase.onrender.com/image/{filename}"
+def get_image_public_url(filename: str, partner_type: str = "end_user", expiry_hours: int = None) -> str:
+    """Get secure public URL for accessing stored image with token"""
+    from backend.services.file_service import generate_secure_image_url
+    
+    # Generate secure URL with appropriate token for the partner type
+    return generate_secure_image_url(
+        filename=filename, 
+        partner_type=partner_type,
+        custom_expiry_hours=expiry_hours
+    )
+
+def get_image_url_for_chinese_api(filename: str) -> str:
+    """Get secure URL specifically for Chinese API access with 48-hour expiry"""
+    return get_image_public_url(filename, partner_type="chinese_manufacturing", expiry_hours=48)
+
+def get_image_url_for_user(filename: str) -> str:
+    """Get secure URL for end user access with 1-hour expiry"""
+    return get_image_public_url(filename, partner_type="end_user", expiry_hours=1)

@@ -235,3 +235,85 @@ async def upload_final_composed_image(
     except Exception as e:
         print(f"❌ Error uploading final image: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-secure-url")
+async def generate_secure_image_url_endpoint(
+    filename: str = Form(...),
+    partner_type: str = Form("end_user"),
+    expiry_hours: int = Form(1)
+):
+    """Generate secure URL for accessing an existing image"""
+    try:
+        from backend.services.file_service import generate_secure_image_url, PARTNER_TYPES
+        
+        # Validate partner type
+        if partner_type not in PARTNER_TYPES:
+            raise HTTPException(status_code=400, detail=f"Invalid partner type. Must be one of: {list(PARTNER_TYPES.keys())}")
+        
+        # Validate expiry hours against partner limits
+        partner_config = PARTNER_TYPES[partner_type]
+        max_expiry = partner_config["max_expiry_hours"]
+        
+        if expiry_hours > max_expiry:
+            expiry_hours = max_expiry
+            print(f"⚠️ Expiry hours capped at {max_expiry}h for partner type {partner_type}")
+        
+        # Check if image file exists
+        generated_dir = ensure_directories()
+        file_path = generated_dir / filename
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        # Generate secure URL
+        secure_url = generate_secure_image_url(
+            filename=filename,
+            partner_type=partner_type,
+            custom_expiry_hours=expiry_hours
+        )
+        
+        return {
+            "success": True,
+            "secure_url": secure_url,
+            "filename": filename,
+            "partner_type": partner_type,
+            "expiry_hours": expiry_hours,
+            "expires_at": int(time.time()) + (expiry_hours * 3600)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate secure URL: {str(e)}")
+
+@router.post("/refresh-token")
+async def refresh_image_token(
+    filename: str = Form(...),
+    current_token: str = Form(...),
+    additional_hours: int = Form(1)
+):
+    """Refresh an existing image access token"""
+    try:
+        from backend.services.file_service import refresh_token
+        
+        # Attempt to refresh the token
+        new_token = refresh_token(current_token, filename, additional_hours)
+        
+        if not new_token:
+            raise HTTPException(status_code=400, detail="Unable to refresh token - token may be invalid or expired")
+        
+        # Generate new secure URL
+        new_secure_url = f"https://pimpmycase.onrender.com/image/{filename}?token={new_token}"
+        
+        return {
+            "success": True,
+            "new_secure_url": new_secure_url,
+            "new_token": new_token,
+            "filename": filename,
+            "additional_hours": additional_hours
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to refresh token: {str(e)}")

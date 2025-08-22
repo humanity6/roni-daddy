@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 
 # Test configuration
-API_BASE_URL = "http://localhost:8000"  # Change to production URL when testing live
+API_BASE_URL = "https://pimpmycase.onrender.com"  # Deployed Render instance
 
 def create_test_image_data():
     """Create a simple test image as base64 data"""

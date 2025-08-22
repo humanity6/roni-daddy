@@ -269,34 +269,61 @@ async def process_payment_success(
                     print(f"WARNING: Payment status notification failed: {str(status_error)}")
                     # Continue with order data submission even if status notification fails
                 
-                # STEP 3: Generate design image URL and send order data
+                # STEP 3: Generate design image URL with secure token and send order data
                 print(f"STEP 3: Preparing order data for Chinese API...")
                 
                 try:
+                    from backend.services.file_service import generate_partner_specific_token
+                    
                     # Get final design image URL for Chinese API
-                    design_image_url = None
+                    base_image_url = None
+                    filename = None
                     
                     # Priority 1: Use the uploaded final image URL (permanent, hosted on render.com)
                     if request.order_data.get('finalImagePublicUrl'):
-                        design_image_url = request.order_data.get('finalImagePublicUrl')
-                        print(f"✅ Using uploaded final image URL: {design_image_url}")
+                        base_image_url = request.order_data.get('finalImagePublicUrl')
+                        # Extract filename from URL for token generation
+                        filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                        print(f"✅ Using uploaded final image URL: {base_image_url}")
                         
                     # Priority 2: Try to find session-based filename if we have session ID
                     elif request.order_data.get('imageSessionId'):
                         session_id = request.order_data.get('imageSessionId')
-                        # Try to construct URL based on session ID (this is a fallback)
-                        design_image_url = f"https://pimpmycase.onrender.com/image/order-{session_id}-final-*.png"
-                        print(f"⚠️ Using session-based URL pattern: {design_image_url}")
+                        # Try to construct filename based on session ID (this is a fallback)
+                        filename = f"order-{session_id}-final-*.png"
+                        base_image_url = f"https://pimpmycase.onrender.com/image/{filename}"
+                        print(f"⚠️ Using session-based URL pattern: {base_image_url}")
                         
                     # Priority 3: Check if designImage is already a permanent URL
                     elif request.order_data.get('designImage') and request.order_data.get('designImage').startswith('https://pimpmycase.onrender.com'):
-                        design_image_url = request.order_data.get('designImage')
-                        print(f"✅ Using existing permanent URL: {design_image_url}")
+                        base_image_url = request.order_data.get('designImage')
+                        # Extract filename from URL for token generation
+                        filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                        print(f"✅ Using existing permanent URL: {base_image_url}")
                         
                     # Priority 4: Fallback for blob URLs or missing images
                     else:
                         print(f"⚠️ No permanent image URL found, using fallback")
-                        design_image_url = f"https://pimpmycase.onrender.com/api/generate-design-preview"
+                        base_image_url = f"https://pimpmycase.onrender.com/api/generate-design-preview"
+                        filename = None  # No token needed for fallback URL
+                    
+                    # Generate secure token for Chinese API access (48 hours expiry)
+                    if filename and base_image_url.startswith('https://pimpmycase.onrender.com/image/'):
+                        try:
+                            # Generate Chinese manufacturing partner token with 48-hour expiry
+                            secure_token = generate_partner_specific_token(
+                                filename, 
+                                partner_type="chinese_manufacturing", 
+                                custom_expiry_hours=48
+                            )
+                            design_image_url = f"{base_image_url}?token={secure_token}"
+                            print(f"🔐 Generated secure Chinese manufacturing token (48h) for: {design_image_url}")
+                        except Exception as token_error:
+                            print(f"⚠️ Chinese manufacturing token generation failed: {token_error}, using base URL")
+                            design_image_url = base_image_url
+                    else:
+                        design_image_url = base_image_url
+                        print(f"ℹ️ Using base URL (no token needed): {design_image_url}")
                     
                     # Generate order third_id (different from payment third_id) 
                     # Use session ID as base if available for consistency

@@ -1162,44 +1162,64 @@ async def add_order_image(
 
 # Image serving route (must be at root level, not under /api prefix)
 @router.get("/image/{filename}")
-async def serve_image(filename: str, token: str = None):
-    """Serve generated image with optional token validation for Chinese partners"""
+async def serve_image(filename: str, token: str, request: Request):
+    """Serve generated image with required token validation for secure access"""
     from backend.services.image_service import ensure_directories
     from backend.config.settings import JWT_SECRET_KEY
     from fastapi.responses import FileResponse
     import hmac
     import hashlib
     import time
+    import logging
+    
+    # Set up logging
+    logger = logging.getLogger(__name__)
+    
+    # Get client IP for logging
+    client_ip = request.client.host if request.client else "unknown"
     
     generated_dir = ensure_directories()
     file_path = generated_dir / filename
     
     if not file_path.exists():
+        logger.warning(f"Image access attempt failed - file not found: {filename} from IP: {client_ip}")
         raise HTTPException(status_code=404, detail="Image not found")
     
-    # If token provided, validate it
-    if token:
-        try:
-            timestamp_str, signature = token.split(':', 1)
-            timestamp = int(timestamp_str)
+    # Token is now REQUIRED for all access
+    if not token:
+        logger.warning(f"Image access attempt failed - no token provided for: {filename} from IP: {client_ip}")
+        raise HTTPException(status_code=401, detail="Access token required for image access")
+    
+    # Validate the required token using enhanced validation
+    try:
+        from backend.services.file_service import validate_secure_token
+        
+        # Validate token using the enhanced validation service
+        validation_result = validate_secure_token(token, filename)
+        
+        if not validation_result["valid"]:
+            error_msg = validation_result.get("error", "Token validation failed")
+            logger.warning(f"Image access attempt failed - {error_msg} for: {filename} from IP: {client_ip}")
             
-            # Check if token has expired
-            if time.time() > timestamp:
+            # Return appropriate HTTP status based on error type
+            if "expired" in error_msg.lower():
                 raise HTTPException(status_code=403, detail="Download token expired")
-            
-            # Verify signature
-            message = f"{filename}:{timestamp_str}"
-            expected_signature = hmac.new(
-                JWT_SECRET_KEY.encode(),
-                message.encode(),
-                hashlib.sha256
-            ).hexdigest()
-            
-            if not hmac.compare_digest(signature, expected_signature):
+            elif "invalid" in error_msg.lower():
                 raise HTTPException(status_code=403, detail="Invalid download token")
-                
-        except (ValueError, TypeError) as e:
-            raise HTTPException(status_code=400, detail="Invalid token format")
+            else:
+                raise HTTPException(status_code=400, detail=error_msg)
+        
+        # Log successful access with partner information
+        partner_type = validation_result.get("partner_type", "unknown")
+        time_remaining = validation_result.get("time_remaining_seconds", 0)
+        logger.info(f"Image access granted for: {filename} from IP: {client_ip}, partner: {partner_type}, time remaining: {time_remaining}s")
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Image access validation error for: {filename} from IP: {client_ip}, error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Token validation error")
     
     return FileResponse(
         path=file_path,

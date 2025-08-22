@@ -253,6 +253,59 @@ const PaymentScreen = () => {
               orderData.third_id = third_id
               localStorage.setItem('pendingOrder', JSON.stringify(orderData))
               
+              // Send order data to Chinese API for app payments as well
+              const generateOrderThirdId = () => {
+                const now = new Date()
+                const dateStr = now.getFullYear().toString().slice(-2) + 
+                              String(now.getMonth() + 1).padStart(2, '0') + 
+                              String(now.getDate()).padStart(2, '0')
+                const timestampSuffix = String(Date.now()).slice(-6)
+                return `OREN${dateStr}${timestampSuffix}`
+              }
+              
+              const orderThirdId = generateOrderThirdId()
+              const chineseOrderData = {
+                third_pay_id: third_id, // The payment ID from the previous call
+                third_id: orderThirdId, // Order ID 
+                mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
+                pic: finalImagePublicUrl || designImage || '', // Use the final image URL
+                device_id: deviceId || 'APP_PAYMENT'
+              }
+              
+              console.log('Sending app order data to Chinese API:', JSON.stringify(chineseOrderData, null, 2))
+              
+              try {
+                const appOrderResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/orderData`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Correlation-ID': correlationId + '_APP_ORDER'
+                  },
+                  body: JSON.stringify(chineseOrderData)
+                })
+                
+                if (appOrderResponse.ok) {
+                  const appOrderResult = await appOrderResponse.json()
+                  console.log('App order data sent successfully:', JSON.stringify(appOrderResult, null, 2))
+                  
+                  if (appOrderResult.code === 200) {
+                    console.log('SUCCESS: App order submitted to Chinese API')
+                    console.log('Chinese Order ID:', appOrderResult.data?.id)
+                    orderData.chinese_order_id = appOrderResult.data?.id
+                    orderData.chinese_queue_no = appOrderResult.data?.queue_no
+                    localStorage.setItem('pendingOrder', JSON.stringify(orderData))
+                  } else {
+                    console.error('Chinese API app order error:', appOrderResult.msg)
+                  }
+                } else {
+                  const appOrderErrorText = await appOrderResponse.text()
+                  console.error('Failed to send app order data:', appOrderErrorText)
+                }
+              } catch (appOrderError) {
+                console.error('App order data submission failed:', appOrderError)
+                // Don't fail the payment flow if order data fails
+              }
+              
             } else {
               console.error('WARNING: Chinese API returned non-200 code:', chineseResult.code)
               console.error('Error Message:', chineseResult.msg)
@@ -395,7 +448,7 @@ const PaymentScreen = () => {
           inputText: inputText || '',
           selectedFont: selectedFont || 'Arial',
           selectedTextColor: selectedTextColor || '#ffffff',
-          images: uploadedImages || [],
+          image_count: uploadedImages ? uploadedImages.length : 0,
           colors: {
             background: selectedBackgroundColor || '#ffffff',
             text: selectedTextColor || '#ffffff'
@@ -426,7 +479,24 @@ const PaymentScreen = () => {
         })
         
         if (!orderSummaryResponse.ok) {
-          throw new Error('Failed to send order to vending machine')
+          let errorMessage = 'Failed to send order to vending machine'
+          try {
+            const errorData = await orderSummaryResponse.json()
+            if (orderSummaryResponse.status === 400 && errorData.detail?.includes('Order data too large')) {
+              errorMessage = 'Order details are too large for vending machine processing. Please try with fewer images or simpler design.'
+            } else if (orderSummaryResponse.status === 400) {
+              errorMessage = `Order validation failed: ${errorData.detail || 'Invalid order data'}`
+            } else if (orderSummaryResponse.status === 404) {
+              errorMessage = 'Vending machine session not found. Please scan the QR code again.'
+            } else if (orderSummaryResponse.status === 410) {
+              errorMessage = 'Vending machine session has expired. Please scan the QR code again.'
+            } else {
+              errorMessage = `Vending machine error (${orderSummaryResponse.status}): ${errorData.detail || 'Unknown error'}`
+            }
+          } catch (e) {
+            errorMessage = `Network error: Unable to communicate with vending machine (${orderSummaryResponse.status})`
+          }
+          throw new Error(errorMessage)
         }
         
         const summaryResult = await orderSummaryResponse.json()
@@ -502,6 +572,58 @@ const PaymentScreen = () => {
             if (chineseResult.code === 200) {
               console.log('SUCCESS: Payment data sent successfully to Chinese API')
               console.log('Chinese Payment ID:', chineseResult.data?.id)
+              
+              // Now send the actual order data to Chinese API as required
+              const generateOrderThirdId = () => {
+                const now = new Date()
+                const dateStr = now.getFullYear().toString().slice(-2) + 
+                              String(now.getMonth() + 1).padStart(2, '0') + 
+                              String(now.getDate()).padStart(2, '0')
+                const timestampSuffix = String(Date.now()).slice(-6)
+                return `OREN${dateStr}${timestampSuffix}`
+              }
+              
+              const orderThirdId = generateOrderThirdId()
+              const chineseOrderData = {
+                third_pay_id: third_id, // The payment ID from the previous call
+                third_id: orderThirdId, // Order ID 
+                mobile_model_id: selectedModelData?.chinese_model_id || 'UNKNOWN_MODEL',
+                pic: finalImagePublicUrl || designImage || '', // Use the final image URL
+                device_id: deviceId
+              }
+              
+              console.log('Sending order data to Chinese API:', JSON.stringify(chineseOrderData, null, 2))
+              
+              try {
+                const orderResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/orderData`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Correlation-ID': correlationId + '_ORDER'
+                  },
+                  body: JSON.stringify(chineseOrderData)
+                })
+                
+                if (orderResponse.ok) {
+                  const orderResult = await orderResponse.json()
+                  console.log('Order data sent successfully:', JSON.stringify(orderResult, null, 2))
+                  
+                  if (orderResult.code === 200) {
+                    console.log('SUCCESS: Order submitted to Chinese API')
+                    console.log('Chinese Order ID:', orderResult.data?.id)
+                    console.log('Queue Number:', orderResult.data?.queue_no)
+                    console.log('Status:', orderResult.data?.status)
+                  } else {
+                    console.error('Chinese API order error:', orderResult.msg)
+                  }
+                } else {
+                  const orderErrorText = await orderResponse.text()
+                  console.error('Failed to send order data:', orderErrorText)
+                }
+              } catch (orderError) {
+                console.error('Order data submission failed:', orderError)
+                // Don't fail the entire flow if order data fails
+              }
             } else {
               console.error('ERROR: Chinese API returned non-200 code:', chineseResult.code)
               console.error('Error Message:', chineseResult.msg)
