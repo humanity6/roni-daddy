@@ -13,7 +13,7 @@ from backend.utils.helpers import generate_third_id, get_mobile_model_id
 from security_middleware import validate_relaxed_api_security, security_manager
 from db_services import OrderService, OrderImageService
 from models import Order, PhoneModel, VendingMachine
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time
 import logging
 import json
@@ -539,14 +539,29 @@ async def send_order_data_to_chinese_api(
             "client_ip": security_info['client_ip']
         }
         
-        logger.info(f"Order data record: {json.dumps(order_data_record, indent=2, ensure_ascii=False)}")
+        logger.info("Order data record: {json.dumps(order_data_record, indent=2, ensure_ascii=False)}")
         logger.info("Calling Chinese order data service...")
-        
-        # Call the Chinese API service to send order data
-        from backend.services.chinese_payment_service import send_order_data_to_chinese_api
-        
+
+        # Import Chinese API helpers (NOTE: function name collision with this route)
+        from backend.services.chinese_payment_service import (
+            send_order_data_to_chinese_api as svc_send_order_data,
+            send_payment_status_to_chinese_api
+        )
+
+        # 1. Proactively send payStatus notification (some devices require this BEFORE orderData)
+        try:
+            logger.info("Sending payStatus (status=3) prior to orderData to ensure device availability...")
+            pay_status_resp = send_payment_status_to_chinese_api(
+                third_id=request.third_pay_id,  # payment third_id from payData step
+                status=3
+            )
+            logger.info(f"payStatus response: {json.dumps(pay_status_resp, indent=2, ensure_ascii=False)}")
+        except Exception as ps_err:
+            logger.warning(f"Failed to send payStatus pre-notification: {ps_err}")
+
+        # 2. Attempt initial orderData submission
         request_start = time.time()
-        chinese_response = send_order_data_to_chinese_api(
+        chinese_response = svc_send_order_data(
             third_pay_id=request.third_pay_id,
             third_id=request.third_id,
             mobile_model_id=request.mobile_model_id,
@@ -554,8 +569,44 @@ async def send_order_data_to_chinese_api(
             device_id=request.device_id
         )
         request_duration = time.time() - request_start
-        
-        logger.info(f"Chinese API call completed in {request_duration:.2f}s")
+
+        logger.info(f"Chinese API orderData call completed in {request_duration:.2f}s")
+
+        # 3. If device unavailable error returned, retry ONCE after ensuring payStatus
+        unavailable_msg = "device is unavailable"
+        if (
+            isinstance(chinese_response, dict) and
+            chinese_response.get('code') == 500 and
+            chinese_response.get('msg') and unavailable_msg in chinese_response.get('msg').lower()
+        ):
+            logger.warning("Received 'device unavailable' from orderData. Retrying once after re-sending payStatus...")
+            try:
+                retry_status = send_payment_status_to_chinese_api(
+                    third_id=request.third_pay_id,
+                    status=3
+                )
+                logger.info(f"payStatus retry response: {json.dumps(retry_status, indent=2, ensure_ascii=False)}")
+            except Exception as ps_retry_err:
+                logger.warning(f"payStatus retry failed: {ps_retry_err}")
+
+            retry_start = time.time()
+            retry_response = svc_send_order_data(
+                third_pay_id=request.third_pay_id,
+                third_id=request.third_id,
+                mobile_model_id=request.mobile_model_id,
+                pic=request.pic,
+                device_id=request.device_id
+            )
+            retry_duration = time.time() - retry_start
+            logger.info(f"Chinese API orderData RETRY completed in {retry_duration:.2f}s")
+            logger.info(f"OrderData retry response: {json.dumps(retry_response, indent=2, ensure_ascii=False)}")
+
+            # If retry succeeded (code 200) replace original response
+            if retry_response.get('code') == 200:
+                logger.info("Retry succeeded after initial 'device unavailable' error.")
+                chinese_response = retry_response
+            else:
+                logger.warning("Retry did not succeed; returning original failure response.")
         
         # Log the response in detail
         logger.info(f"=== CHINESE API RESPONSE ({correlation_id}) ===")
