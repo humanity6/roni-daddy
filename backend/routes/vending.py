@@ -325,8 +325,19 @@ async def initialize_vending_payment(
             print(f"Warning: Chinese API call failed: {e}")
             chinese_response = {"msg": "Chinese API temporarily unavailable", "code": 200}
         
-        # Store third_id in session for tracking
+        # Store third_id in session for tracking (ensure compatibility with payStatus endpoint)
         session_data = session.session_data or {}
+        
+        # Store payment data in the structure expected by payStatus endpoint
+        if "payment_data" not in session_data:
+            session_data["payment_data"] = {}
+        session_data["payment_data"]["third_id"] = third_id
+        session_data["payment_data"]["amount"] = payment_amount
+        session_data["payment_data"]["mobile_model_id"] = mobile_model_id
+        session_data["payment_data"]["device_id"] = session.machine_id
+        session_data["payment_data"]["pay_type"] = 5  # Vending machine payment
+        
+        # Also store for backward compatibility
         session_data["chinese_third_id"] = third_id
         session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
         session_data["chinese_response"] = chinese_response
@@ -559,8 +570,39 @@ async def send_order_summary_to_vending_machine(
         
         # Store order summary in session data with security info
         session_data = session.session_data or {}
+        
+        # Enhance order data with Chinese API requirements
+        enhanced_order_data = request.order_data.copy()
+        
+        # Ensure we have the Chinese model ID for future orderData call
+        if not enhanced_order_data.get('chinese_model_id'):
+            # Try to find Chinese model ID from brand/model info
+            brand_name = enhanced_order_data.get('brand', '')
+            model_name = enhanced_order_data.get('model', '')
+            
+            # Look up Chinese model ID from database
+            if brand_name and model_name:
+                try:
+                    from db_services import BrandService, PhoneModelService
+                    brand = BrandService.get_brand_by_name(db, brand_name)
+                    if brand:
+                        model = PhoneModelService.get_model_by_name(db, model_name, brand.id)
+                        if model and model.chinese_model_id:
+                            enhanced_order_data['chinese_model_id'] = model.chinese_model_id
+                            print(f"Found Chinese model ID: {model.chinese_model_id}")
+                        else:
+                            print(f"WARNING: No Chinese model ID found for {brand_name} {model_name}")
+                    else:
+                        print(f"WARNING: Brand not found: {brand_name}")
+                except Exception as e:
+                    print(f"WARNING: Failed to lookup Chinese model ID: {str(e)}")
+        
+        # Ensure device_id is available for orderData call
+        if not enhanced_order_data.get('device_id'):
+            enhanced_order_data['device_id'] = session.machine_id
+        
         session_data.update({
-            "order_summary": request.order_data,
+            "order_summary": enhanced_order_data,
             "payment_amount": request.payment_amount,
             "currency": currency,
             "payment_requested_at": datetime.now(timezone.utc).isoformat(),

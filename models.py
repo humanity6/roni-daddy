@@ -14,6 +14,7 @@ class Brand(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(100), nullable=False)  # "iPhone"
     display_name = Column(String(100), nullable=False)  # "IPHONE"
+    chinese_brand_id = Column(String(100))  # Chinese manufacturer's brand ID (e.g., BR20250111000002)
     frame_color = Column(String(50), default="#007AFF")  # UI frame color
     button_color = Column(String(50), default="#007AFF")  # UI button color
     is_available = Column(Boolean, default=True)

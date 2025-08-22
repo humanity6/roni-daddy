@@ -266,13 +266,129 @@ async def receive_payment_status_update(
         # Use relaxed security for all users
         security_info = validate_relaxed_api_security(http_request)
         print(f"Payment status update from {security_info['client_ip']}: {request.third_id} -> status {request.status}")
-        # Find order by third_party_payment_id
+        # First check for vending machine sessions using third_id in session_data
+        from models import VendingMachineSession
+        vending_session = None
+        
+        # Search for vending session that used this third_id for payment
+        sessions = db.query(VendingMachineSession).filter(VendingMachineSession.status == "active").all()
+        for session in sessions:
+            if session.session_data and isinstance(session.session_data, dict):
+                # Check if this session's payment used this third_id
+                payment_data = session.session_data.get('payment_data', {})
+                if payment_data.get('third_id') == request.third_id:
+                    vending_session = session
+                    break
+        
+        # Handle vending machine session payment confirmation
+        if vending_session and request.status == 3:  # Payment successful
+            logger.info(f"=== VENDING PAYMENT CONFIRMED - TRIGGERING ORDER DATA ===")
+            logger.info(f"Session ID: {vending_session.session_id}")
+            logger.info(f"Third ID: {request.third_id}")
+            logger.info(f"Payment Status: {request.status}")
+            
+            # Extract order data from session
+            order_summary = vending_session.session_data.get('order_summary', {})
+            if not order_summary:
+                logger.error(f"No order_summary found in session {vending_session.session_id}")
+                return {
+                    "msg": "Payment received but order data missing",
+                    "code": 400,
+                    "third_id": request.third_id,
+                    "status": request.status
+                }
+            
+            # Get the final image URL from session data
+            final_image_url = None
+            if 'final_image_url' in vending_session.session_data:
+                final_image_url = vending_session.session_data['final_image_url']
+            elif 'order_summary' in vending_session.session_data:
+                # Look for image in order summary
+                order_data = vending_session.session_data['order_summary']
+                final_image_url = order_data.get('final_image_url')
+            
+            if not final_image_url:
+                logger.error(f"No final image URL found in session {vending_session.session_id}")
+                return {
+                    "msg": "Payment received but image URL missing",
+                    "code": 400,
+                    "third_id": request.third_id,
+                    "status": request.status
+                }
+            
+            # Generate order third_id (different from payment third_id)
+            import time
+            order_third_id = f"OREN{int(time.time() * 1000) % 1000000000000:012d}"
+            
+            # Send orderData to Chinese API now that payment is confirmed
+            try:
+                from backend.services.chinese_payment_service import send_order_data_to_chinese_api
+                
+                logger.info(f"Sending orderData to Chinese API after payment confirmation")
+                logger.info(f"Payment Third ID: {request.third_id}")
+                logger.info(f"Order Third ID: {order_third_id}")
+                logger.info(f"Mobile Model ID: {order_summary.get('chinese_model_id')}")
+                logger.info(f"Device ID: {order_summary.get('device_id')}")
+                logger.info(f"Image URL: {final_image_url}")
+                
+                order_response = send_order_data_to_chinese_api(
+                    third_pay_id=request.third_id,  # Use payment third_id here
+                    third_id=order_third_id,
+                    mobile_model_id=order_summary.get('chinese_model_id'),
+                    pic=final_image_url,
+                    device_id=order_summary.get('device_id')
+                )
+                
+                logger.info(f"OrderData response: {json.dumps(order_response, indent=2, ensure_ascii=False)}")
+                
+                # Update session with order information
+                if not vending_session.session_data:
+                    vending_session.session_data = {}
+                vending_session.session_data['chinese_order_response'] = order_response
+                vending_session.session_data['order_third_id'] = order_third_id
+                vending_session.session_data['payment_confirmed_at'] = datetime.now(timezone.utc).isoformat()
+                
+                # Update session status based on order success
+                if order_response.get('code') == 200:
+                    vending_session.user_progress = "order_submitted"
+                    vending_session.status = "printing"
+                    logger.info(f"✅ Order successfully sent to Chinese API - Session {vending_session.session_id} now printing")
+                else:
+                    vending_session.user_progress = "order_failed"
+                    logger.error(f"❌ Order failed to send to Chinese API - Code: {order_response.get('code')}")
+                
+                db.commit()
+                
+                return {
+                    "msg": "Payment confirmed and order sent to Chinese API",
+                    "code": 200,
+                    "third_id": request.third_id,
+                    "status": request.status,
+                    "order_third_id": order_third_id,
+                    "chinese_order_status": order_response.get('code'),
+                    "chinese_order_msg": order_response.get('msg')
+                }
+                
+            except Exception as order_err:
+                logger.error(f"Failed to send orderData after payment confirmation: {str(order_err)}")
+                import traceback
+                logger.error(f"OrderData error traceback: {traceback.format_exc()}")
+                
+                # Still acknowledge payment but note order issue
+                return {
+                    "msg": f"Payment confirmed but order submission failed: {str(order_err)}",
+                    "code": 200,
+                    "third_id": request.third_id,
+                    "status": request.status,
+                    "order_error": str(order_err)
+                }
+        
+        # Fallback to existing order-based logic
         order = db.query(Order).filter(Order.third_party_payment_id == request.third_id).first()
         
-        if not order:
-            # If order not found by third_id, just record the payment status without creating an order
-            # This allows Chinese system to send payment status before order creation
-            # The payment status will be linked when the actual order is created
+        if not order and not vending_session:
+            # Neither vending session nor order found
+            logger.warning(f"No vending session or order found for third_id: {request.third_id}")
             return {
                 "msg": "Payment status received - order will be created when details are available",
                 "code": 200,
@@ -740,6 +856,190 @@ async def send_order_data_to_chinese_api(
         }
         logger.error(f"Error response: {json.dumps(error_response, indent=2, ensure_ascii=False)}")
         return error_response
+
+@router.post("/sync/models")
+async def sync_models_from_chinese_api(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Sync phone models and brands from Chinese API to our database"""
+    try:
+        # Security validation  
+        security_info = validate_relaxed_api_security(http_request)
+        logger.info(f"Model sync initiated by {security_info['client_ip']}")
+        
+        from backend.services.chinese_payment_service import get_chinese_brands, get_chinese_stock
+        from db_services import BrandService, PhoneModelService
+        
+        sync_results = {
+            "brands_processed": 0,
+            "brands_added": 0,
+            "brands_updated": 0,
+            "models_processed": 0,
+            "models_added": 0,
+            "models_updated": 0,
+            "errors": []
+        }
+        
+        # Get brands from Chinese API
+        brands_response = get_chinese_brands()
+        if not brands_response.get("success"):
+            raise HTTPException(status_code=500, detail=f"Failed to fetch brands: {brands_response.get('message')}")
+        
+        chinese_brands = brands_response.get("brands", [])
+        logger.info(f"Found {len(chinese_brands)} brands in Chinese API")
+        
+        for brand_data in chinese_brands:
+            try:
+                sync_results["brands_processed"] += 1
+                brand_name = brand_data.get("e_name", brand_data.get("name"))
+                chinese_brand_id = brand_data.get("id")
+                
+                if not brand_name or not chinese_brand_id:
+                    sync_results["errors"].append(f"Invalid brand data: {brand_data}")
+                    continue
+                
+                # Check if brand exists in our database
+                existing_brand = BrandService.get_brand_by_name(db, brand_name)
+                
+                if existing_brand:
+                    # Update existing brand with Chinese ID if missing
+                    if not hasattr(existing_brand, 'chinese_brand_id') or not existing_brand.chinese_brand_id:
+                        existing_brand.chinese_brand_id = chinese_brand_id
+                        sync_results["brands_updated"] += 1
+                        logger.info(f"Updated brand {brand_name} with Chinese ID: {chinese_brand_id}")
+                else:
+                    # Create new brand
+                    brand_create_data = {
+                        "name": brand_name,
+                        "chinese_brand_id": chinese_brand_id,
+                        "is_active": True
+                    }
+                    new_brand = BrandService.create_brand(db, brand_create_data)
+                    sync_results["brands_added"] += 1
+                    logger.info(f"Added new brand: {brand_name} ({chinese_brand_id})")
+                    existing_brand = new_brand
+                
+                # Now sync models for this brand
+                stock_response = get_chinese_stock(device_id="1CBRONIQRWQQ", brand_id=chinese_brand_id)
+                if stock_response.get("success"):
+                    stock_items = stock_response.get("stock_items", [])
+                    logger.info(f"Found {len(stock_items)} models for brand {brand_name}")
+                    
+                    for model_data in stock_items:
+                        try:
+                            sync_results["models_processed"] += 1
+                            model_name = model_data.get("mobile_model_name")
+                            chinese_model_id = model_data.get("mobile_model_id")
+                            price = model_data.get("price", "0")
+                            stock = model_data.get("stock", 0)
+                            
+                            if not model_name or not chinese_model_id:
+                                sync_results["errors"].append(f"Invalid model data: {model_data}")
+                                continue
+                            
+                            # Check if model exists
+                            existing_model = PhoneModelService.get_model_by_name(db, model_name, existing_brand.id)
+                            
+                            if existing_model:
+                                # Update existing model
+                                if existing_model.chinese_model_id != chinese_model_id:
+                                    existing_model.chinese_model_id = chinese_model_id
+                                    sync_results["models_updated"] += 1
+                                    logger.info(f"Updated model {model_name} with Chinese ID: {chinese_model_id}")
+                            else:
+                                # Create new model
+                                model_create_data = {
+                                    "name": model_name,
+                                    "brand_id": existing_brand.id,
+                                    "chinese_model_id": chinese_model_id,
+                                    "is_active": True,
+                                    "base_price": float(price) if price.replace('.', '').isdigit() else 19.99
+                                }
+                                PhoneModelService.create_model(db, model_create_data)
+                                sync_results["models_added"] += 1
+                                logger.info(f"Added new model: {model_name} ({chinese_model_id})")
+                                
+                        except Exception as model_error:
+                            error_msg = f"Error processing model {model_data}: {str(model_error)}"
+                            sync_results["errors"].append(error_msg)
+                            logger.error(error_msg)
+                else:
+                    logger.warning(f"Failed to get stock for brand {brand_name}: {stock_response.get('message')}")
+                    
+            except Exception as brand_error:
+                error_msg = f"Error processing brand {brand_data}: {str(brand_error)}"
+                sync_results["errors"].append(error_msg)
+                logger.error(error_msg)
+        
+        # Commit all changes
+        db.commit()
+        logger.info(f"Model sync completed successfully: {sync_results}")
+        
+        return {
+            "success": True,
+            "message": "Models synced successfully from Chinese API",
+            "sync_results": sync_results,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Model sync failed: {str(e)}")
+        import traceback
+        logger.error(f"Sync traceback: {traceback.format_exc()}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Model sync failed: {str(e)}")
+
+
+@router.get("/sync/models/auto")
+async def auto_sync_models_if_needed(
+    http_request: Request,
+    db: Session = Depends(get_db)
+):
+    """Auto-sync models from Chinese API if database is missing recent Chinese models"""
+    try:
+        security_info = validate_relaxed_api_security(http_request)
+        
+        # Check if we have recent Chinese models
+        models_with_chinese_ids = db.query(PhoneModel).filter(
+            PhoneModel.chinese_model_id.isnot(None)
+        ).count()
+        
+        should_sync = models_with_chinese_ids < 5  # Threshold for auto-sync
+        
+        sync_info = {
+            "models_with_chinese_ids": models_with_chinese_ids,
+            "sync_recommended": should_sync,
+            "last_check": datetime.now(timezone.utc).isoformat()
+        }
+        
+        if should_sync:
+            # Auto-trigger sync
+            logger.info(f"Auto-triggering model sync - only {models_with_chinese_ids} models have Chinese IDs")
+            
+            # Call the sync function internally
+            sync_result = await sync_models_from_chinese_api(http_request, db)
+            sync_info["auto_sync_result"] = sync_result
+            sync_info["sync_performed"] = True
+        else:
+            sync_info["sync_performed"] = False
+            sync_info["message"] = f"Sync not needed - {models_with_chinese_ids} models already have Chinese IDs"
+        
+        return {
+            "success": True,
+            "sync_info": sync_info
+        }
+        
+    except Exception as e:
+        logger.error(f"Auto-sync check failed: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "models_with_chinese_ids": 0
+        }
+
 
 @router.get("/equipment/{equipment_id}/info")
 async def get_equipment_info(
