@@ -539,6 +539,21 @@ async def get_payment_status(
     try:
         # Use relaxed security for all users
         security_info = validate_relaxed_api_security(http_request)
+        
+        # Log excessive polling for monitoring
+        client_ip = security_info.get("client_ip")
+        if client_ip == "103.213.96.36":
+            # This is the Chinese team polling - limit logging noise
+            import time
+            current_time = time.time()
+            if not hasattr(get_payment_status, "_last_log_time"):
+                get_payment_status._last_log_time = {}
+            
+            # Only log once every 60 seconds for this IP + third_id combo
+            log_key = f"{client_ip}_{third_id}"
+            if current_time - get_payment_status._last_log_time.get(log_key, 0) > 60:
+                logger.info(f"Chinese team polling payment status: {third_id} (log noise reduced)")
+                get_payment_status._last_log_time[log_key] = current_time
         # Find order by third_party_payment_id
         order = db.query(Order).filter(Order.third_party_payment_id == third_id).first()
         
