@@ -913,6 +913,43 @@ async def send_order_data_to_chinese_api(
         else:
             logger.error(f"Chinese API returned error code: {chinese_response.get('code')}")
             logger.error(f"Error message: {chinese_response.get('msg')}")
+            
+            # Update vending session status on Chinese API failure
+            try:
+                from models import VendingMachineSession
+                from db_services import VendingMachineSessionService
+                
+                # Find any active vending sessions that might be waiting for this order
+                # Use device_id to match sessions since they share the same device
+                active_sessions = db.query(VendingMachineSession).filter(
+                    VendingMachineSession.machine_id == request.device_id,
+                    VendingMachineSession.status.in_(['active', 'designing', 'payment_pending']),
+                    VendingMachineSession.user_progress.in_(['order_submitted', 'payment_requested'])
+                ).all()
+                
+                for session in active_sessions:
+                    logger.info(f"Updating vending session {session.session_id} status to payment_failed due to Chinese API error")
+                    session.status = 'payment_failed'
+                    session.user_progress = 'order_failed'
+                    
+                    # Add error details to session data
+                    if not session.session_data:
+                        session.session_data = {}
+                    session.session_data['chinese_api_error'] = {
+                        'code': chinese_response.get('code'),
+                        'message': chinese_response.get('msg'),
+                        'failed_at': datetime.now(timezone.utc).isoformat(),
+                        'error_type': 'orderdata_failed'
+                    }
+                    session.last_activity = datetime.now(timezone.utc)
+                
+                if active_sessions:
+                    db.commit()
+                    logger.info(f"Updated {len(active_sessions)} vending sessions to payment_failed status")
+                
+            except Exception as session_update_error:
+                logger.warning(f"Failed to update vending session status after Chinese API error: {session_update_error}")
+                # Don't fail the main response due to session update issues
         
         logger.info(f"=== CHINESE API ORDERDATA REQUEST END ({correlation_id}) ===")
         

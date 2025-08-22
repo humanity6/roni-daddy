@@ -24,8 +24,20 @@ const VendingPaymentWaitingScreen = () => {
 
   // Real payment status checking via API polling
   useEffect(() => {
+    let pollCount = 0
+    const maxPolls = 60 // Maximum 3 minutes of polling (60 * 3 seconds)
+    
     const pollPaymentStatus = async () => {
       try {
+        // Stop polling after maximum attempts to prevent infinite loops
+        pollCount++
+        if (pollCount > maxPolls) {
+          console.warn('Payment status polling timed out after 3 minutes')
+          setPaymentStatus('failed')
+          setError('Payment status check timed out. Please check with vending machine or contact support.')
+          return
+        }
+        
         // Get vending session info
         const sessionId = state.vendingMachineSession?.sessionId
         const sessionStatus = state.vendingMachineSession?.sessionStatus
@@ -79,6 +91,17 @@ const VendingPaymentWaitingScreen = () => {
           setPaymentStatus('processing')
         } else if (statusData.status === 'payment_failed') {
           setPaymentStatus('failed')
+          
+          // Extract error details from session data
+          const chineseApiError = statusData.session_data?.chinese_api_error
+          if (chineseApiError) {
+            setError(`Chinese API Error: ${chineseApiError.message || 'Order processing failed'}`)
+          } else {
+            setError('Payment processing failed. Please try again or contact support.')
+          }
+          
+          // Stop polling when payment has failed
+          return
         } else {
           setPaymentStatus('waiting')
         }
