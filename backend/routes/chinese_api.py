@@ -451,8 +451,56 @@ async def receive_payment_status_update(
         order = db.query(Order).filter(Order.third_party_payment_id == request.third_id).first()
         
         if not order and not vending_session:
-            # Neither vending session nor order found
+            # Neither vending session nor order found - create order from payment mapping if status is paid
             logger.warning(f"No vending session or order found for third_id: {request.third_id}")
+            
+            if request.status == 3:  # Payment successful - create order from payment mapping
+                try:
+                    # Get payment mapping to find order details
+                    chinese_payment_id = get_payment_mapping(db, request.third_id)
+                    if chinese_payment_id:
+                        # Get payment mapping details
+                        payment_mapping = db.query(PaymentMapping).filter(PaymentMapping.third_id == request.third_id).first()
+                        
+                        if payment_mapping:
+                            logger.info(f"Creating order from payment mapping for successful payment: {request.third_id}")
+                            
+                            # Create order from payment mapping data
+                            from db_services import OrderService
+                            order_data = {
+                                "third_party_payment_id": request.third_id,
+                                "chinese_payment_id": chinese_payment_id,
+                                "chinese_payment_status": request.status,
+                                "payment_status": "paid",
+                                "status": "paid",
+                                "total_amount": float(payment_mapping.pay_amount) if payment_mapping.pay_amount else 19.99,
+                                "currency": "GBP",
+                                "paid_at": datetime.now(timezone.utc),
+                                "template_id": "classic",  # Default template
+                                "brand": "Unknown",  # Will be updated when we have more details
+                                "model": "Unknown",
+                                "color": "Unknown"
+                            }
+                            
+                            order = OrderService.create_order(db, order_data)
+                            logger.info(f"Created order {order.id} from payment mapping for {request.third_id}")
+                            
+                            return {
+                                "msg": "Payment confirmed and order created from payment mapping",
+                                "code": 200,
+                                "third_id": request.third_id,
+                                "status": request.status,
+                                "order_id": order.id,
+                                "order_created": True
+                            }
+                        else:
+                            logger.warning(f"Payment mapping found but no details for {request.third_id}")
+                    else:
+                        logger.warning(f"No payment mapping found for {request.third_id}")
+                        
+                except Exception as create_error:
+                    logger.error(f"Failed to create order from payment mapping: {create_error}")
+            
             return {
                 "msg": "Payment status received - order will be created when details are available",
                 "code": 200,
