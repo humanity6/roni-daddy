@@ -157,16 +157,22 @@ const PaymentScreen = () => {
       
       console.log('PaymentScreen - Order data:', { brandFromState, modelFromState, colorFromState, selectedModelData })
       
-      // Get final image data from location state with fallback
-      const finalImagePublicUrl = location.state?.finalImagePublicUrl || designImage
+      // Get final image data from location state - NO BASE64 FALLBACK
+      const finalImagePublicUrl = location.state?.finalImagePublicUrl
       const imageSessionId = location.state?.imageSessionId
       
       console.log('PaymentScreen - Final image data:', { 
-        designImage, 
         finalImagePublicUrl, 
         imageSessionId,
-        fallbackUsed: !location.state?.finalImagePublicUrl
+        hasValidImageUrl: !!finalImagePublicUrl
       })
+      
+      // CRITICAL: Ensure we have a valid uploaded image URL
+      if (!finalImagePublicUrl || finalImagePublicUrl.startsWith('data:')) {
+        setPaymentError('Image upload failed. Please try again or go back to upload a new image.')
+        setIsProcessingPayment(false)
+        return
+      }
       
       // Store current order data in localStorage for success page
       const orderData = {
@@ -273,7 +279,7 @@ const PaymentScreen = () => {
                 third_pay_id: third_id, // The payment ID from the previous call
                 third_id: orderThirdId, // Order ID 
                 mobile_model_id: selectedModelData?.chinese_model_id,
-                pic: finalImagePublicUrl || designImage, // Use the final image URL
+                pic: finalImagePublicUrl, // ONLY use uploaded image URL, no base64 fallback
                 device_id: deviceId
               }
               
@@ -415,16 +421,22 @@ const PaymentScreen = () => {
         brandFromState, modelFromState, colorFromState, selectedModelData, deviceId 
       })
       
-      // Get final image data with fallback for vending machine flow
-      const finalImagePublicUrl = location.state?.finalImagePublicUrl || designImage
+      // Get final image data for vending machine flow - NO BASE64 FALLBACK
+      const finalImagePublicUrl = location.state?.finalImagePublicUrl
       const imageSessionId = location.state?.imageSessionId
       
       console.log('PaymentScreen - Vending final image data:', { 
-        designImage, 
         finalImagePublicUrl, 
         imageSessionId,
-        fallbackUsed: !location.state?.finalImagePublicUrl
+        hasValidImageUrl: !!finalImagePublicUrl
       })
+      
+      // CRITICAL: Ensure we have a valid uploaded image URL
+      if (!finalImagePublicUrl || finalImagePublicUrl.startsWith('data:')) {
+        setPaymentError('Image upload failed. Please try again or go back to upload a new image.')
+        setIsProcessingPayment(false)
+        return
+      }
       
       // Store current order data in localStorage
       const orderData = {
@@ -604,7 +616,7 @@ const PaymentScreen = () => {
                 third_pay_id: third_id, // The payment ID from the previous call
                 third_id: orderThirdId, // Order ID 
                 mobile_model_id: selectedModelData?.chinese_model_id,
-                pic: finalImagePublicUrl || designImage, // Use the final image URL
+                pic: finalImagePublicUrl, // ONLY use uploaded image URL, no base64 fallback
                 device_id: deviceId
               }
               
