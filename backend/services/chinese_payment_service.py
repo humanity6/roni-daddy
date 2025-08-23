@@ -610,11 +610,18 @@ class ChinesePaymentAPIClient:
                     "data": {"third_pay_id": third_pay_id, "third_id": third_id}
                 }
             
+            # Shorten image URL by removing query parameters to fix Chinese database 'pic' column size limitation
+            shortened_pic = pic.split('?')[0] if pic and '?' in pic else pic
+            if pic and '?' in pic:
+                logger.info(f"URL shortened for database compatibility:")
+                logger.info(f"  Original: {pic}")  
+                logger.info(f"  Shortened: {shortened_pic}")
+            
             payload = {
                 "third_pay_id": third_pay_id,
                 "third_id": third_id,
                 "mobile_model_id": mobile_model_id,
-                "pic": pic,
+                "pic": shortened_pic,
                 "device_id": device_id
             }
             
