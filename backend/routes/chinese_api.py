@@ -804,19 +804,20 @@ async def send_order_data_to_chinese_api(
         else:
             logger.info(f"Found mobile model: {model.name} (chinese_id: {model.chinese_model_id})")
         
-        # Determine correct third_pay_id (Chinese payment id MSPY...) using mapping if user sent PYEN...
+        # CRITICAL FIX: Chinese team confirmed third_pay_id should be the SAME as step 1 third_id
+        # Do NOT convert PYEN to MSPY - use original third_pay_id as-is
         original_third_pay_id = request.third_pay_id
         effective_third_pay_id = original_third_pay_id
+        
+        logger.info(f"Using original third_pay_id for orderData (no conversion): {effective_third_pay_id}")
+        
+        # Keep mapping lookup for debugging/monitoring purposes only
         if original_third_pay_id.startswith('PYEN'):
             mapped = get_payment_mapping(db, original_third_pay_id)
             if mapped:
-                logger.info(f"Substituting third_pay_id PYEN -> MSPY. Using mapped Chinese payment id {mapped} for orderData.")
-                effective_third_pay_id = mapped
+                logger.info(f"Payment mapping exists: {original_third_pay_id} -> {mapped} (not used in orderData)")
             else:
-                # Get recent mappings for debugging
-                recent_mappings = db.query(PaymentMapping).order_by(PaymentMapping.created_at.desc()).limit(5).all()
-                recent_third_ids = [m.third_id for m in recent_mappings]
-                logger.warning(f"No Chinese payment id mapping found for {original_third_pay_id}. OrderData may fail. Recent payment IDs: {recent_third_ids}")
+                logger.info(f"No payment mapping found for {original_third_pay_id} (this is expected for orderData)")
 
         # Store order data record for tracking (use effective_third_pay_id)
         order_data_record = {
