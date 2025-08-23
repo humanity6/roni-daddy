@@ -594,6 +594,13 @@ class ChinesePaymentAPIClient:
             logger.info(f"Mobile model ID: {mobile_model_id}, device_id: {device_id}")
             logger.info(f"Design image URL: {pic}")
             
+            # CRITICAL FIX: Wait 3 seconds to allow Chinese API to process payment internally
+            # This prevents "Payment information does not exist" error
+            import time
+            logger.info("Waiting 3 seconds for Chinese API to process payment before sending order data...")
+            time.sleep(3)
+            logger.info("3-second delay completed, proceeding with order data submission")
+            
             # Ensure we're authenticated
             if not self.ensure_authenticated():
                 logger.error("Authentication failed - cannot proceed with order submission")

@@ -14,7 +14,7 @@ def create_vending_session(machine_id, base_url="https://pimpmycase.onrender.com
     
     create_payload = {
         "machine_id": machine_id,
-        "location": "Test Location - Order Data Fix",
+        "location": "Test Location - Working Device CXYLOGD8OQUK",
         "session_timeout_minutes": 60,  # 1 hour for testing
         "metadata": {"source": "generate_test_urls", "purpose": "order_data_fix_testing"}
     }
@@ -88,7 +88,7 @@ def generate_valid_test_url():
     """Generate one 100% valid test URL by creating an actual session"""
     
     # Use the known working machine ID from Chinese API
-    machine_id = "1CBRONIQRWQQ"
+    machine_id = "CXYLOGD8OQUK"
     
     # Create actual session via API
     session_id, session_data = create_vending_session(machine_id)
@@ -132,11 +132,11 @@ if __name__ == '__main__':
         print(f"  Session Timeout: 60 minutes")
         print()
         print("✅ This URL will test:")
+        print("  - Working device CXYLOGD8OQUK (not the broken 1CBRONIQRWQQ)")
         print("  - Session registration (no more 404 errors)")
-        print("  - Order-summary payload optimization")
         print("  - Chinese API integration (payData + orderData)")
-        print("  - 500KB size limit validation")
-        print("  - Improved error handling")
+        print("  - Infinite polling fixes")
+        print("  - Complete payment flow")
         print()
         print("⚠️  Note: This session will expire in 1 hour")
     else:
