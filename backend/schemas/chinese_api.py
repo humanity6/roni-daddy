@@ -7,7 +7,8 @@ import re
 
 class OrderStatusUpdateRequest(BaseModel):
     order_id: str
-    status: str
+    status: Optional[str] = None
+    equipment_id: Optional[str] = None
     queue_number: Optional[str] = None
     estimated_completion: Optional[str] = None
     chinese_order_id: Optional[str] = None
@@ -25,9 +26,18 @@ class OrderStatusUpdateRequest(BaseModel):
     @field_validator('status')
     @classmethod
     def validate_status(cls, v):
+        if v is None:
+            return v
         valid_statuses = ['pending', 'printing', 'printed', 'completed', 'failed', 'cancelled']
         if v not in valid_statuses:
             raise ValueError(f'Status must be one of: {valid_statuses}')
+        return v
+    
+    @field_validator('equipment_id')
+    @classmethod
+    def validate_equipment_id(cls, v):
+        if v is not None and len(v) > 100:
+            raise ValueError('Equipment ID too long')
         return v
     
     @field_validator('queue_number')
