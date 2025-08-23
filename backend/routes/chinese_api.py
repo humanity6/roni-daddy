@@ -843,8 +843,9 @@ async def send_order_data_to_chinese_api(
             send_payment_status_to_chinese_api
         )
 
-        # Optional: pre payStatus disabled (returned 'status type does not exist'). Leave scaffold for re-enable.
-        PRE_SEND_PAY_STATUS = False
+        # CRITICAL FIX: Enable payStatus call before orderData - this was the missing piece!
+        # PayStatus must be called before orderData according to Chinese API workflow
+        PRE_SEND_PAY_STATUS = True
         pay_status_resp = None
         if PRE_SEND_PAY_STATUS:
             try:
