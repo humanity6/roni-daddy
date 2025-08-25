@@ -121,7 +121,7 @@ const VendingPaymentWaitingScreen = () => {
 
     // Cleanup interval on unmount
     return () => clearInterval(pollInterval)
-  }, [navigate, orderData, state.vendingMachineSession])
+  }, [navigate, orderData, state.vendingMachineSession?.sessionId])
 
   const handleBack = () => {
     navigate(-1)

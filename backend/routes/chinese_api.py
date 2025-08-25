@@ -12,7 +12,7 @@ from backend.services.file_service import generate_uk_download_url, generate_sec
 from backend.utils.helpers import generate_third_id, get_mobile_model_id
 from security_middleware import validate_relaxed_api_security, security_manager
 from db_services import OrderService, OrderImageService
-from models import Order, PhoneModel, VendingMachine, PaymentMapping
+from models import Order, PhoneModel, VendingMachine, PaymentMapping, Brand, Template
 from datetime import datetime, timezone, timedelta
 import time
 import urllib.parse
@@ -465,8 +465,27 @@ async def receive_payment_status_update(
                         if payment_mapping:
                             logger.info(f"Creating order from payment mapping for successful payment: {request.third_id}")
                             
-                            # Create order from payment mapping data
-                            from db_services import OrderService
+                            # Create order from payment mapping data - need proper IDs
+                            from db_services import OrderService, BrandService, PhoneModelService, TemplateService
+                            
+                            # Get default IDs for unknown brand/model/template
+                            default_brand = BrandService.get_brand_by_name(db, "iPhone") or db.query(Brand).first()
+                            default_model = None
+                            if default_brand:
+                                default_model = PhoneModelService.get_models_by_brand(db, default_brand.id)
+                                default_model = default_model[0] if default_model else None
+                            default_template = TemplateService.get_template_by_id(db, "classic") or db.query(Template).first()
+                            
+                            if not default_brand or not default_model or not default_template:
+                                logger.error(f"Cannot create order - missing default brand/model/template in database")
+                                return {
+                                    "msg": "Payment confirmed but cannot create order - missing database defaults",
+                                    "code": 200,
+                                    "third_id": request.third_id,
+                                    "status": request.status,
+                                    "error": "Database configuration incomplete"
+                                }
+                            
                             order_data = {
                                 "third_party_payment_id": request.third_id,
                                 "chinese_payment_id": chinese_payment_id,
@@ -476,10 +495,10 @@ async def receive_payment_status_update(
                                 "total_amount": float(payment_mapping.pay_amount) if payment_mapping.pay_amount else 19.99,
                                 "currency": "GBP",
                                 "paid_at": datetime.now(timezone.utc),
-                                "template_id": "classic",  # Default template
-                                "brand": "Unknown",  # Will be updated when we have more details
-                                "model": "Unknown",
-                                "color": "Unknown"
+                                "brand_id": default_brand.id,
+                                "model_id": default_model.id,
+                                "template_id": default_template.id,
+                                "user_data": {"created_from": "chinese_payment_status", "original_payment_id": request.third_id}
                             }
                             
                             order = OrderService.create_order(db, order_data)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Type, X, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
@@ -67,9 +67,15 @@ const TextInputScreen = () => {
     }
   }, [location.state?.fontSize, location.state?.selectedFont, location.state?.textPosition])
 
+  // Stabilize textDimensions object reference to prevent infinite re-renders
+  const stableTextDimensions = useMemo(() => ({
+    width: textDimensions.width,
+    height: textDimensions.height
+  }), [textDimensions.width, textDimensions.height])
+  
   // Adjust position when text size changes, but avoid infinite loops
   useEffect(() => {
-    if (inputText.trim() && textDimensions.width > 0 && !isPositionBeingAdjusted) {
+    if (inputText.trim() && stableTextDimensions.width > 0 && !isPositionBeingAdjusted) {
       const constrainedPosition = constrainPosition(textPosition)
       
       if (constrainedPosition.x !== textPosition.x || constrainedPosition.y !== textPosition.y) {
@@ -82,7 +88,7 @@ const TextInputScreen = () => {
         }, 100)
       }
     }
-  }, [textDimensions, inputText, constrainPosition, textPosition, isPositionBeingAdjusted])
+  }, [stableTextDimensions.width, stableTextDimensions.height, inputText, textPosition.x, textPosition.y, isPositionBeingAdjusted, constrainPosition])
 
   const handleBack = () => {
     if (template?.id?.startsWith('film-strip')) {

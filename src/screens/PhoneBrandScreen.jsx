@@ -30,7 +30,7 @@ const PhoneBrandScreen = () => {
   // Load brands and models on component mount
   useEffect(() => {
     loadBrandsAndModels()
-  }, [])
+  }, [deviceId])  // Note: loadBrandsAndModels doesn't depend on props/state, so this is safe
 
   const loadBrandsAndModels = async () => {
     try {
