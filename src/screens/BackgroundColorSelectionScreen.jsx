@@ -121,6 +121,12 @@ const BackgroundColorSelectionScreen = () => {
     try {
       console.log('🔄 Composing and uploading final image...')
       
+      // Extract phone case dimensions from model data
+      const phoneCaseDimensions = selectedModelData?.width && selectedModelData?.height ? {
+        width: selectedModelData.width,
+        height: selectedModelData.height
+      } : null
+
       // Compose the final image with all customizations
       const finalImageData = await composeFinalImage({
         template,
@@ -133,7 +139,8 @@ const BackgroundColorSelectionScreen = () => {
         selectedTextColor,
         selectedBackgroundColor,
         textPosition,
-        transform: initialTransform
+        transform: initialTransform,
+        phoneCaseDimensions
       })
       
       console.log('✅ Final image composed successfully')

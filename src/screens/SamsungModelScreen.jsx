@@ -8,7 +8,7 @@ const SamsungModelScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { actions } = useAppState()
-  const [selectedModel, setSelectedModel] = useState('')
+  const [selectedModel, setSelectedModel] = useState(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [samsungModels, setSamsungModels] = useState([])
   const [loading, setLoading] = useState(true)
@@ -79,7 +79,7 @@ const SamsungModelScreen = () => {
     // Pass Chinese model data to app state
     const selectedModelData = {
       brand: 'samsung',
-      model: selectedModel.name || selectedModel.display_name,
+      model: selectedModel.display_name || selectedModel.name,
       chinese_model_id: selectedModel.chinese_model_id || selectedModel.id,
       price: selectedModel.price,
       stock: selectedModel.stock,
@@ -290,7 +290,9 @@ const SamsungModelScreen = () => {
               color: '#ffffff'
             }}
           >
-            <span style={{ whiteSpace: 'wrap' }}>{selectedModel}</span>
+            <span style={{ whiteSpace: 'wrap' }}>
+              {selectedModel ? (selectedModel.display_name || selectedModel.name || 'Select Model') : 'Select Model'}
+            </span>
             <div
               style={{
                 width: '40px',
@@ -347,7 +349,7 @@ const SamsungModelScreen = () => {
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  {model}
+                  {model.display_name || model.name || 'Unknown Model'}
                 </div>
               ))}
             </div>

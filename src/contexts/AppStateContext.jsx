@@ -24,7 +24,7 @@ const initialState = {
   // User selections
   brand: null,
   model: null,
-  modelData: null,  // Complete model data including chinese_model_id, price, etc.
+  modelData: null,  // Complete model data including chinese_model_id, price, width, height, etc.
   color: null,
   
   // Images and design

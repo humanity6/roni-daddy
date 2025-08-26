@@ -33,9 +33,20 @@ const PhonePreviewScreen = () => {
         // Calculate auto-fit scale based on image dimensions
         const img = new Image()
         img.onload = () => {
-          // Phone cover template dimensions: 695x1271
-          const containerWidth = 695 * 0.84 // 8% margins on each side
-          const containerHeight = 1271 * 0.98 // 1px margins top/bottom
+          // Use dynamic phone case dimensions if available, otherwise fallback to defaults
+          let containerWidth, containerHeight
+          if (selectedModelData?.width && selectedModelData?.height) {
+            // Convert mm to pixels for preview (using a scale factor for UI display)
+            const scaleFactor = 8 // Scale mm to reasonable preview size
+            containerWidth = selectedModelData.width * scaleFactor * 0.84 // 8% margins on each side
+            containerHeight = selectedModelData.height * scaleFactor * 0.98 // 1px margins top/bottom
+            console.log(`Using dynamic preview dimensions: ${selectedModelData.width}mm x ${selectedModelData.height}mm -> ${containerWidth}px x ${containerHeight}px`)
+          } else {
+            // Fallback to original hardcoded dimensions
+            containerWidth = 695 * 0.84 
+            containerHeight = 1271 * 0.98
+            console.log('Using default preview dimensions (no model dimensions available)')
+          }
           
           const scaleX = containerWidth / img.width
           const scaleY = containerHeight / img.height
