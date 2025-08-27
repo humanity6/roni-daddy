@@ -1,18 +1,43 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { fonts, DEFAULT_FONT_SIZE } from './fontManager'
 
-// Constants for container dimensions
-const CONTAINER_DIMENSIONS = {
+// Default container dimensions (fallback if model data not available)
+const DEFAULT_CONTAINER_DIMENSIONS = {
   PHONE_CASE: { width: 230, height: 380 }, 
   FILM_STRIP: { width: 525, height: 525 },
   // Safe zones to keep text well within bounds
   SAFE_MARGIN: 20 // pixels from edge
 }
 
-// Enhanced text boundary management hook
-const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
+// Calculate model-specific container dimensions from Chinese API data
+const getModelSpecificDimensions = (modelData) => {
+  if (modelData?.width && modelData?.height) {
+    // Convert millimeters to pixels at 96 DPI and scale down for text UI
+    const mmToPixels = (mm) => (mm / 25.4) * 96
+    const widthPx = mmToPixels(modelData.width)
+    const heightPx = mmToPixels(modelData.height)
+    
+    // Scale down for text boundary calculations (similar to preview scaling)
+    const scaleFactor = 0.3 // Adjust this to match text overlay size relative to preview
+    
+    return {
+      width: Math.round(widthPx * scaleFactor),
+      height: Math.round(heightPx * scaleFactor)
+    }
+  }
+  
+  // Chinese API data should be available - log error if missing
+  console.error('❌ Chinese API dimensions missing for text boundaries:', modelData)
+  console.error('❌ This will cause incorrect text positioning')
+  
+  // Use minimal fallback for debugging only
+  return { width: 230, height: 380 }
+}
+
+// Enhanced text boundary management hook with model-specific dimensions
+const useTextBoundaries = (template, inputText, fontSize, selectedFont, modelData = null) => {
   const [textDimensions, setTextDimensions] = useState({ width: 0, height: 0 })
-  const [containerDimensions, setContainerDimensions] = useState(CONTAINER_DIMENSIONS.PHONE_CASE)
+  const [containerDimensions, setContainerDimensions] = useState(DEFAULT_CONTAINER_DIMENSIONS.PHONE_CASE)
   const [safeBoundaries, setSafeBoundaries] = useState({ minX: 10, maxX: 90, minY: 10, maxY: 90 })
   const measureRef = useRef(null)
 
@@ -27,14 +52,17 @@ const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
     }
   }, [selectedFont, fontSize])
 
-  // Set container dimensions based on template
+  // Set container dimensions based on template and model data
   useEffect(() => {
     if (template?.id?.startsWith('film-strip')) {
-      setContainerDimensions(CONTAINER_DIMENSIONS.FILM_STRIP)
+      setContainerDimensions(DEFAULT_CONTAINER_DIMENSIONS.FILM_STRIP)
     } else {
-      setContainerDimensions(CONTAINER_DIMENSIONS.PHONE_CASE)
+      // Use model-specific dimensions for phone case templates
+      const modelSpecificDimensions = getModelSpecificDimensions(modelData)
+      setContainerDimensions(modelSpecificDimensions)
+      console.log('📐 Text boundaries using model-specific dimensions:', modelSpecificDimensions)
     }
-  }, [template])
+  }, [template, modelData])
 
   // Measure text dimensions accurately
   const measureTextDimensions = useCallback(() => {
@@ -75,8 +103,8 @@ const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
     const { width: textWidth, height: textHeight } = textDimensions
     
     // Calculate minimum safe distances from edges (in pixels)
-    const minXPixels = Math.max(CONTAINER_DIMENSIONS.SAFE_MARGIN * 1.5, textWidth / 2 + 5) // Added extra padding for smaller fonts
-    const minYPixels = Math.max(CONTAINER_DIMENSIONS.SAFE_MARGIN, textHeight / 2)
+    const minXPixels = Math.max(DEFAULT_CONTAINER_DIMENSIONS.SAFE_MARGIN * 1.5, textWidth / 2 + 5) // Added extra padding for smaller fonts
+    const minYPixels = Math.max(DEFAULT_CONTAINER_DIMENSIONS.SAFE_MARGIN, textHeight / 2)
     
     // Convert to percentages
     const minXPercent = (minXPixels / containerWidth) * 100
@@ -119,8 +147,8 @@ const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
     const { width: textWidth, height: textHeight } = textDimensions
     
     // Check if text dimensions plus safe margins exceed container
-    const requiredWidth = textWidth + (CONTAINER_DIMENSIONS.SAFE_MARGIN * 2)
-    const requiredHeight = textHeight + (CONTAINER_DIMENSIONS.SAFE_MARGIN * 2)
+    const requiredWidth = textWidth + (DEFAULT_CONTAINER_DIMENSIONS.SAFE_MARGIN * 2)
+    const requiredHeight = textHeight + (DEFAULT_CONTAINER_DIMENSIONS.SAFE_MARGIN * 2)
     
     return requiredWidth <= containerWidth && requiredHeight <= containerHeight
   }, [inputText, textDimensions, containerDimensions])
@@ -128,7 +156,7 @@ const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
   // Calculate maximum safe character count for current font/size
   const getMaxSafeCharacters = useCallback(() => {
     const { width: containerWidth } = containerDimensions
-    const availableWidth = containerWidth - (CONTAINER_DIMENSIONS.SAFE_MARGIN * 2)
+    const availableWidth = containerWidth - (DEFAULT_CONTAINER_DIMENSIONS.SAFE_MARGIN * 2)
     
     // Estimate character width based on font and size
     const estimatedCharWidth = fontSize * 0.6 // Rough estimate
@@ -199,5 +227,6 @@ export {
   validateTextInput,
   createPositionHandlers,
   validateFontSize,
-  CONTAINER_DIMENSIONS
+  DEFAULT_CONTAINER_DIMENSIONS,
+  getModelSpecificDimensions
 } 

@@ -14,14 +14,46 @@ import {
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import { enhanceImage } from '../utils/imageEnhancer'
+import { useAppState } from '../contexts/AppStateContext'
 
 const PhonePreviewScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { state: appState } = useAppState()
   const { brand, model, color, template, selectedModelData, deviceId } = location.state || {}
   
   const [uploadedImage, setUploadedImage] = useState(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
+
+  // Calculate model-specific dimensions from Chinese API data
+  const getModelSpecificDimensions = () => {
+    const modelData = selectedModelData || appState.modelData
+    
+    if (modelData?.width && modelData?.height) {
+      // Convert millimeters to pixels at 96 DPI (standard web resolution)
+      // 1 inch = 25.4 mm, 96 pixels per inch
+      const mmToPixels = (mm) => (mm / 25.4) * 96
+      
+      const widthPx = mmToPixels(modelData.width)
+      const heightPx = mmToPixels(modelData.height)
+      
+      // Apply same scaling factors as before to maintain UI proportions
+      const containerWidth = widthPx * 0.84  // 8% margins on each side
+      const containerHeight = heightPx * 0.98 // 1px margins top/bottom
+      
+      console.log(`📐 Using model-specific dimensions: ${modelData.width}mm x ${modelData.height}mm = ${widthPx.toFixed(1)}px x ${heightPx.toFixed(1)}px`)
+      return { containerWidth, containerHeight, widthPx, heightPx }
+    } else {
+      // Chinese API data should be available - log error if missing
+      console.error('❌ Chinese API dimensions missing from modelData:', modelData)
+      console.error('❌ This will cause image cropping and incorrect preview proportions')
+      
+      // Use minimal fallback for debugging only
+      const containerWidth = 288 // w-72 in Tailwind
+      const containerHeight = 480 // h-[480px] in Tailwind  
+      return { containerWidth, containerHeight, widthPx: 288, heightPx: 480 }
+    }
+  }
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0]
@@ -30,12 +62,10 @@ const PhonePreviewScreen = () => {
         const processed = await enhanceImage(file)
         setUploadedImage(processed)
         
-        // Calculate auto-fit scale based on image dimensions
+        // Calculate auto-fit scale based on image dimensions and model-specific phone case size
         const img = new Image()
         img.onload = () => {
-          // Phone cover template dimensions: 695x1271
-          const containerWidth = 695 * 0.84 // 8% margins on each side
-          const containerHeight = 1271 * 0.98 // 1px margins top/bottom
+          const { containerWidth, containerHeight } = getModelSpecificDimensions()
           
           const scaleX = containerWidth / img.width
           const scaleY = containerHeight / img.height
@@ -218,8 +248,18 @@ const PhonePreviewScreen = () => {
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
         {/* Phone Case Preview */}
         <div className="relative mb-8">
-          {/* Phone Case Container */}
-          <div className="relative w-72 h-[480px]">
+          {/* Phone Case Container - Dynamic dimensions based on Chinese API model data */}
+          <div 
+            className="relative"
+            style={(() => {
+              const { containerWidth, containerHeight } = getModelSpecificDimensions()
+              return {
+                width: `${Math.min(containerWidth, 288)}px`, // Cap at 288px (w-72) for UI constraints
+                height: `${Math.min(containerHeight, 480)}px`, // Cap at 480px for UI constraints
+                aspectRatio: `${containerWidth} / ${containerHeight}`
+              }
+            })()}
+          >
             {/* Separate border element - positioned independently */}
             <div className="phone-case-border"></div>
             

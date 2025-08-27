@@ -76,14 +76,18 @@ const IPhoneModelScreen = () => {
       return
     }
     
-    // Pass Chinese model data to app state
+    // Pass Chinese model data to app state including dimensions
     const selectedModelData = {
       brand: 'iphone',
       model: selectedModel.name || selectedModel.display_name,
       chinese_model_id: selectedModel.chinese_model_id || selectedModel.id,
       price: selectedModel.price,
       stock: selectedModel.stock,
-      device_id: deviceId
+      device_id: deviceId,
+      // Chinese API dimensions in millimeters
+      width: selectedModel.width ? parseFloat(selectedModel.width) : null,
+      height: selectedModel.height ? parseFloat(selectedModel.height) : null,
+      mobile_shell_id: selectedModel.mobile_shell_id
     }
     
     console.log('IPhoneModelScreen - Selected model data:', selectedModelData)

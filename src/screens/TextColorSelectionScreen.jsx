@@ -16,7 +16,7 @@ const TextColorSelectionScreen = () => {
   const [adjustedTextPosition, setAdjustedTextPosition] = useState(textPosition || { x: 50, y: 50 })
   const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
 
-  // Hook for text boundaries
+  // Hook for text boundaries with model-specific dimensions
   const {
     textDimensions,
     containerDimensions,
@@ -25,7 +25,7 @@ const TextColorSelectionScreen = () => {
     validateTextFit,
     getFontStyle,
     measureRef
-  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont, selectedModelData)
 
   // Position handlers
   const positionHandlers = createPositionHandlers(adjustedTextPosition, safeBoundaries, setAdjustedTextPosition)

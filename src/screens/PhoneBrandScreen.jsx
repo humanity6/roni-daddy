@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
@@ -12,6 +12,8 @@ const PhoneBrandScreen = () => {
   const [loading, setLoading] = useState(true)
   const [apiModels, setApiModels] = useState({})
   const [error, setError] = useState(null)
+  const loadingRef = useRef(false) // Prevent multiple simultaneous API calls
+  const lastDeviceIdRef = useRef(null) // Track last processed device ID
 
   // Get device_id from vending machine session or directly from URL parameters
   const currentUrl = window.location.href
@@ -27,16 +29,24 @@ const PhoneBrandScreen = () => {
   console.log('PhoneBrandScreen - Final Device ID:', deviceId)
   console.log('PhoneBrandScreen - Vending Machine Session:', appState.vendingMachineSession)
 
-  // Load brands and models on component mount
-  useEffect(() => {
-    loadBrandsAndModels()
-  }, [deviceId])  // Note: loadBrandsAndModels doesn't depend on props/state, so this is safe
+  // Memoized function to prevent unnecessary re-renders
+  const loadBrandsAndModels = useCallback(async () => {
+    // Prevent multiple simultaneous API calls
+    if (loadingRef.current) {
+      console.log('🚫 PhoneBrandScreen - Skipping API call, already loading')
+      return
+    }
 
-  const loadBrandsAndModels = async () => {
+    // Skip if we already loaded for this deviceId
+    if (lastDeviceIdRef.current === deviceId && brands.length > 0) {
+      console.log('📋 PhoneBrandScreen - Using cached brands for deviceId:', deviceId)
+      return
+    }
     try {
+      loadingRef.current = true
       setLoading(true)
       setError(null)
-      console.log('🔄 PhoneBrandScreen - Loading brands from Chinese API...')
+      console.log('🔄 PhoneBrandScreen - Loading brands from Chinese API for deviceId:', deviceId)
       
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       
@@ -55,6 +65,7 @@ const PhoneBrandScreen = () => {
       
       console.log('✅ PhoneBrandScreen - Brands loaded from Chinese API:', brandsResult.brands)
       setBrands(brandsResult.brands)
+      lastDeviceIdRef.current = deviceId // Store the deviceId we loaded for
       
       // Pre-load models for available brands if device_id is available
       if (deviceId) {
@@ -84,9 +95,15 @@ const PhoneBrandScreen = () => {
       console.error('❌ PhoneBrandScreen - Failed to load brands from Chinese API:', error)
       setError(`Failed to load brands: ${error.message}`)
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
-  }
+  }, [deviceId, brands.length]) // Only re-run if deviceId changes or brands is empty
+
+  // Load brands and models on component mount with optimized dependencies
+  useEffect(() => {
+    loadBrandsAndModels()
+  }, [loadBrandsAndModels])
 
   const handleBrandSelect = (brandId) => {
     const selectedBrandData = brands.find(b => b.id === brandId)

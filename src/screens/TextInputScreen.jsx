@@ -36,7 +36,7 @@ const TextInputScreen = () => {
   const textBoxRef = useRef(null)
   const filmStripTextBoxRef = useRef(null)
 
-  // Use the enhanced text boundary management system
+  // Use the enhanced text boundary management system with model-specific dimensions
   const {
     textDimensions,
     containerDimensions,
@@ -46,7 +46,7 @@ const TextInputScreen = () => {
     getMaxSafeCharacters,
     getFontStyle,
     measureRef
-  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont, selectedModelData)
 
   // Handle text input validation
   const handleTextChange = (e) => {

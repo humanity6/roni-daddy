@@ -17,7 +17,7 @@ const FontSelectionScreen = () => {
   const [adjustedTextPosition, setAdjustedTextPosition] = useState(textPosition || { x: 50, y: 50 })
   const [isPositionBeingAdjusted, setIsPositionBeingAdjusted] = useState(false)
 
-  // Use the enhanced text boundary management system
+  // Use the enhanced text boundary management system with model-specific dimensions
   const {
     textDimensions,
     containerDimensions,
@@ -26,7 +26,7 @@ const FontSelectionScreen = () => {
     validateTextFit,
     getFontStyle,
     measureRef
-  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont, selectedModelData)
 
   // Position handlers for manual adjustment
   const positionHandlers = createPositionHandlers(adjustedTextPosition, safeBoundaries, setAdjustedTextPosition)

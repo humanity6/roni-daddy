@@ -197,7 +197,55 @@ const PaymentScreen = () => {
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
       
-      // Chinese API integration will be handled by the backend after successful payment
+      // Chinese API integration - Call payData BEFORE Stripe checkout to inform machine of payment amount
+      let chinesePaymentId = null
+      if (deviceId && selectedModelData?.chinese_model_id) {
+        try {
+          console.log('PaymentScreen - Calling payData API before Stripe checkout...')
+          
+          // Generate third_id for payment tracking (PYEN + yyMMdd + 6 digits)
+          const now = new Date()
+          const dateStr = now.getFullYear().toString().slice(-2) + 
+                         (now.getMonth() + 1).toString().padStart(2, '0') + 
+                         now.getDate().toString().padStart(2, '0')
+          const randomPart = Math.floor(Math.random() * 900000 + 100000).toString()
+          const paymentThirdId = `PYEN${dateStr}${randomPart}`
+          
+          const payDataResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              mobile_model_id: selectedModelData.chinese_model_id,
+              device_id: deviceId,
+              third_id: paymentThirdId,
+              pay_amount: effectivePrice,
+              pay_type: 12 // UK online payment
+            }),
+          })
+          
+          if (payDataResponse.ok) {
+            const payDataResult = await payDataResponse.json()
+            if (payDataResult.code === 200) {
+              chinesePaymentId = payDataResult.data?.id
+              orderData.chinesePaymentId = chinesePaymentId
+              orderData.paymentThirdId = paymentThirdId
+              console.log('✅ PaymentScreen - PayData successful:', chinesePaymentId)
+            } else {
+              console.warn('⚠️ PaymentScreen - PayData API returned error:', payDataResult.msg)
+            }
+          } else {
+            console.warn('⚠️ PaymentScreen - PayData HTTP error:', payDataResponse.status)
+          }
+        } catch (payDataError) {
+          console.warn('⚠️ PaymentScreen - PayData failed, proceeding with Stripe anyway:', payDataError)
+          // Don't block Stripe checkout if payData fails - backend will handle it
+        }
+      } else {
+        console.log('📋 PaymentScreen - Skipping payData (missing deviceId or chinese_model_id)')
+      }
+      
       // Store the necessary data for post-payment processing
       orderData.deviceId = deviceId
       orderData.selectedModelData = selectedModelData
@@ -323,7 +371,52 @@ const PaymentScreen = () => {
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
 
-      // Chinese API activation will be handled by the vending session for proper device_id management
+      // Chinese API integration - Call payData BEFORE vending payment to inform machine of payment amount
+      let chinesePaymentId = null
+      if (selectedModelData?.chinese_model_id) {
+        try {
+          console.log('PaymentScreen - Calling payData API before vending payment...')
+          
+          // Generate third_id for payment tracking (PYEN + yyMMdd + 6 digits)
+          const now = new Date()
+          const dateStr = now.getFullYear().toString().slice(-2) + 
+                         (now.getMonth() + 1).toString().padStart(2, '0') + 
+                         now.getDate().toString().padStart(2, '0')
+          const randomPart = Math.floor(Math.random() * 900000 + 100000).toString()
+          const paymentThirdId = `PYEN${dateStr}${randomPart}`
+          
+          const payDataResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              mobile_model_id: selectedModelData.chinese_model_id,
+              device_id: deviceId,
+              third_id: paymentThirdId,
+              pay_amount: effectivePrice,
+              pay_type: 5 // NAYAX vending machine payment
+            }),
+          })
+          
+          if (payDataResponse.ok) {
+            const payDataResult = await payDataResponse.json()
+            if (payDataResult.code === 200) {
+              chinesePaymentId = payDataResult.data?.id
+              orderData.chinesePaymentId = chinesePaymentId
+              orderData.paymentThirdId = paymentThirdId
+              console.log('✅ PaymentScreen - Vending PayData successful:', chinesePaymentId)
+            } else {
+              console.warn('⚠️ PaymentScreen - Vending PayData API returned error:', payDataResult.msg)
+            }
+          } else {
+            console.warn('⚠️ PaymentScreen - Vending PayData HTTP error:', payDataResponse.status)
+          }
+        } catch (payDataError) {
+          console.warn('⚠️ PaymentScreen - Vending PayData failed, proceeding anyway:', payDataError)
+          // Don't block vending payment if payData fails - backend will handle it
+        }
+      }
       
       // If in vending machine mode, send order summary to vending machine
   if (isRegisteredVending && vendingMachineSession?.sessionId) {
@@ -614,7 +707,19 @@ const PaymentScreen = () => {
                       </div>
                     )}
                   </div>
+                ) : location.state?.finalImagePublicUrl ? (
+                  // Show the final composed image that user created (PRIORITY)
+                  <img 
+                    src={location.state.finalImagePublicUrl} 
+                    alt="Your final design" 
+                    className="w-full h-full object-contain"
+                    style={{
+                      objectFit: 'contain',
+                      objectPosition: 'center'
+                    }}
+                  />
                 ) : designImage ? (
+                  // Fallback to designImage with transforms if finalImagePublicUrl not available
                   <img 
                     src={designImage} 
                     alt="Your design" 
@@ -641,8 +746,8 @@ const PaymentScreen = () => {
                 )}
               </div>
 
-              {/* Text overlay preview - highest layer for user content */}
-              {inputText && (
+              {/* Text overlay preview - highest layer for user content (only if not using final composed image) */}
+              {inputText && !location.state?.finalImagePublicUrl && (
                 <div className="absolute z-15" style={getTextStyle()}>
                   <p style={getPreviewStyle()}>{inputText}</p>
                 </div>
