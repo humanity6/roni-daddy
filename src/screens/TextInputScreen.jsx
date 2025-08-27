@@ -36,12 +36,6 @@ const TextInputScreen = () => {
   const textBoxRef = useRef(null)
   const filmStripTextBoxRef = useRef(null)
 
-  // Extract phone case dimensions from selectedModelData
-  const phoneCaseDimensions = selectedModelData?.width && selectedModelData?.height ? {
-    width: selectedModelData.width,
-    height: selectedModelData.height
-  } : null
-
   // Use the enhanced text boundary management system
   const {
     textDimensions,
@@ -52,7 +46,7 @@ const TextInputScreen = () => {
     getMaxSafeCharacters,
     getFontStyle,
     measureRef
-  } = useTextBoundaries(template, inputText, fontSize, selectedFont, phoneCaseDimensions)
+  } = useTextBoundaries(template, inputText, fontSize, selectedFont)
 
   // Handle text input validation
   const handleTextChange = (e) => {

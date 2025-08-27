@@ -28,7 +28,6 @@ class AIImageService {
       formData.append('quality', quality)
       formData.append('size', size)
       
-      
       if (imageFile) {
         formData.append('image', imageFile)
         console.log('🔍 Service - Image file attached to form data')
@@ -119,19 +118,9 @@ class AIImageService {
       console.log('🔍 Service - Stock data received:', result)
       
       if (result.success) {
-        // Ensure models include width and height dimensions
-        const modelsWithDimensions = (result.available_items || result.stock_items || []).map(model => ({
-          ...model,
-          width: model.width ? parseFloat(model.width) : null,
-          height: model.height ? parseFloat(model.height) : null,
-          // Ensure we have the necessary IDs for ordering
-          mobile_model_id: model.mobile_model_id,
-          mobile_shell_id: model.mobile_shell_id
-        }))
-        
         return {
           success: true,
-          models: modelsWithDimensions,
+          models: result.available_items || result.stock_items || [],
           total_models: result.available_count || result.total_items || 0,
           device_id: result.device_id,
           brand_id: result.brand_id,
@@ -146,50 +135,8 @@ class AIImageService {
     }
   }
 
-  /**
-   * Create order with Chinese API
-   * @param {string} thirdPayId - Third-party payment ID
-   * @param {string} mobileModelId - Mobile model ID
-   * @param {string} mobileShellId - Mobile shell ID
-   * @param {string} imageUrl - URL of the final processed image
-   * @param {string} deviceId - Device ID
-   * @returns {Promise<Object>} Order creation result
-   */
-  async createChineseOrder(thirdPayId, mobileModelId, mobileShellId, imageUrl, deviceId) {
-    try {
-      console.log('🔍 Service - Creating Chinese API order')
-      
-      const response = await fetch(`${API_BASE_URL}/api/chinese/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          third_pay_id: thirdPayId,
-          mobile_model_id: mobileModelId,
-          mobile_shell_id: mobileShellId,
-          pic: imageUrl,
-          device_id: deviceId
-        })
-      })
-      
-      if (!response.ok) {
-        throw new Error(`Order creation failed: ${response.status}`)
-      }
-      
-      const result = await response.json()
-      console.log('🔍 Service - Order created:', result)
-      
-      if (result.success) {
-        return result
-      } else {
-        throw new Error(`Chinese API order failed: ${result.error || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Create Chinese Order Error:', error)
-      throw error
-    }
-  }
+
+
 
   /**
    * Get available styles for a template
@@ -257,7 +204,7 @@ class AIImageService {
       optional_text: optionalText
     }
     
-    return this.generateImage('retro-remix', styleParams, imageFile, quality, '1024x1536')
+    return this.generateImage('retro-remix', styleParams, imageFile, quality)
   }
 
   /**
@@ -270,7 +217,7 @@ class AIImageService {
   async generateFunnyToon(style, imageFile, quality = 'low') {
     const styleParams = { style }
     
-    return this.generateImage('funny-toon', styleParams, imageFile, quality, '1024x1536')
+    return this.generateImage('funny-toon', styleParams, imageFile, quality)
   }
 
   /**
@@ -282,7 +229,7 @@ class AIImageService {
    */
   async generateCoverShoot(style, imageFile, quality = 'low') {
     const styleParams = { style }
-    return this.generateImage('cover-shoot', styleParams, imageFile, quality, '1024x1536')
+    return this.generateImage('cover-shoot', styleParams, imageFile, quality)
   }
 
   /**
@@ -295,7 +242,7 @@ class AIImageService {
   async generateGlitchPro(mode, imageFile, quality = 'low') {
     const styleParams = { style: mode }
     
-    return this.generateImage('glitch-pro', styleParams, imageFile, quality, '1024x1536')
+    return this.generateImage('glitch-pro', styleParams, imageFile, quality)
   }
 
   /**

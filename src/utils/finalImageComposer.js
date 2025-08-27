@@ -1,39 +1,7 @@
 /**
  * Final Image Composer - Creates the final composed image with all user customizations
  * This handles text overlay, background colors, and image transformations for all template types
- * Now supports dynamic canvas sizing based on phone case dimensions
  */
-
-/**
- * Calculate canvas dimensions from phone case dimensions in millimeters
- * @param {number} widthMm - Width in millimeters
- * @param {number} heightMm - Height in millimeters  
- * @param {number} dpi - DPI for conversion (default 300 for print quality)
- * @returns {Object} Canvas dimensions {width, height}
- */
-function calculateCanvasDimensions(widthMm, heightMm, dpi = 300) {
-  // Convert mm to inches, then inches to pixels
-  const mmToInch = 0.0393701
-  const widthInches = widthMm * mmToInch
-  const heightInches = heightMm * mmToInch
-  
-  const canvasWidth = Math.round(widthInches * dpi)
-  const canvasHeight = Math.round(heightInches * dpi)
-  
-  console.log(`Canvas calculation: ${widthMm}mm x ${heightMm}mm -> ${canvasWidth}px x ${canvasHeight}px at ${dpi}DPI`)
-  
-  return { width: canvasWidth, height: canvasHeight }
-}
-
-/**
- * Get error canvas dimensions (should not be needed since Chinese API provides dimensions)
- * @returns {Object} Error fallback canvas dimensions
- */
-function getErrorCanvasDimensions() {
-  // ERROR: This should not be used since Chinese API should always provide dimensions
-  console.error('❌ FALLBACK ERROR: Phone case dimensions missing! Chinese API should provide width/height.')
-  return { width: 1390, height: 2542 }
-}
 
 export async function composeFinalImage(options) {
   const {
@@ -47,22 +15,13 @@ export async function composeFinalImage(options) {
     selectedTextColor = '#ffffff',
     selectedBackgroundColor = '#ffffff',
     textPosition = { x: 50, y: 50 },
-    transform = { x: 0, y: 0, scale: 1 },
-    phoneCaseDimensions = null // {width: mm, height: mm}
+    transform = { x: 0, y: 0, scale: 1 }
   } = options
 
-  // Calculate canvas dimensions based on phone case dimensions
-  let canvasDimensions
-  if (phoneCaseDimensions && phoneCaseDimensions.width && phoneCaseDimensions.height) {
-    canvasDimensions = calculateCanvasDimensions(phoneCaseDimensions.width, phoneCaseDimensions.height)
-    console.log('✅ Using dynamic canvas dimensions from phone case:', phoneCaseDimensions)
-  } else {
-    canvasDimensions = getErrorCanvasDimensions()
-    console.error('⚠️ ERROR: No phone case dimensions provided - this indicates a system error!')
-  }
-  
-  const CANVAS_WIDTH = canvasDimensions.width
-  const CANVAS_HEIGHT = canvasDimensions.height
+  // Canvas dimensions - high resolution for print quality
+  // Increased resolution for better quality (2x scaling)
+  const CANVAS_WIDTH = 1390  // 695 * 2
+  const CANVAS_HEIGHT = 2542 // 1271 * 2
 
   // Create canvas with high-quality settings
   const canvas = document.createElement('canvas')

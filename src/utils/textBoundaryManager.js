@@ -3,34 +3,16 @@ import { fonts, DEFAULT_FONT_SIZE } from './fontManager'
 
 // Constants for container dimensions
 const CONTAINER_DIMENSIONS = {
-  ERROR_FALLBACK_PHONE_CASE: { width: 230, height: 380 }, // ERROR: Should not be used since Chinese API provides dimensions
+  PHONE_CASE: { width: 230, height: 380 }, 
   FILM_STRIP: { width: 525, height: 525 },
   // Safe zones to keep text well within bounds
   SAFE_MARGIN: 20 // pixels from edge
 }
 
-/**
- * Calculate container dimensions from phone case dimensions in millimeters
- * @param {number} widthMm - Width in millimeters
- * @param {number} heightMm - Height in millimeters
- * @param {number} scaleFactor - Scale factor for UI display (default 4 to match preview scale)
- * @returns {Object} Container dimensions for UI
- */
-function calculateContainerDimensions(widthMm, heightMm, scaleFactor = 4) {
-  // Convert mm to a reasonable UI scale
-  // Using a scaling factor that makes the dimensions suitable for preview/UI
-  const width = Math.round(widthMm * scaleFactor)
-  const height = Math.round(heightMm * scaleFactor)
-  
-  console.log(`Container calculation: ${widthMm}mm x ${heightMm}mm -> ${width}px x ${height}px at scale ${scaleFactor}`)
-  
-  return { width, height }
-}
-
 // Enhanced text boundary management hook
-const useTextBoundaries = (template, inputText, fontSize, selectedFont, phoneCaseDimensions = null) => {
+const useTextBoundaries = (template, inputText, fontSize, selectedFont) => {
   const [textDimensions, setTextDimensions] = useState({ width: 0, height: 0 })
-  const [containerDimensions, setContainerDimensions] = useState(CONTAINER_DIMENSIONS.ERROR_FALLBACK_PHONE_CASE)
+  const [containerDimensions, setContainerDimensions] = useState(CONTAINER_DIMENSIONS.PHONE_CASE)
   const [safeBoundaries, setSafeBoundaries] = useState({ minX: 10, maxX: 90, minY: 10, maxY: 90 })
   const measureRef = useRef(null)
 
@@ -45,23 +27,14 @@ const useTextBoundaries = (template, inputText, fontSize, selectedFont, phoneCas
     }
   }, [selectedFont, fontSize])
 
-  // Set container dimensions based on template and phone case dimensions
+  // Set container dimensions based on template
   useEffect(() => {
-    if (phoneCaseDimensions && phoneCaseDimensions.width && phoneCaseDimensions.height) {
-      // Use actual phone case dimensions
-      const dynamicDimensions = calculateContainerDimensions(
-        phoneCaseDimensions.width, 
-        phoneCaseDimensions.height
-      )
-      setContainerDimensions(dynamicDimensions)
-      console.log('✅ Using dynamic container dimensions:', dynamicDimensions)
-    } else if (template?.id?.startsWith('film-strip')) {
+    if (template?.id?.startsWith('film-strip')) {
       setContainerDimensions(CONTAINER_DIMENSIONS.FILM_STRIP)
     } else {
-      console.error('❌ FALLBACK ERROR: No phone case dimensions provided! Chinese API should provide width/height.')
-      setContainerDimensions(CONTAINER_DIMENSIONS.ERROR_FALLBACK_PHONE_CASE)
+      setContainerDimensions(CONTAINER_DIMENSIONS.PHONE_CASE)
     }
-  }, [template, phoneCaseDimensions])
+  }, [template])
 
   // Measure text dimensions accurately
   const measureTextDimensions = useCallback(() => {
@@ -226,6 +199,5 @@ export {
   validateTextInput,
   createPositionHandlers,
   validateFontSize,
-  CONTAINER_DIMENSIONS,
-  calculateContainerDimensions
+  CONTAINER_DIMENSIONS
 } 

@@ -153,29 +153,6 @@ class ChineseAPIClient:
         status, data = self._post_json("order/payData", payload, needs_auth=True)
         return {"status": status, "data": data}
 
-    def order_data(
-        self,
-        third_pay_id: str,
-        mobile_model_id: str,
-        mobile_shell_id: str,
-        pic: str,
-        device_id: str,
-        third_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Create order with print data (order/orderData)."""
-        if third_id is None:
-            third_id = self._generate_third_id(prefix="OREN")
-        payload = {
-            "third_pay_id": third_pay_id,
-            "third_id": third_id,
-            "mobile_model_id": mobile_model_id,
-            "mobile_shell_id": mobile_shell_id,
-            "pic": pic,
-            "device_id": device_id,
-        }
-        status, data = self._post_json("order/orderData", payload, needs_auth=True)
-        return {"status": status, "data": data}
-
     def shop_list(self, page: int = 1, rows: int = 50) -> Dict[str, Any]:
         """Get list of shops."""
         payload = {"page": page, "rows": rows}
@@ -189,7 +166,7 @@ class ChineseAPIClient:
         return {"status": status, "data": data}
 
     # ----------------------------- Test & Utility Methods ----------------------------- #
-    def test_api(self, device_id: str = "CXYLOGD8OQUK") -> Dict[str, Any]:
+    def test_api(self, device_id: str = "1CBRONIQRWQQ") -> Dict[str, Any]:
         """Test all main API endpoints and return comprehensive data."""
         result = {
             "environment": {
@@ -225,7 +202,6 @@ class ChineseAPIClient:
         print("📦 Fetching stock data...")
         stocks_by_brand = {}
         total_models = 0
-        models_with_dimensions = 0
         
         for brand in brands:
             brand_id = brand.get("id")
@@ -239,38 +215,10 @@ class ChineseAPIClient:
             if isinstance(stock_resp.get("data"), dict) and isinstance(stock_resp["data"].get("data"), list):
                 models = stock_resp["data"]["data"]
                 total_models += len(models)
-                
-                # Check for width/height data
-                for model in models:
-                    if model.get("width") or model.get("height"):
-                        models_with_dimensions += 1
-                
                 print(f"   📱 {brand_name}: {len(models)} models")
         
         result["stocks_by_brand"] = stocks_by_brand
         print(f"✅ Total models found: {total_models}")
-        print(f"📏 Models with dimensions: {models_with_dimensions}")
-
-        # Test dimensions data
-        print("📐 Testing dimension data...")
-        dimension_samples = []
-        for brand_id, stock_resp in stocks_by_brand.items():
-            if isinstance(stock_resp.get("data"), dict) and isinstance(stock_resp["data"].get("data"), list):
-                models = stock_resp["data"]["data"]
-                for model in models[:3]:  # Check first 3 models per brand
-                    if model.get("width") or model.get("height"):
-                        dimension_samples.append({
-                            "model_name": model.get("mobile_model_name"),
-                            "model_id": model.get("mobile_model_id"),
-                            "width": model.get("width"),
-                            "height": model.get("height"),
-                            "mobile_shell_id": model.get("mobile_shell_id")
-                        })
-                if len(dimension_samples) >= 5:  # Limit samples
-                    break
-        
-        result["dimension_samples"] = dimension_samples
-        print(f"📏 Found {len(dimension_samples)} models with dimension data")
 
         # Get shops and goods
         print("🏪 Fetching shops and products...")
@@ -314,13 +262,11 @@ class ChineseAPIClient:
         # Test payment with first available model (if any)
         print("💳 Testing payment...")
         test_model_id = None
-        test_shell_id = None
         for brand_id, stock_resp in stocks_by_brand.items():
             if isinstance(stock_resp.get("data"), dict) and isinstance(stock_resp["data"].get("data"), list):
                 models = stock_resp["data"]["data"]
                 if models:
                     test_model_id = models[0].get("mobile_model_id")
-                    test_shell_id = models[0].get("mobile_shell_id")
                     break
         
         if test_model_id:
@@ -334,27 +280,10 @@ class ChineseAPIClient:
             
             if pay_resp.get("status") == 200 and isinstance(pay_resp.get("data"), dict) and pay_resp["data"].get("code") == 200:
                 print("✅ Payment test successful!")
-                
-                # Test order creation if we have payment data
-                if test_shell_id:
-                    print("📋 Testing order creation...")
-                    order_resp = self.order_data(
-                        third_pay_id="test_pay_123",
-                        mobile_model_id=test_model_id,
-                        mobile_shell_id=test_shell_id,
-                        pic="https://example.com/test-image.jpg",
-                        device_id=device_id
-                    )
-                    result["test_order"] = order_resp
-                    
-                    if order_resp.get("status") == 200 and isinstance(order_resp.get("data"), dict) and order_resp["data"].get("code") == 200:
-                        print("✅ Order test successful!")
-                    else:
-                        print("⚠️ Order test failed")
             else:
-                print("⚠️ Payment test failed")
+                print("⚠️  Payment test failed")
         else:
-            print("⚠️ No models available for payment test")
+            print("⚠️  No models available for payment test")
             result["test_payment"] = {"error": "No models available"}
 
         return result
@@ -371,7 +300,7 @@ class ChineseAPIClient:
         
         # Environment
         env = result.get("environment", {})
-        print(f"🌍 Environment: {env.get('base_url')}")
+        print(f"🌐 Environment: {env.get('base_url')}")
         print(f"🔧 Device ID: {env.get('device_id')}")
         
         # Login status
@@ -429,23 +358,6 @@ class ChineseAPIClient:
             print(f"💳 Payment Test: Success (ID: {pay_data.get('id')})")
         else:
             print("💳 Payment Test: Failed")
-            
-        # Order test
-        order = result.get("test_order", {})
-        if order.get("status") == 200:
-            order_data = order.get("data", {}).get("data", {})
-            print(f"📋 Order Test: Success (ID: {order_data.get('id')}, Queue: {order_data.get('queue_no')})")
-        elif order:
-            print("📋 Order Test: Failed")
-            
-        # Dimension data summary
-        dimensions = result.get("dimension_samples", [])
-        if dimensions:
-            print(f"📏 Dimension Data: {len(dimensions)} samples found")
-            for dim in dimensions[:2]:  # Show first 2
-                print(f"   • {dim.get('model_name')}: {dim.get('width')}×{dim.get('height')}mm")
-        else:
-            print("📏 Dimension Data: No samples found")
 
 
 def _print_json(data: Any) -> None:
@@ -498,7 +410,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--account", default=os.environ.get("CH_API_ACCOUNT", "taharizvi.ai@gmail.com"), help="Account for login")
     parser.add_argument("--password", default=os.environ.get("CH_API_PASSWORD", "EN112233"), help="Password for login")
     parser.add_argument("--token", default=os.environ.get("CH_API_TOKEN"), help="Existing token (skip login)")
-    parser.add_argument("--device-id", default=os.environ.get("CH_API_DEVICE_ID", "CXYLOGD8OQUK"), help="Device ID for API calls")
+    parser.add_argument("--device-id", default=os.environ.get("CH_API_DEVICE_ID", "1CBRONIQRWQQ"), help="Device ID for API calls")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -518,13 +430,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     sp_pay.add_argument("--mobile-model-id", required=True, help="Mobile model ID")
     sp_pay.add_argument("--pay-amount", type=float, default=10.0, help="Payment amount (default: 10.0)")
     sp_pay.add_argument("--pay-type", type=int, default=1, choices=[0, 1, 2, 3, 4, 5, 6, 7], help="Payment type (default: 1=WeChat)")
-
-    sp_order = sub.add_parser("order", help="Create order (order/orderData)")
-    sp_order.add_argument("--third-pay-id", required=True, help="Third-party payment ID")
-    sp_order.add_argument("--mobile-model-id", required=True, help="Mobile model ID")
-    sp_order.add_argument("--mobile-shell-id", required=True, help="Mobile shell ID")
-    sp_order.add_argument("--pic", required=True, help="Print image URL")
-    sp_order.add_argument("--third-id", help="Custom third-party order ID (auto-generated if not provided)")
 
     return parser.parse_args(argv)
 
@@ -587,19 +492,6 @@ def main(argv: Optional[List[str]] = None) -> None:
                 device_id=args.device_id,
                 pay_amount=args.pay_amount,
                 pay_type=args.pay_type,
-            )
-            _print_json(result)
-            return
-
-        if args.command == "order":
-            require_auth(client, args)
-            result = client.order_data(
-                third_pay_id=args.third_pay_id,
-                mobile_model_id=args.mobile_model_id,
-                mobile_shell_id=args.mobile_shell_id,
-                pic=args.pic,
-                device_id=args.device_id,
-                third_id=args.third_id,
             )
             _print_json(result)
             return
