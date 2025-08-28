@@ -585,13 +585,14 @@ class ChinesePaymentAPIClient:
             }
 
     def send_order_data(self, third_pay_id: str, third_id: str, mobile_model_id: str, 
-                       pic: str, device_id: str) -> Dict[str, Any]:
+                       pic: str, device_id: str, mobile_shell_id: str) -> Dict[str, Any]:
         """Send order data to Chinese manufacturers for printing"""
         try:
             logger.info(f"=== CHINESE ORDER DATA SUBMISSION START ===")
             logger.info(f"Target URL: {self.base_url}/order/orderData")
             logger.info(f"Order details: third_pay_id={third_pay_id}, third_id={third_id}")
             logger.info(f"Mobile model ID: {mobile_model_id}, device_id: {device_id}")
+            logger.info(f"Mobile shell ID: {mobile_shell_id}")
             logger.info(f"Design image URL: {pic}")
             
             # CRITICAL FIX: Wait 3 seconds to allow Chinese API to process payment internally
@@ -622,7 +623,8 @@ class ChinesePaymentAPIClient:
                 "third_id": third_id,
                 "mobile_model_id": mobile_model_id,
                 "pic": shortened_pic,
-                "device_id": device_id
+                "device_id": device_id,
+                "mobile_shell_id": mobile_shell_id
             }
             
             logger.info(f"=== ORDER DATA PAYLOAD ===")
@@ -785,7 +787,7 @@ def send_payment_status_to_chinese_api(third_id: str, status: int, pay_amount: f
     return client.send_payment_status(third_id=third_id, status=status, pay_amount=pay_amount)
 
 def send_order_data_to_chinese_api(third_pay_id: str, third_id: str, mobile_model_id: str, 
-                                  pic: str, device_id: str) -> Dict[str, Any]:
+                                  pic: str, device_id: str, mobile_shell_id: str) -> Dict[str, Any]:
     """Convenience function to send order data to Chinese API"""
     client = get_chinese_payment_client()
     return client.send_order_data(
@@ -793,5 +795,6 @@ def send_order_data_to_chinese_api(third_pay_id: str, third_id: str, mobile_mode
         third_id=third_id,
         mobile_model_id=mobile_model_id,
         pic=pic,
-        device_id=device_id
+        device_id=device_id,
+        mobile_shell_id=mobile_shell_id
     )

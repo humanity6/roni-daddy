@@ -49,6 +49,7 @@ const PaymentSuccessScreen = () => {
         }
         
         console.log('Sending order data to backend:', orderData)
+        console.log('mobile_shell_id in order data:', orderData?.mobile_shell_id)
         
         // Process payment success with backend
         const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/process-payment-success`, {

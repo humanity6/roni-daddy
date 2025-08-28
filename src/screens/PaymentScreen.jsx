@@ -155,7 +155,7 @@ const PaymentScreen = () => {
       const modelFromState = appState.model || selectedModelData?.model || model
       const colorFromState = appState.color || selectedModelData?.color || color
       
-      console.log('PaymentScreen - Order data:', { brandFromState, modelFromState, colorFromState, selectedModelData })
+      console.log('PaymentScreen - Order data:', { brandFromState, modelFromState, colorFromState, selectedModelData, mobile_shell_id: selectedModelData?.mobile_shell_id })
       
       // Get final image data from location state - NO BASE64 FALLBACK
       const finalImagePublicUrl = location.state?.finalImagePublicUrl
@@ -175,6 +175,7 @@ const PaymentScreen = () => {
       }
       
       // Store current order data in localStorage for success page
+      console.log('PaymentScreen - mobile_shell_id being added to orderData:', selectedModelData?.mobile_shell_id)
       const orderData = {
         designImage, 
         finalImagePublicUrl, // Store the permanent URL separately
@@ -186,6 +187,7 @@ const PaymentScreen = () => {
         model: modelFromState || 'iPhone 15 Pro',
         color: colorFromState || 'Natural Titanium',
         chinese_model_id: selectedModelData?.chinese_model_id,
+        mobile_shell_id: selectedModelData?.mobile_shell_id,
         device_id: deviceId,
         template,
         inputText,
@@ -350,7 +352,8 @@ const PaymentScreen = () => {
         return
       }
       
-      // Store current order data in localStorage
+      // Store current order data in localStorage  
+      console.log('PaymentScreen - mobile_shell_id being added to vending orderData:', selectedModelData?.mobile_shell_id)
       const orderData = {
         designImage, 
         uploadedImages,
@@ -360,6 +363,7 @@ const PaymentScreen = () => {
         model: modelFromState || 'iPhone 15 Pro',
         color: colorFromState || 'Natural Titanium',
         chinese_model_id: selectedModelData?.chinese_model_id,
+        mobile_shell_id: selectedModelData?.mobile_shell_id,
         device_id: deviceId,
         template,
         inputText,

@@ -260,8 +260,6 @@ const PhonePreviewScreen = () => {
               }
             })()}
           >
-            {/* Separate border element - positioned independently */}
-            <div className="phone-case-border"></div>
             
             {/* User's uploaded image - positioned to fit exactly within phone template boundaries */}
             <div className="phone-case-content">

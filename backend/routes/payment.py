@@ -214,7 +214,7 @@ async def process_payment_success(
             chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
             
             # Get third_id from request data if available (from PaymentScreen.jsx)
-            existing_third_id = request.order_data.get('third_id')
+            existing_third_id = request.order_data.get('paymentThirdId') or request.order_data.get('third_id')
             
             if chinese_model_id:
                 # Generate third_id for Chinese API if not provided from frontend
@@ -249,7 +249,7 @@ async def process_payment_success(
                     # Create a mock response for consistency
                     chinese_payment_response = {
                         'code': 200,
-                        'data': {'id': request.order_data.get('chinese_payment_id', 'FRONTEND_SENT')}
+                        'data': {'id': request.order_data.get('chinesePaymentId') or request.order_data.get('chinese_payment_id', 'FRONTEND_SENT')}
                     }
                 
                 # STEP 2: Send payment status notification (NEW)
@@ -347,6 +347,15 @@ async def process_payment_success(
                     # Use Chinese payment ID (MSPY...) for third_pay_id if available, otherwise use original
                     effective_third_pay_id = chinese_payment_id if chinese_payment_id else third_id
                     
+                    # Extract mobile_shell_id from order data (set by model selection screens)
+                    print(f"DEBUG: Full order_data received: {request.order_data}")
+                    mobile_shell_id = request.order_data.get('mobile_shell_id')
+                    if not mobile_shell_id:
+                        print(f"⚠️ WARNING: mobile_shell_id not found in order data - this may cause orderData to fail")
+                        print(f"Available keys in order_data: {list(request.order_data.keys())}")
+                    else:
+                        print(f"✅ Mobile shell ID extracted: {mobile_shell_id}")
+                    
                     print(f"Sending order data: third_pay_id={effective_third_pay_id} (Chinese ID), third_id={order_third_id}")
                     print(f"Original payment ID: {third_id}")
                     print(f"Design image URL: {design_image_url}")
@@ -356,7 +365,8 @@ async def process_payment_success(
                         third_id=order_third_id,  # Order ID 
                         mobile_model_id=chinese_model_id,
                         pic=design_image_url,
-                        device_id=device_id
+                        device_id=device_id,
+                        mobile_shell_id=mobile_shell_id
                     )
                     
                     print(f"Chinese API orderData response: {order_data_response}")

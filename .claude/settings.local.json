@@ -32,7 +32,8 @@
       "Bash(rg:*)",
       "Bash(npx eslint:*)",
       "Bash(del test_image_security.py)",
-      "WebFetch(domain:pimpmycase.onrender.com)"
+      "WebFetch(domain:pimpmycase.onrender.com)",
+      "Bash(npm install)"
     ],
     "deny": []
   }
