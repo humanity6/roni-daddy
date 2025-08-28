@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import time
 import logging
+from threading import Lock
 
 from backend.config.settings import (
     CHINESE_API_BASE_URL, CHINESE_API_ACCOUNT, CHINESE_API_PASSWORD,
@@ -32,6 +33,12 @@ class ChinesePaymentAPIClient:
         self.token = None
         self.token_expires_at = None
         self.session = requests.Session()
+        
+        # CRITICAL FIX: Add caching to prevent redundant API calls
+        self._brand_cache = {}
+        self._stock_cache = {}
+        self._cache_lock = Lock()
+        self._cache_expiry_minutes = 5  # Cache for 5 minutes
         
         # Set default headers
         self.session.headers.update({
@@ -135,6 +142,31 @@ class ChinesePaymentAPIClient:
             return True
             
         return self.login()
+    
+    def _is_cache_valid(self, cache_key: str, cache_dict: dict) -> bool:
+        """Check if cached data is still valid"""
+        if cache_key not in cache_dict:
+            return False
+        
+        cached_data, cached_time = cache_dict[cache_key]
+        cache_age_minutes = (time.time() - cached_time) / 60
+        
+        return cache_age_minutes < self._cache_expiry_minutes
+    
+    def _get_from_cache(self, cache_key: str, cache_dict: dict):
+        """Get data from cache if valid"""
+        with self._cache_lock:
+            if self._is_cache_valid(cache_key, cache_dict):
+                cached_data, _ = cache_dict[cache_key]
+                logger.info(f"Cache HIT for {cache_key}")
+                return cached_data
+        return None
+    
+    def _set_cache(self, cache_key: str, cache_dict: dict, data: dict):
+        """Set data in cache with timestamp"""
+        with self._cache_lock:
+            cache_dict[cache_key] = (data, time.time())
+            logger.info(f"Cache SET for {cache_key}")
 
     def send_payment_data(self, mobile_model_id: str, third_id: str, 
                          pay_amount: float, pay_type: int = 5, 
@@ -309,17 +341,25 @@ class ChinesePaymentAPIClient:
             }
 
     def get_brand_list(self) -> Dict[str, Any]:
-        """Get brand list from Chinese API"""
+        """Get brand list from Chinese API with caching to prevent redundant calls"""
+        cache_key = "brand_list"
+        
+        # CRITICAL FIX: Check cache first to prevent redundant API calls
+        cached_result = self._get_from_cache(cache_key, self._brand_cache)
+        if cached_result:
+            return cached_result
+            
         try:
-            logger.info("Fetching brand list from Chinese API")
+            logger.info("Fetching brand list from Chinese API (cache miss)")
             
             # Ensure we're authenticated
             if not self.ensure_authenticated():
-                return {
+                error_result = {
                     "success": False,
                     "message": "Authentication failed",
                     "brands": []
                 }
+                return error_result
             
             # Empty payload for brand list
             payload = {}
@@ -347,56 +387,71 @@ class ChinesePaymentAPIClient:
                 if data.get("code") == 200:
                     brands = data.get("data", [])
                     logger.info(f"Successfully fetched {len(brands)} brands")
-                    return {
+                    result = {
                         "success": True,
                         "brands": brands,
                         "total_brands": len(brands)
                     }
+                    # Cache successful result
+                    self._set_cache(cache_key, self._brand_cache, result)
+                    return result
                 else:
                     logger.warning(f"Brand list API returned error: {data.get('code')} - {data.get('msg')}")
-                    return {
+                    error_result = {
                         "success": False,
                         "message": data.get('msg', 'Unknown error'),
                         "brands": []
                     }
+                    return error_result
             else:
                 error_msg = f"Brand list failed - HTTP {response.status_code}"
                 logger.error(f"{error_msg}: {response.text}")
-                return {
+                error_result = {
                     "success": False,
                     "message": error_msg,
                     "brands": []
                 }
+                return error_result
                 
         except requests.RequestException as e:
             error_msg = f"Brand list request failed: {str(e)}"
             logger.error(error_msg)
-            return {
+            error_result = {
                 "success": False,
                 "message": error_msg,
                 "brands": []
             }
+            return error_result
         except Exception as e:
             error_msg = f"Brand list exception: {str(e)}"
             logger.error(error_msg)
-            return {
+            error_result = {
                 "success": False,
                 "message": error_msg,
                 "brands": []
             }
+            return error_result
 
     def get_stock_list(self, device_id: str, brand_id: str) -> Dict[str, Any]:
-        """Get stock list for a specific brand and device from Chinese API"""
+        """Get stock list for a specific brand and device from Chinese API with caching"""
+        cache_key = f"stock_{device_id}_{brand_id}"
+        
+        # CRITICAL FIX: Check cache first to prevent redundant API calls
+        cached_result = self._get_from_cache(cache_key, self._stock_cache)
+        if cached_result:
+            return cached_result
+            
         try:
-            logger.info(f"Fetching stock list from Chinese API - device_id: {device_id}, brand_id: {brand_id}")
+            logger.info(f"Fetching stock list from Chinese API (cache miss) - device_id: {device_id}, brand_id: {brand_id}")
             
             # Ensure we're authenticated
             if not self.ensure_authenticated():
-                return {
+                error_result = {
                     "success": False,
                     "message": "Authentication failed",
                     "stock_items": []
                 }
+                return error_result
             
             # Payload for stock list
             payload = {
@@ -428,13 +483,16 @@ class ChinesePaymentAPIClient:
                 if data.get("code") == 200:
                     stock_items = data.get("data", [])
                     logger.info(f"Successfully fetched {len(stock_items)} stock items for brand {brand_id}")
-                    return {
+                    result = {
                         "success": True,
                         "stock_items": stock_items,
                         "total_items": len(stock_items),
                         "device_id": device_id,
                         "brand_id": brand_id
                     }
+                    # Cache successful result
+                    self._set_cache(cache_key, self._stock_cache, result)
+                    return result
                 else:
                     logger.warning(f"Stock list API returned error: {data.get('code')} - {data.get('msg')}")
                     return {

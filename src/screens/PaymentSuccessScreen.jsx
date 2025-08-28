@@ -30,7 +30,6 @@ const PaymentSuccessScreen = () => {
         console.log('PaymentSuccessScreen - mobile_shell_id in selectedModelData:', pendingOrderData.selectedModelData?.mobile_shell_id)
         
         // Extract device_id from multiple sources
-        const urlParams = new URLSearchParams(location.search)
         const deviceIdFromUrl = urlParams.get('device_id') || urlParams.get('machine_id')
         const deviceIdFromState = state.vendingMachineSession?.deviceId
         const deviceIdFromStorage = localStorage.getItem('pimpMyCase_deviceId')

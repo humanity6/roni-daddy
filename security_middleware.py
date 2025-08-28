@@ -423,8 +423,8 @@ def validate_relaxed_api_security(request: Request) -> Dict[str, Any]:
     if not security_manager.is_valid_ip_address(client_ip):
         raise HTTPException(status_code=400, detail="Invalid IP address")
     
-    # Increased rate limit for Chinese partners and API integrations
-    if security_manager.is_rate_limited(f"relaxed:{client_ip}", max_requests=35, window_minutes=1):
+    # CRITICAL FIX: Increased rate limit for Chinese partners and API integrations
+    if security_manager.is_rate_limited(f"relaxed:{client_ip}", max_requests=100, window_minutes=1):
         raise HTTPException(status_code=429, detail="Excessive request rate")
     
     return {

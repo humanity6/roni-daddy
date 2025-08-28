@@ -70,25 +70,13 @@ async def payment_success_page(session_id: str, db: Session = Depends(get_db)):
     try:
         print(f"Payment success page accessed with session: {session_id}")
         
-        # Handle test sessions differently
-        if session_id.startswith('cs_test_session'):
-            # Mock payment success for test sessions
-            session = type('MockSession', (), {
-                'payment_status': 'paid',
-                'metadata': {'template_id': 'classic', 'brand': 'iPhone', 'model': 'iPhone 14'},
-                'created': int(time.time()),
-                'payment_intent': 'pi_test_12345',
-                'amount_total': 1998,  # Mock amount in pence (£19.98)
-                'currency': 'gbp'
-            })()
-            print(f"Test session - mocking successful payment")
-        else:
-            # Retrieve checkout session to verify payment
-            session = stripe.checkout.Session.retrieve(session_id)
-            print(f"Checkout session status: {session.payment_status}")
-            
-            if session.payment_status != 'paid':
-                raise HTTPException(status_code=400, detail="Payment not completed")
+        # CRITICAL FIX: Remove test session handling - no mock data
+        # All payments must go through proper Stripe verification
+        session = stripe.checkout.Session.retrieve(session_id)
+        print(f"Checkout session status: {session.payment_status}")
+        
+        if session.payment_status != 'paid':
+            raise HTTPException(status_code=400, detail="Payment not completed")
         
         # Get metadata from session
         template_name = session.metadata.get('template_id', 'classic')
@@ -96,20 +84,22 @@ async def payment_success_page(session_id: str, db: Session = Depends(get_db)):
         model_name = session.metadata.get('model', 'iPhone 15 Pro')
         color = session.metadata.get('color', 'Natural Titanium')
         
-        # Generate queue number for display
-        queue_no = f"Q{str(int(session.created))[-6:]}"
+        # CRITICAL FIX: No hardcoded queue number generation - must come from Chinese API
+        # This route should not generate queue numbers without Chinese API approval
+        print(f"⚠️ WARNING: payment-success route called - queue numbers should come from Chinese API in process-payment-success")
         
         return {
             "success": True,
             "session_id": session_id,
             "payment_id": session.payment_intent,
-            "queue_no": queue_no,
+            "queue_no": None,  # No hardcoded queue numbers
             "status": "paid",
             "brand": brand_name,
             "model": model_name,
             "color": color,
             "template_id": template_name,
-            "amount": session.amount_total / 100
+            "amount": session.amount_total / 100,
+            "note": "Use process-payment-success endpoint for Chinese API integration"
         }
         
     except stripe.error.StripeError as e:
@@ -130,21 +120,9 @@ async def process_payment_success(
     try:
         print(f"Starting payment processing for session: {request.session_id}")
         
-        # Handle test sessions differently
-        if request.session_id.startswith('cs_test_session'):
-            # Mock payment success for test sessions
-            session = type('MockSession', (), {
-                'payment_status': 'paid',
-                'metadata': {'template_id': 'classic', 'brand': 'iPhone', 'model': 'iPhone 14'},
-                'created': int(time.time()),
-                'payment_intent': 'pi_test_12345',
-                'amount_total': 1998,  # Mock amount in pence (£19.98)
-                'currency': 'gbp'
-            })()
-            print(f"Test session - mocking successful payment processing")
-        else:
-            # Retrieve checkout session to verify payment
-            session = stripe.checkout.Session.retrieve(request.session_id)
+        # CRITICAL FIX: Remove test session handling - no mock data
+        # All payments must go through proper Stripe verification
+        session = stripe.checkout.Session.retrieve(request.session_id)
             
         print(f"Checkout session status: {session.payment_status}")
         print(f"Session amount: {session.amount_total}")
@@ -370,39 +348,62 @@ async def process_payment_success(
                     # Use Chinese payment ID (MSPY...) for third_pay_id if available, otherwise use original
                     effective_third_pay_id = chinese_payment_id if chinese_payment_id else third_id
                     
-                    # Extract mobile_shell_id from order data (set by model selection screens)
+                    # CRITICAL FIX: Extract mobile_shell_id from multiple sources with validation
                     print(f"DEBUG: Full order_data received: {request.order_data}")
-                    mobile_shell_id = request.order_data.get('mobile_shell_id')
+                    
+                    # Try multiple sources for mobile_shell_id
+                    mobile_shell_id = (
+                        request.order_data.get('mobile_shell_id') or 
+                        request.order_data.get('selectedModelData', {}).get('mobile_shell_id')
+                    )
+                    
+                    # Additional validation - get from database if available
+                    if not mobile_shell_id and chinese_model_id:
+                        try:
+                            # Try to find mobile_shell_id from phone model database
+                            phone_model = db.query(PhoneModel).filter(
+                                PhoneModel.chinese_model_id == chinese_model_id
+                            ).first()
+                            
+                            if phone_model and hasattr(phone_model, 'mobile_shell_id'):
+                                mobile_shell_id = phone_model.mobile_shell_id
+                                print(f"✅ Mobile shell ID retrieved from database: {mobile_shell_id}")
+                        except Exception as db_error:
+                            print(f"⚠️ Database lookup for mobile_shell_id failed: {db_error}")
+                    
                     if not mobile_shell_id:
-                        print(f"❌ CRITICAL: mobile_shell_id not found in order data - this WILL cause orderData to fail")
+                        print(f"❌ CRITICAL: mobile_shell_id not found in any source - this WILL cause orderData to fail")
                         print(f"Available keys in order_data: {list(request.order_data.keys())}")
-                        # Don't proceed without mobile_shell_id
-                        mobile_shell_id = None
+                        print(f"selectedModelData keys: {list(request.order_data.get('selectedModelData', {}).keys())}")
+                        
+                        # CRITICAL FIX: Fail the vending machine payment if mobile_shell_id is missing
+                        if is_vending_payment and device_id:
+                            raise HTTPException(
+                                status_code=400,
+                                detail="Vending machine payment failed: mobile_shell_id is required for Chinese API integration. Please select your phone model again."
+                            )
+                        else:
+                            # For app-only payments, still try to proceed but log warning
+                            print(f"⚠️ App payment proceeding without mobile_shell_id - Chinese API may fail")
+                            mobile_shell_id = None
                     else:
                         print(f"✅ Mobile shell ID extracted: {mobile_shell_id}")
                     
                     print(f"Sending order data: third_pay_id={effective_third_pay_id} (Chinese ID), third_id={order_third_id}")
                     print(f"Original payment ID: {third_id}")
                     print(f"Design image URL: {design_image_url}")
+                    print(f"Mobile shell ID: {mobile_shell_id}")
                     
-                    # Skip orderData if mobile_shell_id is missing - this will cause failure
-                    if not mobile_shell_id:
-                        print(f"❌ ABORTING: Cannot call orderData without mobile_shell_id - Chinese API will reject it")
-                        order_data_response = {
-                            'code': 400,
-                            'msg': 'mobile_shell_id missing from frontend - cannot proceed with orderData'
-                        }
-                        chinese_queue_no = None
-                    else:
-                        print(f"✅ Calling Chinese API orderData with mobile_shell_id: {mobile_shell_id}")
-                        order_data_response = send_order_data_to_chinese_api(
-                            third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
-                            third_id=order_third_id,  # Order ID 
-                            mobile_model_id=chinese_model_id,
-                            pic=design_image_url,
-                            device_id=device_id,
-                            mobile_shell_id=mobile_shell_id
-                        )
+                    # Always call orderData if we have device_id - let Chinese API handle validation
+                    print(f"✅ Calling Chinese API orderData")
+                    order_data_response = send_order_data_to_chinese_api(
+                        third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
+                        third_id=order_third_id,  # Order ID 
+                        mobile_model_id=chinese_model_id,
+                        pic=design_image_url,
+                        device_id=device_id,
+                        mobile_shell_id=mobile_shell_id
+                    )
                     
                     print(f"Chinese API orderData response: {order_data_response}")
                     
@@ -454,26 +455,49 @@ async def process_payment_success(
             chinese_queue_no = None
             # Don't fail the order if Chinese API fails, just log the error
         
-        # Generate queue number for display - use Chinese API queue if available
+        # CRITICAL FIX: Only use Chinese API queue numbers - no fallback generation
         if chinese_queue_no:
             queue_no = chinese_queue_no
             print(f"✅ Final queue number from Chinese API: {queue_no}")
+            
+            return {
+                "success": True,
+                "order_id": order.id,
+                "payment_id": session.payment_intent,
+                "queue_no": queue_no,
+                "status": "paid",
+                "brand": brand_name,
+                "model": model_name,
+                "color": color,
+                "template_id": template_name,
+                "amount": session.amount_total / 100
+            }
         else:
-            queue_no = f"Q{str(order.created_at.timestamp())[-6:]}"
-            print(f"⚠️ Using fallback queue number: {queue_no}")
-        
-        return {
-            "success": True,
-            "order_id": order.id,
-            "payment_id": session.payment_intent,
-            "queue_no": queue_no,
-            "status": "paid",
-            "brand": brand_name,
-            "model": model_name,
-            "color": color,
-            "template_id": template_name,
-            "amount": session.amount_total / 100
-        }
+            # No fallback queue number - Chinese API integration is mandatory for vending payments
+            print(f"❌ CRITICAL: Chinese API integration failed - cannot generate queue number without Chinese approval")
+            
+            if is_vending_payment and device_id:
+                # For vending machine payments, Chinese API is mandatory
+                raise HTTPException(
+                    status_code=503,
+                    detail="Vending machine payment failed: Chinese API integration required but unavailable. Please try again or contact support."
+                )
+            else:
+                # For app-only payments without device_id, return success without queue number
+                print(f"ℹ️ App-only payment completed without vending machine integration")
+                return {
+                    "success": True,
+                    "order_id": order.id,
+                    "payment_id": session.payment_intent,
+                    "queue_no": None,  # No queue number for app-only payments
+                    "status": "paid",
+                    "brand": brand_name,
+                    "model": model_name,
+                    "color": color,
+                    "template_id": template_name,
+                    "amount": session.amount_total / 100,
+                    "note": "App payment completed - no vending machine queue"
+                }
         
     except stripe.error.StripeError as e:
         print(f"Stripe error: {str(e)}")
