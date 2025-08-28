@@ -245,208 +245,209 @@ async def process_payment_success(
                     
                     # STEP 2: Send payment status notification (NEW)
                     print(f"STEP 2: Sending payment status notification to Chinese API...")
-                try:
-                    payment_status_response = send_payment_status_to_chinese_api(
-                        third_id=third_id,
-                        status=3,  # 3 = Paid status in Chinese system
-                        pay_amount=float(session.amount_total / 100)
-                    )
-                    print(f"Chinese API payStatus response: {payment_status_response}")
-                    
-                    if payment_status_response.get('code') == 200:
-                        print("SUCCESS: Payment status notification sent to Chinese API")
-                    else:
-                        print(f"WARNING: Payment status notification failed: {payment_status_response.get('msg')}")
+                    try:
+                        payment_status_response = send_payment_status_to_chinese_api(
+                            third_id=third_id,
+                            status=3,  # 3 = Paid status in Chinese system
+                            pay_amount=float(session.amount_total / 100)
+                        )
+                        print(f"Chinese API payStatus response: {payment_status_response}")
                         
-                except Exception as status_error:
-                    print(f"WARNING: Payment status notification failed: {str(status_error)}")
-                    # Continue with order data submission even if status notification fails
-                
-                # STEP 3: Generate design image URL with secure token and send order data
-                print(f"STEP 3: Preparing order data for Chinese API...")
-                
-                try:
-                    from backend.services.file_service import generate_partner_specific_token
-                    
-                    # Get final design image URL for Chinese API
-                    base_image_url = None
-                    filename = None
-                    
-                    # Priority 1: Use the uploaded final image URL (permanent, hosted on render.com)
-                    if request.order_data.get('finalImagePublicUrl'):
-                        base_image_url = request.order_data.get('finalImagePublicUrl')
-                        # Extract filename from URL for token generation
-                        filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
-                        print(f"✅ Using uploaded final image URL: {base_image_url}")
-                        
-                    # Priority 2: Try to find session-based filename if we have session ID
-                    elif request.order_data.get('imageSessionId'):
-                        session_id = request.order_data.get('imageSessionId')
-                        # Try to construct filename based on session ID (this is a fallback)
-                        filename = f"order-{session_id}-final-*.png"
-                        base_image_url = f"https://pimpmycase.onrender.com/image/{filename}"
-                        print(f"⚠️ Using session-based URL pattern: {base_image_url}")
-                        
-                    # Priority 3: Check if designImage is already a permanent URL
-                    elif request.order_data.get('designImage') and request.order_data.get('designImage').startswith('https://pimpmycase.onrender.com'):
-                        base_image_url = request.order_data.get('designImage')
-                        # Extract filename from URL for token generation
-                        filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
-                        print(f"✅ Using existing permanent URL from designImage: {base_image_url}")
-                        
-                    # Priority 4: Check if pic field contains permanent URL  
-                    elif request.order_data.get('pic') and request.order_data.get('pic').startswith('https://pimpmycase.onrender.com'):
-                        base_image_url = request.order_data.get('pic')
-                        # Extract filename from URL for token generation
-                        filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
-                        print(f"✅ Using existing permanent URL from pic field: {base_image_url}")
-                        
-                    # NO FALLBACK - User specifically requested no fallback handling
-                    else:
-                        print(f"❌ CRITICAL: No valid image URL found in order data")
-                        print(f"Available order_data keys: {list(request.order_data.keys())}")
-                        print(f"finalImagePublicUrl: {request.order_data.get('finalImagePublicUrl')}")
-                        print(f"designImage: {request.order_data.get('designImage')}")
-                        print(f"imageSessionId: {request.order_data.get('imageSessionId')}")
-                        raise HTTPException(status_code=400, detail="No valid image URL provided - cannot proceed with Chinese API order")
-                    
-                    # Generate secure token for Chinese API access (48 hours expiry)
-                    if filename and base_image_url.startswith('https://pimpmycase.onrender.com/image/'):
-                        try:
-                            # Generate Chinese manufacturing partner token with 48-hour expiry
-                            secure_token = generate_partner_specific_token(
-                                filename, 
-                                partner_type="chinese_manufacturing", 
-                                custom_expiry_hours=48
-                            )
-                            design_image_url = f"{base_image_url}?token={secure_token}"
-                            print(f"🔐 Generated secure Chinese manufacturing token (48h) for: {design_image_url}")
-                        except Exception as token_error:
-                            print(f"⚠️ Chinese manufacturing token generation failed: {token_error}, using base URL")
-                            design_image_url = base_image_url
-                    else:
-                        design_image_url = base_image_url
-                        print(f"ℹ️ Using base URL (no token needed): {design_image_url}")
-                    
-                    # Generate order third_id (different from payment third_id) 
-                    # Use session ID as base if available for consistency
-                    order_prefix = "OREN"
-                    if request.order_data.get('imageSessionId'):
-                        order_third_id = f"{order_prefix}-{request.order_data.get('imageSessionId')}"
-                    else:
-                        order_third_id = generate_third_id("OREN")
-                    
-                    # Get Chinese payment ID from database mapping (MSPY...) instead of using PYEN...
-                    from backend.routes.chinese_api import get_payment_mapping
-                    chinese_payment_id = None
-                    
-                    if third_id.startswith('PYEN'):
-                        chinese_payment_id = get_payment_mapping(db, third_id)
-                        if not chinese_payment_id:
-                            print(f"⚠️ WARNING: No Chinese payment ID found for {third_id} - this may cause orderData to fail")
-                    
-                    # Use Chinese payment ID (MSPY...) for third_pay_id if available, otherwise use original
-                    effective_third_pay_id = chinese_payment_id if chinese_payment_id else third_id
-                    
-                    # CRITICAL FIX: Extract mobile_shell_id from multiple sources with validation
-                    print(f"DEBUG: Full order_data received: {request.order_data}")
-                    
-                    # Try multiple sources for mobile_shell_id
-                    mobile_shell_id = (
-                        request.order_data.get('mobile_shell_id') or 
-                        request.order_data.get('selectedModelData', {}).get('mobile_shell_id')
-                    )
-                    
-                    # Additional validation - get from database if available
-                    if not mobile_shell_id and chinese_model_id:
-                        try:
-                            # Try to find mobile_shell_id from phone model database
-                            phone_model = db.query(PhoneModel).filter(
-                                PhoneModel.chinese_model_id == chinese_model_id
-                            ).first()
-                            
-                            if phone_model and hasattr(phone_model, 'mobile_shell_id'):
-                                mobile_shell_id = phone_model.mobile_shell_id
-                                print(f"✅ Mobile shell ID retrieved from database: {mobile_shell_id}")
-                        except Exception as db_error:
-                            print(f"⚠️ Database lookup for mobile_shell_id failed: {db_error}")
-                    
-                    if not mobile_shell_id:
-                        print(f"❌ CRITICAL: mobile_shell_id not found in any source - this WILL cause orderData to fail")
-                        print(f"Available keys in order_data: {list(request.order_data.keys())}")
-                        print(f"selectedModelData keys: {list(request.order_data.get('selectedModelData', {}).keys())}")
-                        
-                        # CRITICAL FIX: Fail the vending machine payment if mobile_shell_id is missing
-                        if is_vending_payment and device_id:
-                            raise HTTPException(
-                                status_code=400,
-                                detail="Vending machine payment failed: mobile_shell_id is required for Chinese API integration. Please select your phone model again."
-                            )
+                        if payment_status_response.get('code') == 200:
+                            print("SUCCESS: Payment status notification sent to Chinese API")
                         else:
-                            # For app-only payments, still try to proceed but log warning
-                            print(f"⚠️ App payment proceeding without mobile_shell_id - Chinese API may fail")
-                            mobile_shell_id = None
+                            print(f"WARNING: Payment status notification failed: {payment_status_response.get('msg')}")
+                            
+                    except Exception as status_error:
+                        print(f"WARNING: Payment status notification failed: {str(status_error)}")
+                        # Continue with order data submission even if status notification fails
+                    
+                    # STEP 3: Generate design image URL with secure token and send order data
+                    print(f"STEP 3: Preparing order data for Chinese API...")
+                    
+                    try:
+                        from backend.services.file_service import generate_partner_specific_token
+                        
+                        # Get final design image URL for Chinese API
+                        base_image_url = None
+                        filename = None
+                        
+                        # Priority 1: Use the uploaded final image URL (permanent, hosted on render.com)
+                        if request.order_data.get('finalImagePublicUrl'):
+                            base_image_url = request.order_data.get('finalImagePublicUrl')
+                            # Extract filename from URL for token generation
+                            filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                            print(f"✅ Using uploaded final image URL: {base_image_url}")
+                            
+                        # Priority 2: Try to find session-based filename if we have session ID
+                        elif request.order_data.get('imageSessionId'):
+                            session_id = request.order_data.get('imageSessionId')
+                            # Try to construct filename based on session ID (this is a fallback)
+                            filename = f"order-{session_id}-final-*.png"
+                            base_image_url = f"https://pimpmycase.onrender.com/image/{filename}"
+                            print(f"⚠️ Using session-based URL pattern: {base_image_url}")
+                            
+                        # Priority 3: Check if designImage is already a permanent URL
+                        elif request.order_data.get('designImage') and request.order_data.get('designImage').startswith('https://pimpmycase.onrender.com'):
+                            base_image_url = request.order_data.get('designImage')
+                            # Extract filename from URL for token generation
+                            filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                            print(f"✅ Using existing permanent URL from designImage: {base_image_url}")
+                            
+                        # Priority 4: Check if pic field contains permanent URL  
+                        elif request.order_data.get('pic') and request.order_data.get('pic').startswith('https://pimpmycase.onrender.com'):
+                            base_image_url = request.order_data.get('pic')
+                            # Extract filename from URL for token generation
+                            filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                            print(f"✅ Using existing permanent URL from pic field: {base_image_url}")
+                            
+                        # NO FALLBACK - User specifically requested no fallback handling
+                        else:
+                            print(f"❌ CRITICAL: No valid image URL found in order data")
+                            print(f"Available order_data keys: {list(request.order_data.keys())}")
+                            print(f"finalImagePublicUrl: {request.order_data.get('finalImagePublicUrl')}")
+                            print(f"designImage: {request.order_data.get('designImage')}")
+                            print(f"imageSessionId: {request.order_data.get('imageSessionId')}")
+                            raise HTTPException(status_code=400, detail="No valid image URL provided - cannot proceed with Chinese API order")
+                        
+                        # Generate secure token for Chinese API access (48 hours expiry)
+                        if filename and base_image_url.startswith('https://pimpmycase.onrender.com/image/'):
+                            try:
+                                # Generate Chinese manufacturing partner token with 48-hour expiry
+                                secure_token = generate_partner_specific_token(
+                                    filename, 
+                                    partner_type="chinese_manufacturing", 
+                                    custom_expiry_hours=48
+                                )
+                                design_image_url = f"{base_image_url}?token={secure_token}"
+                                print(f"🔒 Generated secure Chinese manufacturing token (48h) for: {design_image_url}")
+                            except Exception as token_error:
+                                print(f"⚠️ Chinese manufacturing token generation failed: {token_error}, using base URL")
+                                design_image_url = base_image_url
+                        else:
+                            design_image_url = base_image_url
+                            print(f"ℹ️ Using base URL (no token needed): {design_image_url}")
+                        
+                        # Generate order third_id (different from payment third_id) 
+                        # Use session ID as base if available for consistency
+                        order_prefix = "OREN"
+                        if request.order_data.get('imageSessionId'):
+                            order_third_id = f"{order_prefix}-{request.order_data.get('imageSessionId')}"
+                        else:
+                            order_third_id = generate_third_id("OREN")
+                        
+                        # Get Chinese payment ID from database mapping (MSPY...) instead of using PYEN...
+                        from backend.routes.chinese_api import get_payment_mapping
+                        chinese_payment_id = None
+                        
+                        if third_id.startswith('PYEN'):
+                            chinese_payment_id = get_payment_mapping(db, third_id)
+                            if not chinese_payment_id:
+                                print(f"⚠️ WARNING: No Chinese payment ID found for {third_id} - this may cause orderData to fail")
+                        
+                        # Use Chinese payment ID (MSPY...) for third_pay_id if available, otherwise use original
+                        effective_third_pay_id = chinese_payment_id if chinese_payment_id else third_id
+                        
+                        # CRITICAL FIX: Extract mobile_shell_id from multiple sources with validation
+                        print(f"DEBUG: Full order_data received: {request.order_data}")
+                        
+                        # Try multiple sources for mobile_shell_id
+                        mobile_shell_id = (
+                            request.order_data.get('mobile_shell_id') or 
+                            request.order_data.get('selectedModelData', {}).get('mobile_shell_id')
+                        )
+                        
+                        # Additional validation - get from database if available
+                        if not mobile_shell_id and chinese_model_id:
+                            try:
+                                # Try to find mobile_shell_id from phone model database
+                                phone_model = db.query(PhoneModel).filter(
+                                    PhoneModel.chinese_model_id == chinese_model_id
+                                ).first()
+                                
+                                if phone_model and hasattr(phone_model, 'mobile_shell_id'):
+                                    mobile_shell_id = phone_model.mobile_shell_id
+                                    print(f"✅ Mobile shell ID retrieved from database: {mobile_shell_id}")
+                            except Exception as db_error:
+                                print(f"⚠️ Database lookup for mobile_shell_id failed: {db_error}")
+                        
+                        if not mobile_shell_id:
+                            print(f"❌ CRITICAL: mobile_shell_id not found in any source - this WILL cause orderData to fail")
+                            print(f"Available keys in order_data: {list(request.order_data.keys())}")
+                            print(f"selectedModelData keys: {list(request.order_data.get('selectedModelData', {}).keys())}")
+                            
+                            # CRITICAL FIX: Fail the vending machine payment if mobile_shell_id is missing
+                            if is_vending_payment and device_id:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail="Vending machine payment failed: mobile_shell_id is required for Chinese API integration. Please select your phone model again."
+                                )
+                            else:
+                                # For app-only payments, still try to proceed but log warning
+                                print(f"⚠️ App payment proceeding without mobile_shell_id - Chinese API may fail")
+                                mobile_shell_id = None
+                        else:
+                            print(f"✅ Mobile shell ID extracted: {mobile_shell_id}")
+                        
+                        print(f"Sending order data: third_pay_id={effective_third_pay_id} (Chinese ID), third_id={order_third_id}")
+                        print(f"Original payment ID: {third_id}")
+                        print(f"Design image URL: {design_image_url}")
+                        print(f"Mobile shell ID: {mobile_shell_id}")
+                        
+                        # Always call orderData if we have device_id - let Chinese API handle validation
+                        print(f"✅ Calling Chinese API orderData")
+                        order_data_response = send_order_data_to_chinese_api(
+                            third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
+                            third_id=order_third_id,  # Order ID 
+                            mobile_model_id=chinese_model_id,
+                            pic=design_image_url,
+                            device_id=device_id,
+                            mobile_shell_id=mobile_shell_id
+                        )
+                        
+                        print(f"Chinese API orderData response: {order_data_response}")
+                        
+                        if order_data_response.get('code') == 200:
+                            print("SUCCESS: Order data sent to Chinese API for printing")
+                            order_data = order_data_response.get('data', {})
+                            
+                            # Store Chinese order information
+                            order.chinese_order_id = order_data.get('id')
+                            order.queue_number = order_data.get('queue_no')
+                            order.chinese_order_status = order_data.get('status', 8)  # 8 = Waiting for printing
+                            
+                            # Use Chinese API queue number if available
+                            chinese_queue_no = order_data.get('queue_no')
+                            if chinese_queue_no:
+                                print(f"✅ Using Chinese API queue number: {chinese_queue_no}")
+                            
+                        else:
+                            print(f"WARNING: Order data submission failed: {order_data_response.get('msg')}")
+                            chinese_queue_no = None
+                            
+                    except Exception as order_error:
+                        print(f"WARNING: Order data submission failed: {str(order_error)}")
+                        import traceback
+                        traceback.print_exc()
+                        chinese_queue_no = None
+                    
+                    # Store Chinese payment info in order (from step 1)
+                    if chinese_payment_response and chinese_payment_response.get('code') == 200:
+                        order.third_party_payment_id = third_id
+                        order.chinese_payment_id = chinese_payment_response.get('data', {}).get('id')
+                        order.chinese_payment_status = 3  # Paid status in Chinese system
+                        db.commit()
+                        print(f"Successfully completed Chinese API integration")
                     else:
-                        print(f"✅ Mobile shell ID extracted: {mobile_shell_id}")
-                    
-                    print(f"Sending order data: third_pay_id={effective_third_pay_id} (Chinese ID), third_id={order_third_id}")
-                    print(f"Original payment ID: {third_id}")
-                    print(f"Design image URL: {design_image_url}")
-                    print(f"Mobile shell ID: {mobile_shell_id}")
-                    
-                    # Always call orderData if we have device_id - let Chinese API handle validation
-                    print(f"✅ Calling Chinese API orderData")
-                    order_data_response = send_order_data_to_chinese_api(
-                        third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
-                        third_id=order_third_id,  # Order ID 
-                        mobile_model_id=chinese_model_id,
-                        pic=design_image_url,
-                        device_id=device_id,
-                        mobile_shell_id=mobile_shell_id
-                    )
-                    
-                    print(f"Chinese API orderData response: {order_data_response}")
-                    
-                    if order_data_response.get('code') == 200:
-                        print("SUCCESS: Order data sent to Chinese API for printing")
-                        order_data = order_data_response.get('data', {})
-                        
-                        # Store Chinese order information
-                        order.chinese_order_id = order_data.get('id')
-                        order.queue_number = order_data.get('queue_no')
-                        order.chinese_order_status = order_data.get('status', 8)  # 8 = Waiting for printing
-                        
-                        # Use Chinese API queue number if available
-                        chinese_queue_no = order_data.get('queue_no')
-                        if chinese_queue_no:
-                            print(f"✅ Using Chinese API queue number: {chinese_queue_no}")
-                        
-                    else:
-                        print(f"WARNING: Order data submission failed: {order_data_response.get('msg')}")
+                        print(f"Chinese API payment failed: {chinese_payment_response.get('msg') if chinese_payment_response else 'No response'}")
                         chinese_queue_no = None
                         
-                except Exception as order_error:
-                    print(f"WARNING: Order data submission failed: {str(order_error)}")
-                    import traceback
-                    traceback.print_exc()
-                    chinese_queue_no = None
-                
-                # Store Chinese payment info in order (from step 1)
-                if chinese_payment_response and chinese_payment_response.get('code') == 200:
-                    order.third_party_payment_id = third_id
-                    order.chinese_payment_id = chinese_payment_response.get('data', {}).get('id')
-                    order.chinese_payment_status = 3  # Paid status in Chinese system
-                    db.commit()
-                    print(f"Successfully completed Chinese API integration")
+                # No Chinese model ID found for app payment
                 else:
-                    print(f"Chinese API payment failed: {chinese_payment_response.get('msg') if chinese_payment_response else 'No response'}")
+                    print(f"No Chinese model ID found for app payment, skipping Chinese API integration")
                     chinese_queue_no = None
                     
-                print(f"=== COMPLETE CHINESE API INTEGRATION END ===")
-                
-            else:
-                print(f"No Chinese model ID found for app payment, skipping Chinese API integration")
-                chinese_queue_no = None
+            print(f"=== COMPLETE CHINESE API INTEGRATION END ===")
                 
         except Exception as chinese_error:
             print(f"CRITICAL: Chinese API integration failed: {str(chinese_error)}")
