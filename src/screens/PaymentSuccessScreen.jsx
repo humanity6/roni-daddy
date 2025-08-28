@@ -6,7 +6,7 @@ import { useAppState } from '../contexts/AppStateContext'
 const PaymentSuccessScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { actions } = useAppState()
+  const { state, actions } = useAppState()
   const [isProcessing, setIsProcessing] = useState(true)
   const [orderData, setOrderData] = useState(null)
   const [error, setError] = useState(null)
@@ -26,7 +26,25 @@ const PaymentSuccessScreen = () => {
         const pendingOrderData = JSON.parse(localStorage.getItem('pendingOrder') || '{}')
         console.log('PaymentSuccessScreen - pendingOrderData from localStorage:', pendingOrderData)
         console.log('PaymentSuccessScreen - selectedModelData:', pendingOrderData.selectedModelData)
+        console.log('PaymentSuccessScreen - mobile_shell_id direct:', pendingOrderData.mobile_shell_id)
         console.log('PaymentSuccessScreen - mobile_shell_id in selectedModelData:', pendingOrderData.selectedModelData?.mobile_shell_id)
+        
+        // Extract device_id from multiple sources
+        const urlParams = new URLSearchParams(location.search)
+        const deviceIdFromUrl = urlParams.get('device_id') || urlParams.get('machine_id')
+        const deviceIdFromState = state.vendingMachineSession?.deviceId
+        const deviceIdFromStorage = localStorage.getItem('pimpMyCase_deviceId')
+        const deviceIdFromPending = pendingOrderData.deviceId
+        
+        // Priority order: URL params > App state > localStorage > pendingOrderData
+        const deviceId = deviceIdFromUrl || deviceIdFromState || deviceIdFromStorage || deviceIdFromPending
+        console.log('PaymentSuccessScreen - Device ID resolution:', {
+          fromUrl: deviceIdFromUrl,
+          fromState: deviceIdFromState, 
+          fromStorage: deviceIdFromStorage,
+          fromPending: deviceIdFromPending,
+          final: deviceId
+        })
         
         // Prepare order data with Chinese API information
         const orderData = {
@@ -39,12 +57,21 @@ const PaymentSuccessScreen = () => {
           orderData.mobile_model_id = pendingOrderData.selectedModelData.chinese_model_id
         }
         
-        if (pendingOrderData.selectedModelData?.mobile_shell_id) {
-          orderData.mobile_shell_id = pendingOrderData.selectedModelData.mobile_shell_id
+        // Get mobile_shell_id from direct property or from selectedModelData as fallback
+        const mobileShellId = pendingOrderData.mobile_shell_id || pendingOrderData.selectedModelData?.mobile_shell_id
+        if (mobileShellId) {
+          orderData.mobile_shell_id = mobileShellId
+          console.log('PaymentSuccessScreen - Using mobile_shell_id:', mobileShellId)
+        } else {
+          console.warn('PaymentSuccessScreen - No mobile_shell_id found in pendingOrderData')
         }
         
-        if (pendingOrderData.deviceId) {
-          orderData.device_id = pendingOrderData.deviceId
+        // Always include device_id if available from any source
+        if (deviceId) {
+          orderData.device_id = deviceId
+          console.log('PaymentSuccessScreen - Using device_id:', deviceId)
+        } else {
+          console.warn('PaymentSuccessScreen - No device_id found from any source')
         }
         
         if (pendingOrderData.chinesePaymentData?.third_id) {

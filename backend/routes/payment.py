@@ -210,51 +210,63 @@ async def process_payment_success(
             
             # Get Chinese model ID from order data or device_id from request
             device_id = request.order_data.get('device_id')
-            if not device_id:
-                raise HTTPException(status_code=400, detail="device_id is required for Chinese API integration")
             chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
             
-            # Get third_id from request data if available (from PaymentScreen.jsx)
-            existing_third_id = request.order_data.get('paymentThirdId') or request.order_data.get('third_id')
+            # Determine if this is a vending machine payment based on payment method or presence of device_id
+            payment_method = request.order_data.get('paymentMethod', 'app')
+            is_vending_payment = payment_method == 'vending_machine' or bool(device_id)
             
-            if chinese_model_id:
-                # Generate third_id for Chinese API if not provided from frontend
-                from backend.utils.helpers import generate_third_id
-                third_id = existing_third_id or generate_third_id()
+            print(f"Payment method: {payment_method}, has device_id: {bool(device_id)}, is_vending_payment: {is_vending_payment}")
+            
+            if not device_id and is_vending_payment:
+                raise HTTPException(status_code=400, detail="device_id is required for vending machine payments")
+            elif not device_id:
+                print(f"⚠️ No device_id provided - skipping Chinese API integration (app-only payment)")
+                chinese_queue_no = None
+                # Skip Chinese API integration for app-only payments without device_id
+                print(f"=== COMPLETE CHINESE API INTEGRATION END (SKIPPED - NO DEVICE_ID) ===")
+            else:
+                # Get third_id from request data if available (from PaymentScreen.jsx)
+                existing_third_id = request.order_data.get('paymentThirdId') or request.order_data.get('third_id')
                 
-                print(f"Chinese API integration: device_id={device_id}, model_id={chinese_model_id}, third_id={third_id}")
-                
-                # Import Chinese API functions
-                from backend.services.chinese_payment_service import (
-                    send_payment_to_chinese_api, 
-                    send_payment_status_to_chinese_api,
-                    send_order_data_to_chinese_api
-                )
-                
-                # STEP 1: Send payment data to Chinese API (if not already done by frontend)
-                print(f"STEP 1: Sending payment data to Chinese API...")
-                chinese_payment_response = None
-                
-                if not existing_third_id:
-                    # Frontend didn't call payData, so we need to call it now
-                    chinese_payment_response = send_payment_to_chinese_api(
-                        mobile_model_id=chinese_model_id,
-                        device_id=device_id,
-                        third_id=third_id,
-                        pay_amount=float(session.amount_total / 100),
-                        pay_type=12  # App payment type
+                if chinese_model_id:
+                    # Generate third_id for Chinese API if not provided from frontend
+                    from backend.utils.helpers import generate_third_id
+                    third_id = existing_third_id or generate_third_id()
+                    
+                    print(f"Chinese API integration: device_id={device_id}, model_id={chinese_model_id}, third_id={third_id}")
+                    
+                    # Import Chinese API functions
+                    from backend.services.chinese_payment_service import (
+                        send_payment_to_chinese_api, 
+                        send_payment_status_to_chinese_api,
+                        send_order_data_to_chinese_api
                     )
-                    print(f"Chinese API payData response: {chinese_payment_response}")
-                else:
-                    print(f"Payment data already sent by frontend with third_id: {third_id}")
-                    # Create a mock response for consistency
-                    chinese_payment_response = {
-                        'code': 200,
-                        'data': {'id': request.order_data.get('chinesePaymentId') or request.order_data.get('chinese_payment_id', 'FRONTEND_SENT')}
-                    }
                 
-                # STEP 2: Send payment status notification (NEW)
-                print(f"STEP 2: Sending payment status notification to Chinese API...")
+                    # STEP 1: Send payment data to Chinese API (if not already done by frontend)
+                    print(f"STEP 1: Sending payment data to Chinese API...")
+                    chinese_payment_response = None
+                    
+                    if not existing_third_id:
+                        # Frontend didn't call payData, so we need to call it now
+                        chinese_payment_response = send_payment_to_chinese_api(
+                            mobile_model_id=chinese_model_id,
+                            device_id=device_id,
+                            third_id=third_id,
+                            pay_amount=float(session.amount_total / 100),
+                            pay_type=12  # App payment type
+                        )
+                        print(f"Chinese API payData response: {chinese_payment_response}")
+                    else:
+                        print(f"Payment data already sent by frontend with third_id: {third_id}")
+                        # Create a mock response for consistency
+                        chinese_payment_response = {
+                            'code': 200,
+                            'data': {'id': request.order_data.get('chinesePaymentId') or request.order_data.get('chinese_payment_id', 'FRONTEND_SENT')}
+                        }
+                    
+                    # STEP 2: Send payment status notification (NEW)
+                    print(f"STEP 2: Sending payment status notification to Chinese API...")
                 try:
                     payment_status_response = send_payment_status_to_chinese_api(
                         third_id=third_id,

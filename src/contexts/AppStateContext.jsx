@@ -21,6 +21,15 @@ const initialState = {
     expiresAt: null
   },
   
+  // Brands Cache
+  brandsCache: {
+    brands: [],
+    apiModels: {},
+    deviceId: null, // Track which device_id the cache is for
+    timestamp: null,
+    loaded: false
+  },
+  
   // User selections
   brand: null,
   model: null,
@@ -70,7 +79,9 @@ const ACTIONS = {
   SET_LOADING: 'SET_LOADING',
   RESET_STATE: 'RESET_STATE',
   SET_VENDING_MACHINE_SESSION: 'SET_VENDING_MACHINE_SESSION',
-  UPDATE_VENDING_SESSION_STATUS: 'UPDATE_VENDING_SESSION_STATUS'
+  UPDATE_VENDING_SESSION_STATUS: 'UPDATE_VENDING_SESSION_STATUS',
+  SET_BRANDS_CACHE: 'SET_BRANDS_CACHE',
+  CLEAR_BRANDS_CACHE: 'CLEAR_BRANDS_CACHE'
 }
 
 // Reducer
@@ -207,6 +218,28 @@ const appStateReducer = (state, action) => {
           ...state.vendingMachineSession,
           sessionStatus: action.payload.status,
           ...action.payload
+        }
+      }
+    
+    case ACTIONS.SET_BRANDS_CACHE:
+      return {
+        ...state,
+        brandsCache: {
+          ...action.payload,
+          timestamp: Date.now(),
+          loaded: true
+        }
+      }
+    
+    case ACTIONS.CLEAR_BRANDS_CACHE:
+      return {
+        ...state,
+        brandsCache: {
+          brands: [],
+          apiModels: {},
+          deviceId: null,
+          timestamp: null,
+          loaded: false
         }
       }
     
@@ -585,6 +618,15 @@ export const AppStateProvider = ({ children }) => {
     updateVendingSessionStatus: (statusData) => dispatch({
       type: ACTIONS.UPDATE_VENDING_SESSION_STATUS,
       payload: statusData
+    }),
+    
+    setBrandsCache: (brands, apiModels, deviceId) => dispatch({
+      type: ACTIONS.SET_BRANDS_CACHE,
+      payload: { brands, apiModels, deviceId }
+    }),
+    
+    clearBrandsCache: () => dispatch({
+      type: ACTIONS.CLEAR_BRANDS_CACHE
     })
   }
 

@@ -6,7 +6,7 @@ import { useAppState } from '../contexts/AppStateContext'
 
 const PhoneBrandScreen = () => {
   const navigate = useNavigate()
-  const { state: appState } = useAppState()
+  const { state: appState, actions } = useAppState()
   const [selectedBrand, setSelectedBrand] = useState('')
   const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
@@ -37,9 +37,22 @@ const PhoneBrandScreen = () => {
       return
     }
 
-    // Skip if we already loaded for this deviceId
+    // Check session-level cache first
+    const cache = appState.brandsCache
+    if (cache.loaded && cache.deviceId === deviceId && cache.brands.length > 0) {
+      // Cache hit - use cached data
+      console.log('🎯 PhoneBrandScreen - Using session cache for deviceId:', deviceId)
+      setBrands(cache.brands)
+      setApiModels(cache.apiModels || {})
+      setLoading(false)
+      setError(null)
+      lastDeviceIdRef.current = deviceId
+      return
+    }
+
+    // Skip if we already loaded for this deviceId (fallback check)
     if (lastDeviceIdRef.current === deviceId && brands.length > 0) {
-      console.log('📋 PhoneBrandScreen - Using cached brands for deviceId:', deviceId)
+      console.log('📋 PhoneBrandScreen - Using local cached brands for deviceId:', deviceId)
       return
     }
     try {
@@ -68,9 +81,8 @@ const PhoneBrandScreen = () => {
       lastDeviceIdRef.current = deviceId // Store the deviceId we loaded for
       
       // Pre-load models for available brands if device_id is available
+      const modelsData = {}
       if (deviceId) {
-        const modelsData = {}
-        
         for (const brand of brandsResult.brands) {
           if (brand.available) {
             try {
@@ -87,9 +99,13 @@ const PhoneBrandScreen = () => {
             }
           }
         }
-        
-        setApiModels(modelsData)
       }
+      
+      setApiModels(modelsData)
+      
+      // Cache the data in session-level state
+      actions.setBrandsCache(brandsResult.brands, modelsData, deviceId)
+      console.log('💾 PhoneBrandScreen - Brands and models cached for session')
       
     } catch (error) {
       console.error('❌ PhoneBrandScreen - Failed to load brands from Chinese API:', error)
@@ -98,7 +114,7 @@ const PhoneBrandScreen = () => {
       loadingRef.current = false
       setLoading(false)
     }
-  }, [deviceId, brands.length]) // Only re-run if deviceId changes or brands is empty
+  }, [deviceId, brands.length, appState.brandsCache, actions]) // Include cache dependencies
 
   // Load brands and models on component mount with optimized dependencies
   useEffect(() => {

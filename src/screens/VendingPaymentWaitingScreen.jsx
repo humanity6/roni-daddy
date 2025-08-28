@@ -10,6 +10,8 @@ const VendingPaymentWaitingScreen = () => {
   const [timeElapsed, setTimeElapsed] = useState(0)
   const [paymentStatus, setPaymentStatus] = useState('waiting') // waiting, processing, completed, failed
   const [error, setError] = useState(null)
+  const [pollCount, setPollCount] = useState(0)
+  const [recoveryAttempted, setRecoveryAttempted] = useState(false)
 
   const { orderData, price } = location.state || {}
 
@@ -22,19 +24,35 @@ const VendingPaymentWaitingScreen = () => {
     return () => clearInterval(timer)
   }, [])
 
-  // Real payment status checking via API polling
+  // Enhanced payment status checking with exponential backoff and recovery
   useEffect(() => {
-    let pollCount = 0
-    const maxPolls = 60 // Maximum 3 minutes of polling (60 * 3 seconds)
+    let localPollCount = 0
+    const maxPolls = 60 // Maximum 3 minutes of polling
+    const baseInterval = 3000 // Base interval: 3 seconds
+    const maxInterval = 10000 // Max interval: 10 seconds
+    
+    const getPollingInterval = (count) => {
+      // Exponential backoff: 3s, 4s, 5s, 6s, 8s, 10s, then stay at 10s
+      return Math.min(baseInterval + (count * 500), maxInterval)
+    }
     
     const pollPaymentStatus = async () => {
       try {
         // Stop polling after maximum attempts to prevent infinite loops
-        pollCount++
-        if (pollCount > maxPolls) {
+        localPollCount++
+        setPollCount(localPollCount)
+        
+        if (localPollCount > maxPolls) {
           console.warn('Payment status polling timed out after 3 minutes')
+          // Attempt recovery before giving up
+          if (!recoveryAttempted) {
+            console.log('Attempting payment status recovery...')
+            setRecoveryAttempted(true)
+            await attemptPaymentRecovery()
+            return
+          }
           setPaymentStatus('failed')
-          setError('Payment status check timed out. Please check with vending machine or contact support.')
+          setError('Payment status check timed out. If you completed payment, please contact support with your order details.')
           return
         }
         
@@ -94,8 +112,14 @@ const VendingPaymentWaitingScreen = () => {
           
           // Extract error details from session data
           const chineseApiError = statusData.session_data?.chinese_api_error
+          const paymentData = statusData.session_data?.payment_data
+          
           if (chineseApiError) {
-            setError(`Chinese API Error: ${chineseApiError.message || 'Order processing failed'}`)
+            if (chineseApiError.message?.includes('payment') && paymentData?.third_id) {
+              setError(`Payment completed but order processing failed. Order ID: ${paymentData.third_id}. Please contact support.`)
+            } else {
+              setError(`Processing Error: ${chineseApiError.message || 'Order processing failed'}`)
+            }
           } else {
             setError('Payment processing failed. Please try again or contact support.')
           }
@@ -108,20 +132,110 @@ const VendingPaymentWaitingScreen = () => {
         
       } catch (error) {
         console.error('Payment status polling error:', error)
+        
+        // On network errors after many attempts, try recovery
+        if (localPollCount > 20 && !recoveryAttempted) {
+          console.log('Network errors detected, attempting recovery...')
+          setRecoveryAttempted(true)
+          await attemptPaymentRecovery()
+          return
+        }
+        
         // Network / transient errors: stay in waiting to avoid scaring user
         setPaymentStatus(prev => prev === 'completed' ? prev : 'waiting')
+      }
+    }
+    
+    // Payment recovery mechanism for stuck payments
+    const attemptPaymentRecovery = async () => {
+      try {
+        setPaymentStatus('processing')
+        setError(null)
+        
+        // Get session data to extract payment info
+        const sessionId = state.vendingMachineSession?.sessionId
+        if (!sessionId) return
+        
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${sessionId}/status`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        
+        if (response.ok) {
+          const statusData = await response.json()
+          const paymentData = statusData.session_data?.payment_data
+          
+          if (paymentData?.third_id) {
+            console.log(`Recovery: Found payment data with third_id: ${paymentData.third_id}`)
+            
+            // Check Chinese API directly for this payment
+            const chineseResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payStatus`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                third_id: paymentData.third_id,
+                device_id: state.vendingMachineSession?.deviceId,
+                status: 3  // Check for successful payment
+              })
+            })
+            
+            if (chineseResponse.ok) {
+              const chineseResult = await chineseResponse.json()
+              if (chineseResult.code === 200) {
+                console.log('Recovery successful: Payment confirmed by Chinese API')
+                setPaymentStatus('completed')
+                setTimeout(() => {
+                  navigate('/vending-payment-success', {
+                    state: {
+                      orderData,
+                      paymentMethod: 'vending_machine',
+                      vendingSession: state.vendingMachineSession,
+                      recoveredPayment: true
+                    }
+                  })
+                }, 2000)
+                return
+              }
+            }
+          }
+        }
+        
+        // Recovery failed, show helpful error
+        setPaymentStatus('failed')
+        setError('Unable to verify payment status. If payment was completed, please contact support with your payment reference.')
+        
+      } catch (recoveryError) {
+        console.error('Payment recovery failed:', recoveryError)
+        setPaymentStatus('failed')
+        setError('Payment verification failed. Please contact support if payment was completed.')
       }
     }
 
     // Initial status check
     pollPaymentStatus()
 
-    // Set up polling interval every 3 seconds
-  const pollInterval = setInterval(pollPaymentStatus, 3000)
+    // Set up polling with exponential backoff
+    let pollInterval
+    const scheduleNextPoll = () => {
+      const interval = getPollingInterval(localPollCount)
+      pollInterval = setTimeout(() => {
+        pollPaymentStatus().then(() => {
+          if (localPollCount <= maxPolls && paymentStatus !== 'completed' && paymentStatus !== 'failed') {
+            scheduleNextPoll()
+          }
+        })
+      }, interval)
+    }
+    
+    scheduleNextPoll()
 
-    // Cleanup interval on unmount
-    return () => clearInterval(pollInterval)
-  }, [navigate, orderData, state.vendingMachineSession?.sessionId])
+    // Cleanup timeout on unmount
+    return () => {
+      if (pollInterval) {
+        clearTimeout(pollInterval)
+      }
+    }
+  }, [navigate, orderData, state.vendingMachineSession?.sessionId, state.vendingMachineSession?.deviceId, paymentStatus, recoveryAttempted])
 
   const handleBack = () => {
     navigate(-1)
@@ -206,6 +320,15 @@ const VendingPaymentWaitingScreen = () => {
                   {formatTime(timeElapsed)}
                 </span>
               </div>
+              
+              {pollCount > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Checks:</span>
+                  <span className="text-sm text-gray-600">
+                    {pollCount}/60 {recoveryAttempted && '(Recovery attempted)'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
