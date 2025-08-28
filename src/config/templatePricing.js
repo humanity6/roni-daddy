@@ -1,72 +1,88 @@
 export const TEMPLATE_PRICING = {
-  // Basic Templates - £19.99
+  // Basic Templates - £19.99 (stored as 1999 pence)
   'classic': {
-    price: 19.99,
+    pricePence: 1999, // CRITICAL FIX: Store price in pence to avoid floating point errors
+    priceDisplay: 19.99, // For display only
     currency: '£',
     category: 'basic',
     displayPrice: '£19.99'
   },
   '2-in-1': {
-    price: 19.99,
+    pricePence: 1999,
+    priceDisplay: 19.99,
     currency: '£',
     category: 'basic',
     displayPrice: '£19.99'
   },
   '3-in-1': {
-    price: 19.99,
+    pricePence: 1999,
+    priceDisplay: 19.99,
     currency: '£',
     category: 'basic',
     displayPrice: '£19.99'
   },
   '4-in-1': {
-    price: 19.99,
+    pricePence: 1999,
+    priceDisplay: 19.99,
     currency: '£',
     category: 'basic',
     displayPrice: '£19.99'
   },
   'film-strip-3': {
-    price: 19.99,
+    pricePence: 1999,
+    priceDisplay: 19.99,
     currency: '£',
     category: 'film',
     displayPrice: '£19.99'
   },
 
-  // AI Templates - £21.99
+  // AI Templates - £21.99 (stored as 2199 pence)
   'funny-toon': {
-    price: 21.99,
+    pricePence: 2199,
+    priceDisplay: 21.99,
     currency: '£',
     category: 'ai',
     displayPrice: '£21.99'
   },
   'retro-remix': {
-    price: 21.99,
+    pricePence: 2199,
+    priceDisplay: 21.99,
     currency: '£',
     category: 'ai',
     displayPrice: '£21.99'
   },
   'cover-shoot': {
-    price: 21.99,
+    pricePence: 2199,
+    priceDisplay: 21.99,
     currency: '£',
     category: 'ai',
     displayPrice: '£21.99'
   },
   'glitch-pro': {
-    price: 21.99,
+    pricePence: 2199,
+    priceDisplay: 21.99,
     currency: '£',
     category: 'ai',
     displayPrice: '£21.99'
   },
   'footy-fan': {
-    price: 23.99,
+    pricePence: 2399,
+    priceDisplay: 23.99,
     currency: '£',
     category: 'ai',
     displayPrice: '£23.99'
   }
 }
 
+// CRITICAL FIX: Updated pricing functions to handle pence correctly
+export const getTemplatePricePence = (templateId) => {
+  const pricing = TEMPLATE_PRICING[templateId]
+  return pricing ? pricing.pricePence : 1999 // Default to £19.99 in pence
+}
+
 export const getTemplatePrice = (templateId) => {
   const pricing = TEMPLATE_PRICING[templateId]
-  return pricing ? pricing.price : 19.99
+  return pricing ? pricing.priceDisplay : 19.99 // For display - backward compatibility
 }
 
 export const getTemplatePriceDisplay = (templateId) => {

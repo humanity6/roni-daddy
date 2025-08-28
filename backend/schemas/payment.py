@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 class CheckoutSessionRequest(BaseModel):
-    amount: float
+    amount: Optional[float] = None  # Legacy field - kept for backward compatibility
+    amount_pence: Optional[int] = None  # CRITICAL FIX: New field for precise pence amounts
     template_id: str
     brand: str
     model: str

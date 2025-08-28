@@ -73,12 +73,20 @@ const PaymentSuccessScreen = () => {
           console.warn('PaymentSuccessScreen - No device_id found from any source')
         }
         
-        if (pendingOrderData.chinesePaymentData?.third_id) {
-          orderData.third_id = pendingOrderData.chinesePaymentData.third_id
+        // CRITICAL FIX: Read stored payment data correctly (PaymentScreen stores directly, not nested)
+        if (pendingOrderData.paymentThirdId) {
+          orderData.third_id = pendingOrderData.paymentThirdId
+          console.log('PaymentSuccessScreen - Using stored paymentThirdId:', pendingOrderData.paymentThirdId)
+        } else if (deviceId) {
+          // Warn if device_id exists but no payment data - this will cause duplicate payData
+          console.warn('PaymentSuccessScreen - CRITICAL: device_id exists but no stored paymentThirdId - backend will create duplicate payData call')
         }
         
-        if (pendingOrderData.chinesePaymentData?.chinese_payment_id) {
-          orderData.chinese_payment_id = pendingOrderData.chinesePaymentData.chinese_payment_id
+        if (pendingOrderData.chinesePaymentId) {
+          orderData.chinese_payment_id = pendingOrderData.chinesePaymentId
+          console.log('PaymentSuccessScreen - Using stored chinesePaymentId:', pendingOrderData.chinesePaymentId)
+        } else if (deviceId) {
+          console.warn('PaymentSuccessScreen - WARNING: device_id exists but no stored chinesePaymentId')
         }
         
         console.log('Sending order data to backend:', orderData)

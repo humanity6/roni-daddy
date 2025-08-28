@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { fonts as availableFonts } from '../utils/fontManager'
-import { getTemplatePrice } from '../config/templatePricing'
+import { getTemplatePrice, getTemplatePricePence } from '../config/templatePricing'
 import { useState } from 'react'
 import { useAppState } from '../contexts/AppStateContext'
 
@@ -104,14 +104,16 @@ const PaymentScreen = () => {
     }
   ]
 
-  // Always use template pricing (ignore any external price sources)
-  const effectivePrice = template?.id 
-    ? getTemplatePrice(template.id)
-    : 19.99
+  // CRITICAL FIX: Use pence-based pricing to avoid floating point errors
+  const effectivePricePence = template?.id 
+    ? getTemplatePricePence(template.id)
+    : 1999 // Default £19.99 in pence
+  const effectivePrice = effectivePricePence / 100 // Convert to pounds for display
   
   console.log('PaymentScreen - Pricing Info:', {
     templateId: template?.id,
-    templateBasedPrice: effectivePrice,
+    templateBasedPricePence: effectivePricePence,
+    templateBasedPriceDisplay: effectivePrice,
     externalPrice: price,
     usingTemplatePrice: true
   })
@@ -205,13 +207,14 @@ const PaymentScreen = () => {
         try {
           console.log('PaymentScreen - Calling payData API before Stripe checkout...')
           
-          // Generate third_id for payment tracking (PYEN + yyMMdd + 6 digits)
+          // CRITICAL FIX: Use UTC timezone for consistent date generation to prevent date boundary issues
           const now = new Date()
-          const dateStr = now.getFullYear().toString().slice(-2) + 
-                         (now.getMonth() + 1).toString().padStart(2, '0') + 
-                         now.getDate().toString().padStart(2, '0')
+          const dateStr = now.getUTCFullYear().toString().slice(-2) + 
+                         (now.getUTCMonth() + 1).toString().padStart(2, '0') + 
+                         now.getUTCDate().toString().padStart(2, '0')
           const randomPart = Math.floor(Math.random() * 900000 + 100000).toString()
           const paymentThirdId = `PYEN${dateStr}${randomPart}`
+          console.log('PaymentScreen - Generated paymentThirdId (UTC):', paymentThirdId)
           
           const payDataResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
             method: 'POST',
@@ -222,7 +225,7 @@ const PaymentScreen = () => {
               mobile_model_id: selectedModelData.chinese_model_id,
               device_id: deviceId,
               third_id: paymentThirdId,
-              pay_amount: effectivePrice,
+              pay_amount: effectivePrice, // Send exact display price to match Stripe
               pay_type: 12 // UK online payment
             }),
           })
@@ -261,7 +264,7 @@ const PaymentScreen = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: effectivePrice,
+          amount_pence: effectivePricePence, // CRITICAL FIX: Send pence directly to avoid conversion errors
           template_id: template?.id || 'classic',
           brand: brandFromState || 'iPhone',
           model: modelFromState || 'iPhone 15 Pro',
@@ -381,13 +384,14 @@ const PaymentScreen = () => {
         try {
           console.log('PaymentScreen - Calling payData API before vending payment...')
           
-          // Generate third_id for payment tracking (PYEN + yyMMdd + 6 digits)
+          // CRITICAL FIX: Use UTC timezone for consistent date generation to prevent date boundary issues
           const now = new Date()
-          const dateStr = now.getFullYear().toString().slice(-2) + 
-                         (now.getMonth() + 1).toString().padStart(2, '0') + 
-                         now.getDate().toString().padStart(2, '0')
+          const dateStr = now.getUTCFullYear().toString().slice(-2) + 
+                         (now.getUTCMonth() + 1).toString().padStart(2, '0') + 
+                         now.getUTCDate().toString().padStart(2, '0')
           const randomPart = Math.floor(Math.random() * 900000 + 100000).toString()
           const paymentThirdId = `PYEN${dateStr}${randomPart}`
+          console.log('PaymentScreen - Generated paymentThirdId (UTC):', paymentThirdId)
           
           const payDataResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
             method: 'POST',
@@ -398,7 +402,7 @@ const PaymentScreen = () => {
               mobile_model_id: selectedModelData.chinese_model_id,
               device_id: deviceId,
               third_id: paymentThirdId,
-              pay_amount: effectivePrice,
+              pay_amount: effectivePrice, // Send exact display price for consistency
               pay_type: 5 // NAYAX vending machine payment
             }),
           })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Type, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RefreshCw, ArrowRight as ArrowForward, ArrowUp, ArrowDown } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
@@ -44,6 +44,10 @@ const BackgroundColorSelectionScreen = () => {
 
   // We'll edit only the first image for now (or single image template)
   const activeIdx = 0
+  
+  // CRITICAL FIX: Add loading state and debouncing to prevent duplicate image uploads
+  const [isProcessingImage, setIsProcessingImage] = useState(false)
+  const uploadInProgressRef = useRef(false)
 
   const hasImage = uploadedImages && uploadedImages[activeIdx]
 
@@ -118,6 +122,15 @@ const BackgroundColorSelectionScreen = () => {
   }
 
   const handleNext = async () => {
+    // CRITICAL FIX: Prevent duplicate uploads with debouncing
+    if (isProcessingImage || uploadInProgressRef.current) {
+      console.log('🚫 Image upload already in progress, ignoring duplicate request')
+      return
+    }
+    
+    setIsProcessingImage(true)
+    uploadInProgressRef.current = true
+    
     try {
       console.log('🔄 Composing and uploading final image...')
       
@@ -197,6 +210,10 @@ const BackgroundColorSelectionScreen = () => {
           deviceId
         }
       })
+    } finally {
+      // CRITICAL FIX: Always reset loading state to prevent UI lock
+      setIsProcessingImage(false)
+      uploadInProgressRef.current = false
     }
   }
 
@@ -553,9 +570,16 @@ const BackgroundColorSelectionScreen = () => {
             {/* Inner Pink Circle */}
             <button 
               onClick={handleNext}
-              className="w-16 h-16 rounded-full bg-pink-400 text-white flex items-center justify-center active:scale-95 transition-transform"
+              disabled={isProcessingImage}
+              className={`w-16 h-16 rounded-full text-white flex items-center justify-center transition-transform ${
+                isProcessingImage 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-pink-400 active:scale-95 hover:bg-pink-500'
+              }`}
             >
-              <span className="font-semibold text-xs">Submit</span>
+              <span className="font-semibold text-xs">
+                {isProcessingImage ? '...' : 'Submit'}
+              </span>
             </button>
           </div>
         </div>

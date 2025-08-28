@@ -13,8 +13,9 @@ def generate_third_id(prefix="PYEN"):
     Args:
         prefix (str): Prefix to use. Default "PYEN" for payments, use "OREN" for orders
     """
-    # Get current date in yyMMdd format
-    current_date = datetime.now()
+    # CRITICAL FIX: Use UTC timezone for consistent date generation to prevent date boundary issues
+    from datetime import datetime, timezone
+    current_date = datetime.now(timezone.utc)
     date_str = current_date.strftime("%y%m%d")
     
     # Generate 6-digit sequential number (using timestamp + random for uniqueness)
@@ -25,6 +26,7 @@ def generate_third_id(prefix="PYEN"):
         timestamp_suffix = timestamp_suffix.zfill(6)
     
     third_id = f"{prefix}{date_str}{timestamp_suffix}"
+    print(f"Backend - Generated third_id (UTC): {third_id}")
     return third_id
 
 def get_mobile_model_id(phone_model, db: Session):

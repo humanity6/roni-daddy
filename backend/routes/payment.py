@@ -23,8 +23,17 @@ async def create_checkout_session(
 ):
     """Create a Stripe Checkout session"""
     try:
-        # Convert amount to pence (Stripe requires integers)
-        amount_pence = int(request.amount * 100)
+        # CRITICAL FIX: Handle both amount_pence (new) and amount (legacy) to avoid floating point errors
+        if hasattr(request, 'amount_pence') and request.amount_pence:
+            amount_pence = int(request.amount_pence)  # Already in pence
+            amount_pounds = amount_pence / 100  # For logging
+        elif hasattr(request, 'amount') and request.amount:
+            amount_pence = int(request.amount * 100)  # Convert pounds to pence (legacy)
+            amount_pounds = request.amount
+        else:
+            raise ValueError("No amount or amount_pence provided")
+            
+        print(f"Payment amount: {amount_pounds}£ ({amount_pence} pence)")
         
         # Determine the base URL for redirects
         base_url = "https://pimpmycase.shop"  # New Hostinger Production URL
@@ -46,6 +55,7 @@ async def create_checkout_session(
             mode='payment',
             success_url=f'{base_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}',
             cancel_url=f'{base_url}/payment-cancel',
+            locale='en-GB',  # CRITICAL FIX: Set locale for GBP currency to prevent "Cannot find module './en'" error
             metadata={
                 'template_id': request.template_id,
                 'brand': request.brand,
@@ -204,8 +214,21 @@ async def process_payment_success(
                 # Skip Chinese API integration for app-only payments without device_id
                 print(f"=== COMPLETE CHINESE API INTEGRATION END (SKIPPED - NO DEVICE_ID) ===")
             else:
-                # Get third_id from request data if available (from PaymentScreen.jsx)
+                # CRITICAL FIX: Enhanced validation for stored payment data
                 existing_third_id = request.order_data.get('paymentThirdId') or request.order_data.get('third_id')
+                existing_chinese_payment_id = request.order_data.get('chinesePaymentId') or request.order_data.get('chinese_payment_id')
+                
+                print(f"Payment data validation:")
+                print(f"  - existing_third_id: {existing_third_id}")
+                print(f"  - existing_chinese_payment_id: {existing_chinese_payment_id}")
+                print(f"  - device_id: {device_id}")
+                print(f"  - chinese_model_id: {chinese_model_id}")
+                
+                # Validate that we have stored payment data for vending payments
+                if is_vending_payment and device_id and not existing_third_id:
+                    print(f"❌ CRITICAL: Vending payment missing stored payment data - this will cause duplicate payData")
+                    print(f"Available order_data keys: {list(request.order_data.keys())}")
+                    # Don't fail here, but log warning - the duplicate call will still work
                 
                 if chinese_model_id:
                     # Generate third_id for Chinese API if not provided from frontend
@@ -227,6 +250,7 @@ async def process_payment_success(
                     
                     if not existing_third_id:
                         # Frontend didn't call payData, so we need to call it now
+                        print(f"⚠️ WARNING: No stored payment data found - making new payData call (potential duplicate)")
                         chinese_payment_response = send_payment_to_chinese_api(
                             mobile_model_id=chinese_model_id,
                             device_id=device_id,
@@ -236,11 +260,12 @@ async def process_payment_success(
                         )
                         print(f"Chinese API payData response: {chinese_payment_response}")
                     else:
-                        print(f"Payment data already sent by frontend with third_id: {third_id}")
-                        # Create a mock response for consistency
+                        print(f"✅ Payment data already sent by frontend with third_id: {third_id}")
+                        # Create a mock response using stored data
                         chinese_payment_response = {
                             'code': 200,
-                            'data': {'id': request.order_data.get('chinesePaymentId') or request.order_data.get('chinese_payment_id', 'FRONTEND_SENT')}
+                            'data': {'id': existing_chinese_payment_id or 'FRONTEND_SENT'},
+                            'msg': 'Using stored frontend payment data (duplicate call avoided)'
                         }
                     
                     # STEP 2: Send payment status notification (NEW)
@@ -442,10 +467,19 @@ async def process_payment_success(
                         print(f"Chinese API payment failed: {chinese_payment_response.get('msg') if chinese_payment_response else 'No response'}")
                         chinese_queue_no = None
                         
-                # No Chinese model ID found for app payment
+                # No Chinese model ID found
                 else:
-                    print(f"No Chinese model ID found for app payment, skipping Chinese API integration")
-                    chinese_queue_no = None
+                    if is_vending_payment and device_id:
+                        print(f"❌ CRITICAL: Vending payment has device_id but missing chinese_model_id - Chinese API integration required")
+                        print(f"This is likely due to model selection not being persisted properly")
+                        # For vending payments, Chinese model ID is mandatory
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="Chinese model ID missing for vending payment - please select your phone model again"
+                        )
+                    else:
+                        print(f"ℹ️ App payment without Chinese model ID - skipping Chinese API integration")
+                        chinese_queue_no = None
                     
             print(f"=== COMPLETE CHINESE API INTEGRATION END ===")
                 
