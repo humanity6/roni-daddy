@@ -5,20 +5,21 @@
 **Test Environment:** `http://app-dev.deligp.com:8500/mobileShell/en`
 
 **System Configuration:**
-- System Name: `mobileShell`
-- Fixed Key: `shfoa3sfwoehnf3290rqefiz4efd`
-- Request Source: `en`
+
+* System Name: `mobileShell`
+* Fixed Key: `shfoa3sfwoehnf3290rqefiz4efd`
+* Request Source: `en`
 
 ## 2. Global Error Codes
 
-| Code | Description |
-|------|-------------|
-| 200  | Operation successful |
+| Code | Description                                |
+| ---- | ------------------------------------------ |
+| 200  | Operation successful                       |
 | 400  | Parameter error (missing, format mismatch) |
-| 401  | Unauthorized, token expired |
-| 403  | Access restricted, authorization expired |
-| 404  | Resource/service not found |
-| 500  | Internal system error |
+| 401  | Unauthorized, token expired                |
+| 403  | Access restricted, authorization expired   |
+| 404  | Resource/service not found                 |
+| 500  | Internal system error                      |
 
 ## 3. Data Signature
 
@@ -31,6 +32,7 @@
 5. Generate MD5 hash (32-character lowercase string)
 
 **Example:**
+
 ```json
 {
   "user_id": "USER020250118000001",
@@ -43,20 +45,23 @@ Signature string: `110USER020250118000001mobileShellshfoa3sfwoehnf3290rqefiz4efd
 MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 
 **Headers:**
-- `sign`: The MD5 signature
-- `req_source`: `en`
-- `Authorization`: Token (for authenticated endpoints)
-- `Content-Type`: `application/json`
+
+* `sign`: The MD5 signature
+* `req_source`: `en`
+* `Authorization`: Token (for authenticated endpoints)
+* `Content-Type`: `application/json`
 
 ## 4. Authentication
 
 **Token Validity:** 1440 minutes (24 hours)
 
 ### Login
+
 **Endpoint:** `user/login`
 **Method:** POST
 
 **Request:**
+
 ```json
 {
   "account": "your_account",
@@ -65,6 +70,7 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
@@ -80,6 +86,7 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ## 5. Core API Endpoints
 
 ### Get Brand List
+
 **Endpoint:** `brand/list`
 **Method:** POST
 **Auth:** Required
@@ -87,6 +94,7 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 **Request:** `{}`
 
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
@@ -102,28 +110,40 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 ### Get Stock List
+
 **Endpoint:** `stock/list`
 **Method:** POST
 **Auth:** Required
 
-**Request:**
+**Request Parameters:**
+
+| Parameter name | Required | Type   | Description |
+| -------------- | -------- | ------ | ----------- |
+| device\_id     | yes      | string | Device ID   |
+| brand\_id      | yes      | string | Brand ID    |
+
+**Request Example:**
+
 ```json
 {
-  "device_id": "1CBRONIQRWQQ",
+  "device_id": "CXYLOGD8OQUK",
   "brand_id": "BR20250111000002"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
   "code": 200,
   "data": [
     {
-      "mobile_model_name": "iPhone 16 Pro Max",
-      "mobile_model_id": "MM1020250226000002",
-      "price": "100",
+      "mobile_model_name": "iPhone 15 Pro",
+      "mobile_model_id": "MM020250224000010",
+      "mobile_shell_id": "MS102503270003",
+      "width": "73.24",
+      "height": "149.27",
       "stock": 2
     }
   ]
@@ -131,11 +151,13 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 ### Get Shop List
+
 **Endpoint:** `shop/list`
 **Method:** POST
 **Auth:** Required
 
 **Request:**
+
 ```json
 {
   "page": 1,
@@ -144,6 +166,7 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
@@ -161,11 +184,13 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 ### Get Goods List
+
 **Endpoint:** `goods/list`
 **Method:** POST
 **Auth:** Required
 
 **Request:**
+
 ```json
 {
   "shop_id": "SP102507070001"
@@ -173,6 +198,7 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
@@ -181,13 +207,13 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
     {
       "shell_classify_id": "MS102503180003",
       "shop_id": "SP102507070001",
-      "mobile_shell_id": "MS102503270003",
-      "mobile_model_name": "iPhone 15 Pro",
+      "mobile_shell_id": "MS102503280009",
+      "mobile_model_name": "iPhone 13",
       "brand_ename": "Apple",
-      "mobile_shell_name": "iPhone15 Pro 基础版",
-      "mobile_shell_sku": "IP111",
-      "id": "G102507290004",
-      "mobile_model_id": "MM020250224000010",
+      "mobile_shell_name": "iPhone 13 基础版",
+      "mobile_shell_sku": "ZIP251",
+      "id": "G102508260174",
+      "mobile_model_id": "MM020250120000001",
       "brand_id": "BR20250111000002"
     }
   ]
@@ -195,77 +221,75 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 ```
 
 ### Report Payment Data
+
 **Endpoint:** `order/payData`
 **Method:** POST
 **Auth:** Required
 
 **Request:**
+
 ```json
 {
-  "mobile_model_id": "MM1020250226000002",
-  "device_id": "1CBRONIQRWQQ",
-  "third_id": "PYEN250811908177",
+  "mobile_model_id": "MM020250224000010",
+  "device_id": "CXYLOGD8OQUK",
+  "third_id": "PYEN250828330246",
   "pay_amount": 10.0,
   "pay_type": 1
 }
 ```
 
-**Payment Types:**
-- 0: Other
-- 1: WeChat
-- 2: Alipay
-- 3: Flash Pay
-- 4: Cash
-- 5: NAYAX
-- 6: Card
-- 7: On-site payment
-
-**Third ID Format:** `PYEN + yyMMdd + 6 digits`
-Example: `PYEN250811908177`
-
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
   "code": 200,
   "data": {
-    "id": "MSPY10250811000008",
-    "third_id": "PYEN250811908177"
+    "id": "MSPY10250828000001",
+    "third_id": "PYEN250828330246"
   }
 }
 ```
 
 ### Report Order Information
+
 **Endpoint:** `order/orderData`
 **Method:** POST
 **Auth:** Required
 
-**Request:**
+**Request Parameters:**
+
+| Parameter name    | Required | Type   | Description                                                                             |
+| ----------------- | -------- | ------ | --------------------------------------------------------------------------------------- |
+| third\_pay\_id    | yes      | string | Third-party payment ID                                                                  |
+| third\_id         | yes      | string | Third-party order ID (rule: must be unique OREN+yyMMdd+6 digits, e.g. OREN250604000001) |
+| mobile\_model\_id | yes      | string | Model ID                                                                                |
+| mobile\_shell\_id | yes      | string | Phone case ID                                                                           |
+| pic               | yes      | string | Print image URL                                                                         |
+| device\_id        | yes      | string | Device ID                                                                               |
+
+**Request Example:**
+
 ```json
 {
-  "third_pay_id": "PYEN250811908177",
-  "third_id": "OREN250811908177", 
-  "mobile_model_id": "MM1020250226000002",
-  "pic": "https://example.com/print-image.jpg",
-  "device_id": "1CBRONIQRWQQ"
+  "third_pay_id": "test_pay_123",
+  "third_id": "OREN250828330246",
+  "mobile_model_id": "MM020250224000010",
+  "mobile_shell_id": "MS102503270003",
+  "pic": "https://example.com/test-image.jpg",
+  "device_id": "CXYLOGD8OQUK"
 }
 ```
 
-**Parameters:**
-- `third_pay_id`: Third-party payment ID (from payData response)
-- `third_id`: Third-party order ID (Format: `OREN + yyMMdd + 6 digits`)
-- `mobile_model_id`: Model ID
-- `pic`: Print image URL
-- `device_id`: Device ID
-
 **Response:**
+
 ```json
 {
   "msg": "操作成功",
   "code": 200,
   "data": {
     "id": "ORDER123456789",
-    "third_id": "OREN250811908177",
+    "third_id": "OREN250828330246",
     "queue_no": "001",
     "status": 8
   }
@@ -273,22 +297,23 @@ Example: `PYEN250811908177`
 ```
 
 **Order Status Codes:**
-- 1: Waiting for payment
-- 2: Cancelled  
-- 3: Paying
-- 4: Paid
-- 5: Payment failed
-- 6: Refunding
-- 7: Refund
-- 8: Waiting for printing
-- 9: Picking up
-- 10: Pickup completed
-- 11: Printing
-- 12: Printed
-- 13: Printing failed
-- 14: Printing canceled
-- 15: Shipping
-- 16: Shipping completed
+
+* 1: Waiting for payment
+* 2: Cancelled
+* 3: Paying
+* 4: Paid
+* 5: Payment failed
+* 6: Refunding
+* 7: Refund
+* 8: Waiting for printing
+* 9: Picking up
+* 10: Pickup completed
+* 11: Printing
+* 12: Printed
+* 13: Printing failed
+* 14: Printing canceled
+* 15: Shipping
+* 16: Shipping completed
 
 ## 6. Usage Examples
 
@@ -312,7 +337,7 @@ login_result = client.login()
 brands = client.brand_list()
 
 # Get stock for specific brand and device
-stock = client.stock_list(device_id="1CBRONIQRWQQ", brand_id="BR20250111000002")
+stock = client.stock_list(device_id="CXYLOGD8OQUK", brand_id="BR20250111000002")
 
 # Get shops
 shops = client.shop_list()
@@ -322,19 +347,20 @@ goods = client.goods_list(shop_id="SP102507070001")
 
 # Make payment
 payment = client.pay_data(
-    mobile_model_id="MM1020250226000002",
-    device_id="1CBRONIQRWQQ",
+    mobile_model_id="MM020250224000010",
+    device_id="CXYLOGD8OQUK",
     pay_amount=10.0,
     pay_type=1
 )
 
 # Report order information
 order = client.order_data(
-    third_pay_id="PYEN250811908177",  # From payment response
-    third_id="OREN250811908177",     # Auto-generated or custom
-    mobile_model_id="MM1020250226000002",
-    pic="https://example.com/print-image.jpg",
-    device_id="1CBRONIQRWQQ"
+    third_pay_id="test_pay_123",  # From payment response
+    third_id="OREN250828330246",  # Auto-generated or custom
+    mobile_model_id="MM020250224000010",
+    mobile_shell_id="MS102503270003",
+    pic="https://example.com/test-image.jpg",
+    device_id="CXYLOGD8OQUK"
 )
 ```
 
@@ -357,10 +383,10 @@ python chinese_api.py stock --brand-id BR20250111000002
 python chinese_api.py goods --shop-id SP102507070001
 
 # Test payment
-python chinese_api.py pay --mobile-model-id MM1020250226000002
+python chinese_api.py pay --mobile-model-id MM020250224000010
 
 # Report order information
-python chinese_api.py order --third-pay-id PYEN250811908177 --mobile-model-id MM1020250226000002 --pic "https://example.com/image.jpg"
+python chinese_api.py order --third-pay-id test_pay_123 --mobile-model-id MM020250224000010 --mobile-shell-id MS102503270003 --pic "https://example.com/test-image.jpg"
 ```
 
 ## 7. Environment Variables
@@ -369,5 +395,5 @@ python chinese_api.py order --third-pay-id PYEN250811908177 --mobile-model-id MM
 export CH_API_BASE_URL="http://app-dev.deligp.com:8500/mobileShell/en"
 export CH_API_ACCOUNT="your_account"
 export CH_API_PASSWORD="your_password"
-export CH_API_DEVICE_ID="1CBRONIQRWQQ"
+export CH_API_DEVICE_ID="CXYLOGD8OQUK"
 ```
