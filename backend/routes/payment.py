@@ -204,6 +204,7 @@ async def process_payment_success(
             order = OrderService.create_order(db, order_data)
         
         # Complete Chinese API integration for "Pay on App" orders - all 3 endpoints
+        chinese_queue_no = None  # Initialize Chinese queue number
         try:
             print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
             
@@ -301,13 +302,23 @@ async def process_payment_success(
                         base_image_url = request.order_data.get('designImage')
                         # Extract filename from URL for token generation
                         filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
-                        print(f"✅ Using existing permanent URL: {base_image_url}")
+                        print(f"✅ Using existing permanent URL from designImage: {base_image_url}")
                         
-                    # Priority 4: Fallback for blob URLs or missing images
+                    # Priority 4: Check if pic field contains permanent URL  
+                    elif request.order_data.get('pic') and request.order_data.get('pic').startswith('https://pimpmycase.onrender.com'):
+                        base_image_url = request.order_data.get('pic')
+                        # Extract filename from URL for token generation
+                        filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                        print(f"✅ Using existing permanent URL from pic field: {base_image_url}")
+                        
+                    # NO FALLBACK - User specifically requested no fallback handling
                     else:
-                        print(f"⚠️ No permanent image URL found, using fallback")
-                        base_image_url = f"https://pimpmycase.onrender.com/api/generate-design-preview"
-                        filename = None  # No token needed for fallback URL
+                        print(f"❌ CRITICAL: No valid image URL found in order data")
+                        print(f"Available order_data keys: {list(request.order_data.keys())}")
+                        print(f"finalImagePublicUrl: {request.order_data.get('finalImagePublicUrl')}")
+                        print(f"designImage: {request.order_data.get('designImage')}")
+                        print(f"imageSessionId: {request.order_data.get('imageSessionId')}")
+                        raise HTTPException(status_code=400, detail="No valid image URL provided - cannot proceed with Chinese API order")
                     
                     # Generate secure token for Chinese API access (48 hours expiry)
                     if filename and base_image_url.startswith('https://pimpmycase.onrender.com/image/'):
@@ -351,8 +362,10 @@ async def process_payment_success(
                     print(f"DEBUG: Full order_data received: {request.order_data}")
                     mobile_shell_id = request.order_data.get('mobile_shell_id')
                     if not mobile_shell_id:
-                        print(f"⚠️ WARNING: mobile_shell_id not found in order data - this may cause orderData to fail")
+                        print(f"❌ CRITICAL: mobile_shell_id not found in order data - this WILL cause orderData to fail")
                         print(f"Available keys in order_data: {list(request.order_data.keys())}")
+                        # Don't proceed without mobile_shell_id
+                        mobile_shell_id = None
                     else:
                         print(f"✅ Mobile shell ID extracted: {mobile_shell_id}")
                     
@@ -360,14 +373,24 @@ async def process_payment_success(
                     print(f"Original payment ID: {third_id}")
                     print(f"Design image URL: {design_image_url}")
                     
-                    order_data_response = send_order_data_to_chinese_api(
-                        third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
-                        third_id=order_third_id,  # Order ID 
-                        mobile_model_id=chinese_model_id,
-                        pic=design_image_url,
-                        device_id=device_id,
-                        mobile_shell_id=mobile_shell_id
-                    )
+                    # Skip orderData if mobile_shell_id is missing - this will cause failure
+                    if not mobile_shell_id:
+                        print(f"❌ ABORTING: Cannot call orderData without mobile_shell_id - Chinese API will reject it")
+                        order_data_response = {
+                            'code': 400,
+                            'msg': 'mobile_shell_id missing from frontend - cannot proceed with orderData'
+                        }
+                        chinese_queue_no = None
+                    else:
+                        print(f"✅ Calling Chinese API orderData with mobile_shell_id: {mobile_shell_id}")
+                        order_data_response = send_order_data_to_chinese_api(
+                            third_pay_id=effective_third_pay_id,  # Use Chinese payment ID (MSPY...)
+                            third_id=order_third_id,  # Order ID 
+                            mobile_model_id=chinese_model_id,
+                            pic=design_image_url,
+                            device_id=device_id,
+                            mobile_shell_id=mobile_shell_id
+                        )
                     
                     print(f"Chinese API orderData response: {order_data_response}")
                     
@@ -380,13 +403,20 @@ async def process_payment_success(
                         order.queue_number = order_data.get('queue_no')
                         order.chinese_order_status = order_data.get('status', 8)  # 8 = Waiting for printing
                         
+                        # Use Chinese API queue number if available
+                        chinese_queue_no = order_data.get('queue_no')
+                        if chinese_queue_no:
+                            print(f"✅ Using Chinese API queue number: {chinese_queue_no}")
+                        
                     else:
                         print(f"WARNING: Order data submission failed: {order_data_response.get('msg')}")
+                        chinese_queue_no = None
                         
                 except Exception as order_error:
                     print(f"WARNING: Order data submission failed: {str(order_error)}")
                     import traceback
                     traceback.print_exc()
+                    chinese_queue_no = None
                 
                 # Store Chinese payment info in order (from step 1)
                 if chinese_payment_response and chinese_payment_response.get('code') == 200:
@@ -397,20 +427,28 @@ async def process_payment_success(
                     print(f"Successfully completed Chinese API integration")
                 else:
                     print(f"Chinese API payment failed: {chinese_payment_response.get('msg') if chinese_payment_response else 'No response'}")
+                    chinese_queue_no = None
                     
                 print(f"=== COMPLETE CHINESE API INTEGRATION END ===")
                 
             else:
                 print(f"No Chinese model ID found for app payment, skipping Chinese API integration")
+                chinese_queue_no = None
                 
         except Exception as chinese_error:
             print(f"CRITICAL: Chinese API integration failed: {str(chinese_error)}")
             import traceback
             traceback.print_exc()
+            chinese_queue_no = None
             # Don't fail the order if Chinese API fails, just log the error
         
-        # Generate queue number for display
-        queue_no = f"Q{str(order.created_at.timestamp())[-6:]}"
+        # Generate queue number for display - use Chinese API queue if available
+        if chinese_queue_no:
+            queue_no = chinese_queue_no
+            print(f"✅ Final queue number from Chinese API: {queue_no}")
+        else:
+            queue_no = f"Q{str(order.created_at.timestamp())[-6:]}"
+            print(f"⚠️ Using fallback queue number: {queue_no}")
         
         return {
             "success": True,

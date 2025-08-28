@@ -24,6 +24,9 @@ const PaymentSuccessScreen = () => {
 
         // Get pending order data from localStorage
         const pendingOrderData = JSON.parse(localStorage.getItem('pendingOrder') || '{}')
+        console.log('PaymentSuccessScreen - pendingOrderData from localStorage:', pendingOrderData)
+        console.log('PaymentSuccessScreen - selectedModelData:', pendingOrderData.selectedModelData)
+        console.log('PaymentSuccessScreen - mobile_shell_id in selectedModelData:', pendingOrderData.selectedModelData?.mobile_shell_id)
         
         // Prepare order data with Chinese API information
         const orderData = {
@@ -34,6 +37,10 @@ const PaymentSuccessScreen = () => {
         if (pendingOrderData.selectedModelData?.chinese_model_id) {
           orderData.chinese_model_id = pendingOrderData.selectedModelData.chinese_model_id
           orderData.mobile_model_id = pendingOrderData.selectedModelData.chinese_model_id
+        }
+        
+        if (pendingOrderData.selectedModelData?.mobile_shell_id) {
+          orderData.mobile_shell_id = pendingOrderData.selectedModelData.mobile_shell_id
         }
         
         if (pendingOrderData.deviceId) {

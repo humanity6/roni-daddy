@@ -34,6 +34,7 @@ from backend.routes.image import router as image_router
 from backend.routes.payment import router as payment_router
 from backend.routes.vending import router as vending_router
 from backend.routes.chinese_api import router as chinese_router
+from backend.routes.admin import router as admin_router
 
 # Security middleware
 from security_middleware import (
@@ -118,6 +119,7 @@ app.include_router(image_router, prefix="/api/images")
 app.include_router(payment_router)
 app.include_router(vending_router)
 app.include_router(chinese_router)
+app.include_router(admin_router)
 
 # Mount static files for frontend (after API routes)
 import os
