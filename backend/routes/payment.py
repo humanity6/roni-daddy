@@ -361,17 +361,19 @@ async def process_payment_success(
                         else:
                             order_third_id = generate_third_id("OREN")
                         
-                        # Get Chinese payment ID from database mapping (MSPY...) instead of using PYEN...
+                        # CRITICAL FIX: Always use our original third_id (PYEN...) for third_pay_id
+                        # The Chinese API keys payment records by the third_id we sent in payData, not their internal id
+                        effective_third_pay_id = third_id  # Always use our original PYEN... ID
+                        
+                        print(f"✅ Using original third_id for orderData third_pay_id: {effective_third_pay_id}")
+                        
+                        # Log for debugging - we can still track the Chinese internal ID separately
                         from backend.routes.chinese_api import get_payment_mapping
-                        chinese_payment_id = None
-                        
-                        if third_id.startswith('PYEN'):
-                            chinese_payment_id = get_payment_mapping(db, third_id)
-                            if not chinese_payment_id:
-                                print(f"⚠️ WARNING: No Chinese payment ID found for {third_id} - this may cause orderData to fail")
-                        
-                        # Use Chinese payment ID (MSPY...) for third_pay_id if available, otherwise use original
-                        effective_third_pay_id = chinese_payment_id if chinese_payment_id else third_id
+                        chinese_internal_id = get_payment_mapping(db, third_id) if third_id.startswith('PYEN') else None
+                        if chinese_internal_id:
+                            print(f"ℹ️ Chinese internal payment ID (for reference): {chinese_internal_id}")
+                        else:
+                            print(f"ℹ️ No Chinese internal payment ID found (this is OK for orderData)")
                         
                         # CRITICAL FIX: Extract mobile_shell_id from multiple sources with validation
                         print(f"DEBUG: Full order_data received: {request.order_data}")

@@ -109,13 +109,17 @@ const PaymentSuccessScreen = () => {
           const errorText = await response.text()
           console.error('Backend payment processing had issues:', response.status, errorText)
           
-          // If payment was successful but backend had issues, still show success to user
-          // The payment went through Stripe successfully, so don't confuse the user
-          result = {
-            success: true,
-            message: 'Payment successful - order may be delayed due to processing issues',
-            queue_number: 'TMP001',
-            warning: true
+          // CRITICAL FIX: For 503 errors (Chinese API failures), don't show fake success
+          // These are order fulfillment failures that need user attention
+          if (response.status === 503) {
+            console.error('PaymentSuccessScreen - Chinese API integration failed - order not queued for printing')
+            throw new Error(`Order processing failed: ${errorText}. Your payment was successful but the order could not be queued for printing. Please contact support with session ID: ${sessionId}`)
+          } else if (response.status >= 500) {
+            // Other server errors - also don't fake success 
+            throw new Error(`Server error during order processing: ${errorText}. Please contact support with session ID: ${sessionId}`)
+          } else {
+            // For 4xx errors, might be recoverable - show generic error
+            throw new Error(`Order processing error: ${errorText}. Please try again or contact support.`)
           }
         } else {
           result = await response.json()
