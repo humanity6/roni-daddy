@@ -316,23 +316,62 @@ async def receive_payment_status_update(
     try:
         # Use relaxed security for all users
         security_info = validate_relaxed_api_security(http_request)
+        print(f"=== PAYSTATUS WEBHOOK RECEIVED ===")
         print(f"Payment status update from {security_info['client_ip']}: {request.third_id} -> status {request.status}")
+        print(f"Request data: {request.dict()}")
+        print(f"Current time: {datetime.now(timezone.utc).isoformat()}")
+        
         # First check for vending machine sessions using third_id in session_data
         from models import VendingMachineSession
         vending_session = None
         
         # Search for vending session that used this third_id for payment
-        sessions = db.query(VendingMachineSession).filter(VendingMachineSession.status == "active").all()
+        # CRITICAL FIX: Include "payment_pending" sessions since status changes after init-payment
+        sessions = db.query(VendingMachineSession).filter(
+            VendingMachineSession.status.in_(["active", "payment_pending"])
+        ).all()
+        
+        logger.info(f"=== PAYSTATUS WEBHOOK DEBUGGING ===")
+        logger.info(f"🔍 Searching for vending session with third_id: {request.third_id}")
+        logger.info(f"📊 Found {len(sessions)} sessions to check (active + payment_pending)")
+        
+        # Log all session data for debugging
         for session in sessions:
+            logger.info(f"📋 Session {session.session_id} (status: {session.status}):")
             if session.session_data and isinstance(session.session_data, dict):
                 # Check if this session's payment used this third_id
                 payment_data = session.session_data.get('payment_data', {})
-                if payment_data.get('third_id') == request.third_id:
+                session_third_id = payment_data.get('third_id')
+                logger.info(f"  - session_data keys: {list(session.session_data.keys())}")
+                logger.info(f"  - payment_data keys: {list(payment_data.keys())}")
+                logger.info(f"  - session third_id: {session_third_id}")
+                logger.info(f"  - webhook third_id: {request.third_id}")
+                logger.info(f"  - third_id match: {session_third_id == request.third_id}")
+                
+                if session_third_id == request.third_id:
                     vending_session = session
+                    logger.info(f"✅ FOUND MATCHING VENDING SESSION: {session.session_id}")
                     break
+            else:
+                logger.info(f"  - No session_data or invalid format")
+        
+        logger.info(f"🎯 Final result: vending_session = {vending_session.session_id if vending_session else 'None'}")
+        logger.info(f"=== END PAYSTATUS DEBUGGING ===")
+                    
+        if not vending_session:
+            print(f"❌ No vending session found for third_id: {request.third_id}")
+            logger.warning(f"❌ No vending session found for third_id: {request.third_id}")
+        else:
+            print(f"✅ Found vending session: {vending_session.session_id}")
+            print(f"Payment status received: {request.status} (expected: 3 for success)")
         
         # Handle vending machine session payment confirmation
         if vending_session and request.status == 3:  # Payment successful
+            print(f"=== ✅ VENDING PAYMENT CONFIRMED - TRIGGERING ORDER DATA ===")
+            print(f"Session ID: {vending_session.session_id}")
+            print(f"Third ID: {request.third_id}")
+            print(f"Payment Status: {request.status}")
+            print(f"Time: {datetime.now(timezone.utc).isoformat()}")
             logger.info(f"=== VENDING PAYMENT CONFIRMED - TRIGGERING ORDER DATA ===")
             logger.info(f"Session ID: {vending_session.session_id}")
             logger.info(f"Third ID: {request.third_id}")
@@ -410,6 +449,9 @@ async def receive_payment_status_update(
             try:
                 from backend.services.chinese_payment_service import send_order_data_to_chinese_api
                 
+                print(f"🚀 CALLING ORDERDATA ENDPOINT NOW:")
+                print(f"URL: http://app-dev.deligp.com:8500/mobileShell/en/order/orderData")
+                logger.info(f"🚀 CALLING ORDERDATA ENDPOINT NOW")
                 logger.info(f"Sending orderData to Chinese API after payment confirmation")
                 logger.info(f"Payment Third ID: {request.third_id}")
                 logger.info(f"Order Third ID: {order_third_id}")
@@ -420,6 +462,20 @@ async def receive_payment_status_update(
                 # Get mobile_shell_id from session data
                 mobile_shell_id = order_summary.get('mobile_shell_id') or vending_session.session_data.get('payment_data', {}).get('mobile_shell_id')
                 
+                logger.info(f"📋 OrderData parameters:")
+                logger.info(f"  - third_pay_id: {request.third_id}")
+                logger.info(f"  - third_id: {order_third_id}")
+                logger.info(f"  - mobile_model_id: {order_summary.get('chinese_model_id')}")
+                logger.info(f"  - pic: {final_image_url}")
+                logger.info(f"  - device_id: {order_summary.get('device_id')}")
+                logger.info(f"  - mobile_shell_id: {mobile_shell_id}")
+                
+                # Validate required parameters before making the call
+                if not mobile_shell_id:
+                    logger.error(f"❌ Missing mobile_shell_id for orderData call!")
+                    logger.error(f"Order summary mobile_shell_id: {order_summary.get('mobile_shell_id')}")
+                    logger.error(f"Payment data mobile_shell_id: {vending_session.session_data.get('payment_data', {}).get('mobile_shell_id')}")
+                
                 order_response = send_order_data_to_chinese_api(
                     third_pay_id=request.third_id,  # Use payment third_id here
                     third_id=order_third_id,
@@ -429,6 +485,9 @@ async def receive_payment_status_update(
                     mobile_shell_id=mobile_shell_id
                 )
                 
+                print(f"✅ ORDERDATA CALL COMPLETED!")
+                print(f"Response: {json.dumps(order_response, indent=2, ensure_ascii=False)}")
+                logger.info(f"✅ ORDERDATA CALL COMPLETED!")
                 logger.info(f"OrderData response: {json.dumps(order_response, indent=2, ensure_ascii=False)}")
                 
                 # Update session with order information
@@ -478,6 +537,12 @@ async def receive_payment_status_update(
                     "status": request.status,
                     "order_error": str(order_err)
                 }
+        elif vending_session and request.status != 3:
+            print(f"⚠️  Vending session found but payment status is {request.status} (not 3=success). Skipping orderData call.")
+            logger.info(f"⚠️  Vending session found but payment status is {request.status} (not 3=success). Skipping orderData call.")
+        elif not vending_session:
+            print(f"⚠️  No vending session found, proceeding to order-based logic.")
+            logger.info(f"⚠️  No vending session found, proceeding to order-based logic.")
         
         # Fallback to existing order-based logic
         order = db.query(Order).filter(Order.third_party_payment_id == request.third_id).first()
