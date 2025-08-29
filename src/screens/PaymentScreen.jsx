@@ -486,13 +486,6 @@ const PaymentScreen = () => {
           device_id: deviceId
         }
 
-        console.log('Sending order summary to vending machine:', {
-          session_id: vendingMachineSession.sessionId,
-          payment_amount: effectivePrice,
-          currency: 'GBP',
-          order_data: backendOrderData
-        })
-
         // DISABLED: Duplicate order-summary call (already sent before init-payment)
         // Order summary is now sent BEFORE init-payment to ensure proper flow
         
