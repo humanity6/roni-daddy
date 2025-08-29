@@ -493,42 +493,8 @@ const PaymentScreen = () => {
           order_data: backendOrderData
         })
 
-        const orderSummaryResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/order-summary`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            session_id: vendingMachineSession.sessionId,
-            order_data: backendOrderData,
-            payment_amount: effectivePrice,
-            currency: 'GBP'
-          })
-        })
-        
-        if (!orderSummaryResponse.ok) {
-          let errorMessage = 'Failed to send order to vending machine'
-          try {
-            const errorData = await orderSummaryResponse.json()
-            if (orderSummaryResponse.status === 400 && errorData.detail?.includes('Order data too large')) {
-              errorMessage = 'Order details are too large for vending machine processing. Please try with fewer images or simpler design.'
-            } else if (orderSummaryResponse.status === 400) {
-              errorMessage = `Order validation failed: ${errorData.detail || 'Invalid order data'}`
-            } else if (orderSummaryResponse.status === 404) {
-              errorMessage = 'Vending machine session not found. Please scan the QR code again.'
-            } else if (orderSummaryResponse.status === 410) {
-              errorMessage = 'Vending machine session has expired. Please scan the QR code again.'
-            } else {
-              errorMessage = `Vending machine error (${orderSummaryResponse.status}): ${errorData.detail || 'Unknown error'}`
-            }
-          } catch (e) {
-            errorMessage = `Network error: Unable to communicate with vending machine (${orderSummaryResponse.status})`
-          }
-          throw new Error(errorMessage)
-        }
-        
-        const summaryResult = await orderSummaryResponse.json()
-        console.log('Order summary sent to vending machine:', summaryResult)
+        // DISABLED: Duplicate order-summary call (already sent before init-payment)
+        // Order summary is now sent BEFORE init-payment to ensure proper flow
         
         // Chinese API integration will be handled after payment confirmation
         // Store the necessary data for post-payment processing
