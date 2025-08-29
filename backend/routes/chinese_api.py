@@ -395,12 +395,16 @@ async def receive_payment_status_update(
                 logger.info(f"Device ID: {order_summary.get('device_id')}")
                 logger.info(f"Image URL: {final_image_url}")
                 
+                # Get mobile_shell_id from session data
+                mobile_shell_id = order_summary.get('mobile_shell_id') or vending_session.session_data.get('payment_data', {}).get('mobile_shell_id')
+                
                 order_response = send_order_data_to_chinese_api(
                     third_pay_id=request.third_id,  # Use payment third_id here
                     third_id=order_third_id,
                     mobile_model_id=order_summary.get('chinese_model_id'),
                     pic=final_image_url,
-                    device_id=order_summary.get('device_id')
+                    device_id=order_summary.get('device_id'),
+                    mobile_shell_id=mobile_shell_id
                 )
                 
                 logger.info(f"OrderData response: {json.dumps(order_response, indent=2, ensure_ascii=False)}")
@@ -415,10 +419,16 @@ async def receive_payment_status_update(
                 # Update session status based on order success
                 if order_response.get('code') == 200:
                     vending_session.user_progress = "order_submitted"
-                    vending_session.status = "printing"
-                    logger.info(f"✅ Order successfully sent to Chinese API - Session {vending_session.session_id} now printing")
+                    vending_session.status = "payment_completed"
+                    logger.info(f"✅ Order successfully sent to Chinese API - Session {vending_session.session_id} payment completed")
+                    
+                    # Store queue number if provided
+                    if order_response.get('data', {}).get('queue_no'):
+                        vending_session.session_data['queue_number'] = order_response['data']['queue_no']
+                        logger.info(f"✅ Queue number: {order_response['data']['queue_no']}")
                 else:
-                    vending_session.user_progress = "order_failed"
+                    vending_session.user_progress = "payment_failed" 
+                    vending_session.status = "payment_failed"
                     logger.error(f"❌ Order failed to send to Chinese API - Code: {order_response.get('code')}")
                 
                 db.commit()

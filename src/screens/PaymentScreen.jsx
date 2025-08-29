@@ -378,52 +378,38 @@ const PaymentScreen = () => {
       }
       localStorage.setItem('pendingOrder', JSON.stringify(orderData))
 
-      // Chinese API integration - Call payData BEFORE vending payment to inform machine of payment amount
-      let chinesePaymentId = null
-      if (selectedModelData?.chinese_model_id) {
-        try {
-          console.log('PaymentScreen - Calling payData API before vending payment...')
-          
-          // CRITICAL FIX: Use UTC timezone for consistent date generation to prevent date boundary issues
-          const now = new Date()
-          const dateStr = now.getUTCFullYear().toString().slice(-2) + 
-                         (now.getUTCMonth() + 1).toString().padStart(2, '0') + 
-                         now.getUTCDate().toString().padStart(2, '0')
-          const randomPart = Math.floor(Math.random() * 900000 + 100000).toString()
-          const paymentThirdId = `PYEN${dateStr}${randomPart}`
-          console.log('PaymentScreen - Generated paymentThirdId (UTC):', paymentThirdId)
-          
-          const payDataResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chinese/order/payData`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              mobile_model_id: selectedModelData.chinese_model_id,
-              device_id: deviceId,
-              third_id: paymentThirdId,
-              pay_amount: effectivePrice, // Send exact display price for consistency
-              pay_type: 5 // NAYAX vending machine payment
-            }),
-          })
-          
-          if (payDataResponse.ok) {
-            const payDataResult = await payDataResponse.json()
-            if (payDataResult.code === 200) {
-              chinesePaymentId = payDataResult.data?.id
-              orderData.chinesePaymentId = chinesePaymentId
-              orderData.paymentThirdId = paymentThirdId
-              console.log('✅ PaymentScreen - Vending PayData successful:', chinesePaymentId)
-            } else {
-              console.warn('⚠️ PaymentScreen - Vending PayData API returned error:', payDataResult.msg)
-            }
-          } else {
-            console.warn('⚠️ PaymentScreen - Vending PayData HTTP error:', payDataResponse.status)
+      // CRITICAL: Store final image URL in session data for orderData call
+      if (finalImagePublicUrl) {
+        orderData.finalImagePublicUrl = finalImagePublicUrl
+      }
+      
+      // CRITICAL: Initialize vending payment through proper backend endpoint
+      console.log('PaymentScreen - Initializing vending payment through backend...')
+      try {
+        const initPaymentResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/init-payment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           }
-        } catch (payDataError) {
-          console.warn('⚠️ PaymentScreen - Vending PayData failed, proceeding anyway:', payDataError)
-          // Don't block vending payment if payData fails - backend will handle it
+        })
+        
+        if (!initPaymentResponse.ok) {
+          const errorData = await initPaymentResponse.json()
+          console.error('PaymentScreen - Vending payment initialization failed:', errorData)
+          throw new Error(`Payment initialization failed: ${errorData.detail || 'Unknown error'}`)
         }
+        
+        const initResult = await initPaymentResponse.json()
+        console.log('✅ PaymentScreen - Vending payment initialized:', initResult)
+        
+        // Store payment initialization data
+        orderData.paymentThirdId = initResult.third_id
+        orderData.chinesePaymentId = initResult.chinese_response?.data?.id
+        orderData.mobileModelId = initResult.mobile_model_id
+        
+      } catch (initError) {
+        console.error('PaymentScreen - Vending payment initialization failed:', initError)
+        throw new Error(`Payment initialization failed: ${initError.message}`)
       }
       
       // If in vending machine mode, send order summary to vending machine
@@ -502,8 +488,7 @@ const PaymentScreen = () => {
         orderData.finalImagePublicUrl = finalImagePublicUrl
         localStorage.setItem('pendingOrder', JSON.stringify(orderData))
         
-        // Show message to return to vending machine for payment
-        alert(`Order ready! Please return to the vending machine to pay £${effectivePrice.toFixed(2)}`)
+        // Order is ready - no alert needed, navigation will handle user feedback
         
         // Navigate to waiting screen with vending machine context
         navigate('/vending-payment-waiting', { 

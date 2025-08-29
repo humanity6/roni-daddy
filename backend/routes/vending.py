@@ -258,13 +258,15 @@ async def initialize_vending_payment(
                 if stock_result.get("success"):
                     stock_items = stock_result.get("stock_items", [])
                     
-                    # Find the specific model in stock
+                    # Find the specific model in stock and get mobile_shell_id
+                    mobile_shell_id = None
                     for item in stock_items:
                         if (item.get("mobile_model_name") == model_name and 
                             item.get("stock", 0) > 0):
                             mobile_model_id = item.get("mobile_model_id")
+                            mobile_shell_id = item.get("mobile_shell_id")
                             stock_available = True
-                            print(f"✅ Stock validated: {model_name} (ID: {mobile_model_id}) has {item.get('stock')} units")
+                            print(f"✅ Stock validated: {model_name} (ID: {mobile_model_id}, Shell: {mobile_shell_id}) has {item.get('stock')} units")
                             break
                     
                     if not stock_available:
@@ -337,10 +339,22 @@ async def initialize_vending_payment(
         session_data["payment_data"]["device_id"] = session.machine_id
         session_data["payment_data"]["pay_type"] = 5  # Vending machine payment
         
+        # Store mobile_shell_id for orderData call
+        if 'mobile_shell_id' in locals() and mobile_shell_id:
+            session_data["payment_data"]["mobile_shell_id"] = mobile_shell_id
+            # Also add to order_summary for consistency
+            if "order_summary" not in session_data:
+                session_data["order_summary"] = {}
+            session_data["order_summary"]["mobile_shell_id"] = mobile_shell_id
+        
         # Also store for backward compatibility
         session_data["chinese_third_id"] = third_id
         session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
         session_data["chinese_response"] = chinese_response
+        
+        # Update session status to payment_pending to indicate payment is initialized
+        session.user_progress = "payment_pending"
+        session.status = "payment_pending"
         session.session_data = session_data
         db.commit()
         
@@ -608,6 +622,11 @@ async def send_order_summary_to_vending_machine(
             "payment_requested_at": datetime.now(timezone.utc).isoformat(),
             "order_security_info": security_info
         })
+        
+        # CRITICAL: Store final image URL if provided for future orderData call
+        if 'finalImagePublicUrl' in enhanced_order_data:
+            session_data['final_image_url'] = enhanced_order_data['finalImagePublicUrl']
+            print(f"DEBUG: Stored final image URL in session: {enhanced_order_data['finalImagePublicUrl']}")
         
         # IMPORTANT: SQLAlchemy doesn't detect changes to mutable JSON objects
         # We need to mark the attribute as changed to trigger persistence

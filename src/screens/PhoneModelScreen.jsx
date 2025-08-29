@@ -15,32 +15,7 @@ const PhoneModelScreen = () => {
   const [error, setError] = useState(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  // Fallback models based on brand
-  const getFallbackModels = (brandId) => {
-    switch (brandId?.toLowerCase()) {
-      case 'iphone':
-        return [
-          'iPhone 16 Pro Max', 'iPhone 16 Pro', 'iPhone 16 Plus', 'iPhone 16',
-          'iPhone 15 Pro Max', 'iPhone 15 Pro', 'iPhone 15 Plus', 'iPhone 15',
-          'iPhone 14 Pro Max', 'iPhone 14 Pro', 'iPhone 14 Plus', 'iPhone 14',
-          'iPhone 13 Pro Max', 'iPhone 13 Pro', 'iPhone 13 Mini', 'iPhone 13'
-        ]
-      case 'samsung':
-        return [
-          'Galaxy S24 Ultra', 'Galaxy S24+', 'Galaxy S24',
-          'Galaxy S23 Ultra', 'Galaxy S23+', 'Galaxy S23',
-          'Galaxy S22 Ultra', 'Galaxy S22+', 'Galaxy S22',
-          'Galaxy Note 20 Ultra', 'Galaxy Note 20'
-        ]
-      case 'google':
-        return [
-          'Pixel 8 Pro', 'Pixel 8', 'Pixel 7a', 'Pixel 7 Pro', 'Pixel 7',
-          'Pixel 6a', 'Pixel 6 Pro', 'Pixel 6'
-        ]
-      default:
-        return ['Model 1', 'Model 2', 'Model 3']
-    }
-  }
+  // CRITICAL: No fallback models - always use real API data
 
   // Load models on component mount
   useEffect(() => {
@@ -75,88 +50,18 @@ const PhoneModelScreen = () => {
         }
       }
       
-      // Fallback to hardcoded models
-      console.log('🔄 PhoneModelScreen - Using fallback models')
-      const fallbackModelNames = getFallbackModels(brand.id)
-      const fallbackModels = fallbackModelNames.map((name, index) => ({
-        id: `${brand.id}-model-${index}`,
-        name: name,
-        price: 17.99,
-        stock: 10,
-        available: true
-      }))
-      
-      setModels(fallbackModels)
-      
-      // Set preferred default model based on brand
-      let defaultModel = fallbackModelNames[0]
-      if (brand.id?.toLowerCase() === 'iphone') {
-        const iphone16Index = fallbackModelNames.findIndex(name => 
-          name.toLowerCase().includes('iphone 16') && !name.toLowerCase().includes('pro') && !name.toLowerCase().includes('plus')
-        )
-        if (iphone16Index >= 0) {
-          defaultModel = fallbackModelNames[iphone16Index]
-        }
-      } else if (brand.id?.toLowerCase() === 'samsung') {
-        const galaxyS24Index = fallbackModelNames.findIndex(name => 
-          name.toLowerCase().includes('galaxy s24') && !name.toLowerCase().includes('ultra') && !name.toLowerCase().includes('+')
-        )
-        if (galaxyS24Index >= 0) {
-          defaultModel = fallbackModelNames[galaxyS24Index]
-        }
-      } else if (brand.id?.toLowerCase() === 'google') {
-        const pixel8Index = fallbackModelNames.findIndex(name => 
-          name.toLowerCase().includes('pixel 8') && !name.toLowerCase().includes('pro')
-        )
-        if (pixel8Index >= 0) {
-          defaultModel = fallbackModelNames[pixel8Index]
-        }
-      }
-      
-      setSelectedModel(defaultModel)
-      setError('Using fallback data - Chinese API unavailable')
+      // CRITICAL: No fallback data - API must be available for vending machine operation
+      console.error('❌ PhoneModelScreen - Chinese API returned no models')
+      setModels([])
+      setError(`No models available for ${brand.display_name || brand.id}. Please try again or contact support.`)
       
     } catch (error) {
       console.error('❌ PhoneModelScreen - Failed to load models:', error)
       
-      // Use fallback models
-      const fallbackModelNames = getFallbackModels(brand.id)
-      const fallbackModels = fallbackModelNames.map((name, index) => ({
-        id: `${brand.id}-model-${index}`,
-        name: name,
-        price: 17.99,
-        stock: 10,
-        available: true
-      }))
-      
-      setModels(fallbackModels)
-      
-      // Set preferred default model based on brand
-      let defaultModel = fallbackModelNames[0]
-      if (brand.id?.toLowerCase() === 'iphone') {
-        const iphone16Index = fallbackModelNames.findIndex(name => 
-          name.toLowerCase().includes('iphone 16') && !name.toLowerCase().includes('pro') && !name.toLowerCase().includes('plus')
-        )
-        if (iphone16Index >= 0) {
-          defaultModel = fallbackModelNames[iphone16Index]
-        }
-      } else if (brand.id?.toLowerCase() === 'samsung') {
-        const galaxyS24Index = fallbackModelNames.findIndex(name => 
-          name.toLowerCase().includes('galaxy s24') && !name.toLowerCase().includes('ultra') && !name.toLowerCase().includes('+')
-        )
-        if (galaxyS24Index >= 0) {
-          defaultModel = fallbackModelNames[galaxyS24Index]
-        }
-      } else if (brand.id?.toLowerCase() === 'google') {
-        const pixel8Index = fallbackModelNames.findIndex(name => 
-          name.toLowerCase().includes('pixel 8') && !name.toLowerCase().includes('pro')
-        )
-        if (pixel8Index >= 0) {
-          defaultModel = fallbackModelNames[pixel8Index]
-        }
-      }
-      
-      setSelectedModel(defaultModel)
+      // CRITICAL: No fallback data - show error state instead of mock data
+      console.error('❌ PhoneModelScreen - Failed to load models:', error)
+      setModels([])
+      setSelectedModel('')
       setError(`Failed to load models: ${error.message}`)
     } finally {
       setLoading(false)

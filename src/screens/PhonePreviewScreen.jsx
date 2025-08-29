@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -25,8 +25,8 @@ const PhonePreviewScreen = () => {
   const [uploadedImage, setUploadedImage] = useState(null)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
 
-  // Calculate model-specific dimensions from Chinese API data
-  const getModelSpecificDimensions = () => {
+  // Calculate model-specific dimensions from Chinese API data (memoized to prevent excessive logging)
+  const modelDimensions = useMemo(() => {
     const modelData = selectedModelData || appState.modelData
     
     if (modelData?.width && modelData?.height) {
@@ -41,6 +41,7 @@ const PhonePreviewScreen = () => {
       const containerWidth = widthPx * 0.84  // 8% margins on each side
       const containerHeight = heightPx * 0.98 // 1px margins top/bottom
       
+      // Log once when dimensions are calculated
       console.log(`📐 Using model-specific dimensions: ${modelData.width}mm x ${modelData.height}mm = ${widthPx.toFixed(1)}px x ${heightPx.toFixed(1)}px`)
       return { containerWidth, containerHeight, widthPx, heightPx }
     } else {
@@ -53,7 +54,7 @@ const PhonePreviewScreen = () => {
       const containerHeight = 480 // h-[480px] in Tailwind  
       return { containerWidth, containerHeight, widthPx: 288, heightPx: 480 }
     }
-  }
+  }, [selectedModelData, appState.modelData])
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0]
@@ -65,7 +66,7 @@ const PhonePreviewScreen = () => {
         // Calculate auto-fit scale based on image dimensions and model-specific phone case size
         const img = new Image()
         img.onload = () => {
-          const { containerWidth, containerHeight } = getModelSpecificDimensions()
+          const { containerWidth, containerHeight } = modelDimensions
           
           const scaleX = containerWidth / img.width
           const scaleY = containerHeight / img.height
@@ -251,14 +252,11 @@ const PhonePreviewScreen = () => {
           {/* Phone Case Container - Dynamic dimensions based on Chinese API model data */}
           <div 
             className="relative"
-            style={(() => {
-              const { containerWidth, containerHeight } = getModelSpecificDimensions()
-              return {
-                width: `${Math.min(containerWidth, 288)}px`, // Cap at 288px (w-72) for UI constraints
-                height: `${Math.min(containerHeight, 480)}px`, // Cap at 480px for UI constraints
-                aspectRatio: `${containerWidth} / ${containerHeight}`
-              }
-            })()}
+            style={{
+              width: `${Math.min(modelDimensions.containerWidth, 288)}px`, // Cap at 288px (w-72) for UI constraints
+              height: `${Math.min(modelDimensions.containerHeight, 480)}px`, // Cap at 480px for UI constraints
+              aspectRatio: `${modelDimensions.containerWidth} / ${modelDimensions.containerHeight}`
+            }}
           >
             
             {/* User's uploaded image - positioned to fit exactly within phone template boundaries */}
