@@ -363,102 +363,19 @@ async def initialize_vending_payment(
         
         print(f"✅ PayData successful, now calling orderData immediately...")
         
-        # CRITICAL: Call orderData immediately after successful payData (no webhook dependency)
-        try:
-            from backend.services.chinese_payment_service import send_order_data_to_chinese_api
-            import time
-            
-            # Generate order third_id in OREN format (different from payment third_id)
-            current_date = datetime.now().strftime("%y%m%d")  # yyMMdd format
-            order_sequence = int(time.time() * 1000) % 1000000  # 6 digits
-            order_third_id = f"OREN{current_date}{order_sequence:06d}"
-            
-            # Get final image URL from session data 
-            order_summary = session.session_data.get('order_summary', {})
-            final_image_url = session.session_data.get('final_image_url')
-            if not final_image_url and order_summary:
-                final_image_url = order_summary.get('finalImagePublicUrl')
-                
-            if not final_image_url:
-                print(f"❌ No final image URL found in session data")
-                raise HTTPException(status_code=400, detail="Final image URL missing for order creation")
-            
-            # Generate partner token for Chinese API image access  
-            if final_image_url and 'pimpmycase.onrender.com' in final_image_url:
-                try:
-                    from backend.services.file_service import get_file_service
-                    file_service = get_file_service()
-                    
-                    # Extract filename from URL
-                    if '/image/' in final_image_url:
-                        base_url = final_image_url.split('?')[0]
-                        filename = base_url.split('/image/')[-1]
-                        
-                        # Generate partner token for Chinese API (24h expiry)
-                        token_info = file_service.generate_partner_token(filename, "chinese_api", 24 * 3600)
-                        if token_info.get('success'):
-                            final_image_url = f"{base_url}?token={token_info['token']}"
-                            print(f"✅ Generated Chinese API partner token for image: {filename}")
-                        else:
-                            print(f"❌ Failed to generate partner token for {filename}: {token_info.get('error')}")
-                except Exception as e:
-                    print(f"❌ Error generating partner token for Chinese API: {str(e)}")
-            
-            print(f"🚀 CALLING ORDERDATA ENDPOINT:")
-            print(f"URL: http://app-dev.deligp.com:8500/mobileShell/en/order/orderData")
-            print(f"Payment Third ID: {third_id}")
-            print(f"Order Third ID: {order_third_id}")
-            print(f"Mobile Model ID: {mobile_model_id}")
-            print(f"Mobile Shell ID: {mobile_shell_id}")
-            print(f"Device ID: {session.machine_id}")
-            print(f"Image URL: {final_image_url}")
-            
-            # Call orderData immediately
-            order_response = send_order_data_to_chinese_api(
-                third_pay_id=third_id,  # Use payment third_id here
-                third_id=order_third_id,  # Use order third_id here
-                mobile_model_id=mobile_model_id,
-                pic=final_image_url,
-                device_id=session.machine_id,
-                mobile_shell_id=mobile_shell_id
-            )
-            
-            print(f"✅ ORDERDATA CALL COMPLETED!")
-            print(f"Response: {json.dumps(order_response, indent=2, ensure_ascii=False) if order_response else 'None'}")
-            
-            # Update session with order information
-            if order_response and order_response.get('code') == 200:
-                session.user_progress = "order_submitted"
-                session.status = "payment_completed"
-                print(f"✅ Order successfully sent to Chinese API - Session {session_id} completed")
-                
-                # Store queue number and order info
-                order_data = order_response.get('data', {})
-                queue_number = order_data.get('queue_no')
-                chinese_order_id = order_data.get('id')
-                
-                order_info = {
-                    'chinese_order_response': order_response,
-                    'order_third_id': order_third_id,
-                    'payment_confirmed_at': datetime.now(timezone.utc).isoformat(),
-                    'queue_number': queue_number,
-                    'chinese_order_id': chinese_order_id
-                }
-                
-            else:
-                print(f"❌ OrderData call failed: {order_response}")
-                raise HTTPException(status_code=500, detail=f"Order creation failed: {order_response.get('msg') if order_response else 'No response'}")
-                
-        except Exception as order_err:
-            print(f"❌ Failed to create order after payment: {str(order_err)}")
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Order creation failed: {str(order_err)}")
+        print(f"✅ PayData successful for vending machine payment")
+        print(f"💳 Payment initialized with Chinese payment ID: {chinese_response.get('data', {}).get('id')}")
+        print(f"🔄 Vending machine will now process physical payment...")
+        print(f"📱 User should complete payment on vending machine")
+        print(f"⏳ System will receive payStatus webhook when payment confirmed")
         
-        # Store all session data including order information
+        # For vending machine payments (pay_type: 5), orderData will be called 
+        # by the payStatus webhook when the Chinese API confirms payment completion
+        
+        # Store payment session data (orderData will be handled by webhook)
         session_data = session.session_data or {}
         
-        # Store payment data
+        # Store payment data for webhook processing
         if "payment_data" not in session_data:
             session_data["payment_data"] = {}
         session_data["payment_data"]["third_id"] = third_id
@@ -468,29 +385,30 @@ async def initialize_vending_payment(
         session_data["payment_data"]["pay_type"] = 5  # Vending machine payment
         session_data["payment_data"]["mobile_shell_id"] = mobile_shell_id
         
-        # Store order information
-        session_data.update(order_info)  # Add order response data
+        # Store additional data needed for orderData webhook
         session_data["chinese_third_id"] = third_id
+        session_data["chinese_payment_id"] = chinese_response.get('data', {}).get('id')
         session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
         session_data["chinese_response"] = chinese_response
         
-        # Session is already updated above with order completion status
+        # Update session status to indicate payment is pending physical completion
+        session.user_progress = "payment_pending"
+        session.status = "payment_pending"
         session.session_data = session_data
         db.commit()
         
         return {
             "success": True,
-            "message": "Payment and order completed successfully",
+            "message": "Vending machine payment initialized - complete payment on machine",
             "session_id": session_id,
             "third_id": third_id,
-            "order_third_id": order_third_id,
             "payment_amount": payment_amount,
             "mobile_model_id": mobile_model_id,
             "device_id": session.machine_id,
-            "queue_number": queue_number,
-            "chinese_order_id": chinese_order_id,
+            "chinese_payment_id": chinese_response.get('data', {}).get('id'),
             "chinese_response": chinese_response,
-            "order_response": order_response
+            "status": "awaiting_payment",
+            "instructions": "Complete payment on vending machine to receive order confirmation"
         }
         
     except HTTPException:

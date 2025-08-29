@@ -451,7 +451,7 @@ const PaymentScreen = () => {
         const initResult = await initPaymentResponse.json()
         console.log('✅ PaymentScreen - Vending payment and order completed:', initResult)
         
-        // Check if order was completed successfully
+        // Check if this is immediate completion (shouldn't happen for pay_type 5)
         if (initResult.queue_number) {
           console.log('✅ PaymentScreen - Order completed with queue number:', initResult.queue_number)
           
@@ -477,11 +477,24 @@ const PaymentScreen = () => {
             }
           })
           return // Exit function - no need for polling/waiting
-        } else {
-          console.warn('PaymentScreen - Payment initialized but no queue number received')
-          // Store payment initialization data for fallback handling
+        } 
+        
+        // For vending machine payments, we expect status "awaiting_payment"
+        if (initResult.status === "awaiting_payment") {
+          console.log('🔄 PaymentScreen - Payment initialized, awaiting physical payment completion')
+          console.log('📱 Instructions:', initResult.instructions)
+          
+          // Store payment initialization data
           orderData.paymentThirdId = initResult.third_id
-          orderData.orderThirdId = initResult.order_third_id
+          orderData.chinesePaymentId = initResult.chinese_payment_id
+          orderData.mobileModelId = initResult.mobile_model_id
+          orderData.paymentStatus = "awaiting_payment"
+          
+          // Continue to waiting screen with polling enabled
+        } else {
+          console.warn('PaymentScreen - Unexpected payment initialization response:', initResult)
+          // Store available data for fallback handling
+          orderData.paymentThirdId = initResult.third_id
           orderData.chinesePaymentId = initResult.chinese_response?.data?.id
           orderData.mobileModelId = initResult.mobile_model_id
         }
