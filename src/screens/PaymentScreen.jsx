@@ -357,12 +357,32 @@ const PaymentScreen = () => {
       
       // Store current order data in localStorage  
       console.log('PaymentScreen - mobile_shell_id being added to vending orderData:', selectedModelData?.mobile_shell_id)
+      
+      // CRITICAL FIX: Get Chinese brand_id from location state or selectedModelData
+      let chineseBrandId = null
+      if (location.state?.chineseBrandId) {
+        chineseBrandId = location.state.chineseBrandId
+      } else if (selectedModelData?.chinese_brand_id) {
+        chineseBrandId = selectedModelData.chinese_brand_id
+      } else {
+        // Fallback: derive from brand name (this should not happen but provides safety)
+        const brandName = brandFromState || 'iPhone'
+        if (brandName.toLowerCase() === 'iphone') {
+          chineseBrandId = 'BR20250111000002'  // Apple Chinese brand ID
+        } else if (brandName.toLowerCase() === 'samsung') {
+          chineseBrandId = 'BR020250120000001'  // Samsung Chinese brand ID
+        }
+      }
+      
+      console.log('PaymentScreen - Using Chinese brand_id:', chineseBrandId)
+      
       const orderData = {
         designImage, 
         uploadedImages,
         imageTransforms,
         price: effectivePrice,
         brand: brandFromState || 'iPhone',
+        brand_id: chineseBrandId,  // CRITICAL: Use Chinese brand ID, not lowercase brand name
         model: modelFromState || 'iPhone 15 Pro',
         color: colorFromState || 'Natural Titanium',
         chinese_model_id: selectedModelData?.chinese_model_id,
@@ -383,6 +403,35 @@ const PaymentScreen = () => {
         orderData.finalImagePublicUrl = finalImagePublicUrl
       }
       
+      // CRITICAL: Send order summary FIRST before initializing payment
+      console.log('Sending order summary to vending machine:', {
+        session_id: vendingMachineSession.sessionId,
+        payment_amount: effectivePrice,
+        currency: 'GBP',
+        order_data: orderData
+      })
+      
+      const orderSummaryResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/vending/session/${vendingMachineSession.sessionId}/order-summary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: vendingMachineSession.sessionId,
+          payment_amount: effectivePrice,
+          currency: 'GBP',
+          order_data: orderData
+        })
+      })
+      
+      if (!orderSummaryResponse.ok) {
+        const errorData = await orderSummaryResponse.json()
+        throw new Error(`Order summary failed: ${errorData.detail || 'Unknown error'}`)
+      }
+      
+      const orderSummaryResult = await orderSummaryResponse.json()
+      console.log('Order summary sent to vending machine:', orderSummaryResult)
+
       // CRITICAL: Initialize vending payment through proper backend endpoint
       console.log('PaymentScreen - Initializing vending payment through backend...')
       try {
