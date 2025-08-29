@@ -18,6 +18,7 @@ from db_services import BrandService, PhoneModelService, TemplateService, OrderS
 from models import VendingMachine, VendingMachineSession, Order
 from datetime import datetime, timezone, timedelta
 import secrets
+import json
 import time
 import base64
 from sqlalchemy.orm.attributes import flag_modified
@@ -352,13 +353,112 @@ async def initialize_vending_payment(
                 db
             )
         except Exception as e:
-            print(f"Warning: Chinese API call failed: {e}")
-            chinese_response = {"msg": "Chinese API temporarily unavailable", "code": 200}
+            print(f"❌ Chinese payData API call failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Payment initialization failed: {str(e)}")
         
-        # Store third_id in session for tracking (ensure compatibility with payStatus endpoint)
+        # Check if payData was successful before proceeding
+        if not chinese_response or chinese_response.get("code") != 200:
+            print(f"❌ Chinese payData API returned error: {chinese_response}")
+            raise HTTPException(status_code=500, detail=f"Payment initialization failed: {chinese_response.get('msg', 'Unknown error')}")
+        
+        print(f"✅ PayData successful, now calling orderData immediately...")
+        
+        # CRITICAL: Call orderData immediately after successful payData (no webhook dependency)
+        try:
+            from backend.services.chinese_payment_service import send_order_data_to_chinese_api
+            import time
+            
+            # Generate order third_id in OREN format (different from payment third_id)
+            current_date = datetime.now().strftime("%y%m%d")  # yyMMdd format
+            order_sequence = int(time.time() * 1000) % 1000000  # 6 digits
+            order_third_id = f"OREN{current_date}{order_sequence:06d}"
+            
+            # Get final image URL from session data 
+            order_summary = session.session_data.get('order_summary', {})
+            final_image_url = session.session_data.get('final_image_url')
+            if not final_image_url and order_summary:
+                final_image_url = order_summary.get('finalImagePublicUrl')
+                
+            if not final_image_url:
+                print(f"❌ No final image URL found in session data")
+                raise HTTPException(status_code=400, detail="Final image URL missing for order creation")
+            
+            # Generate partner token for Chinese API image access  
+            if final_image_url and 'pimpmycase.onrender.com' in final_image_url:
+                try:
+                    from backend.services.file_service import get_file_service
+                    file_service = get_file_service()
+                    
+                    # Extract filename from URL
+                    if '/image/' in final_image_url:
+                        base_url = final_image_url.split('?')[0]
+                        filename = base_url.split('/image/')[-1]
+                        
+                        # Generate partner token for Chinese API (24h expiry)
+                        token_info = file_service.generate_partner_token(filename, "chinese_api", 24 * 3600)
+                        if token_info.get('success'):
+                            final_image_url = f"{base_url}?token={token_info['token']}"
+                            print(f"✅ Generated Chinese API partner token for image: {filename}")
+                        else:
+                            print(f"❌ Failed to generate partner token for {filename}: {token_info.get('error')}")
+                except Exception as e:
+                    print(f"❌ Error generating partner token for Chinese API: {str(e)}")
+            
+            print(f"🚀 CALLING ORDERDATA ENDPOINT:")
+            print(f"URL: http://app-dev.deligp.com:8500/mobileShell/en/order/orderData")
+            print(f"Payment Third ID: {third_id}")
+            print(f"Order Third ID: {order_third_id}")
+            print(f"Mobile Model ID: {mobile_model_id}")
+            print(f"Mobile Shell ID: {mobile_shell_id}")
+            print(f"Device ID: {session.machine_id}")
+            print(f"Image URL: {final_image_url}")
+            
+            # Call orderData immediately
+            order_response = send_order_data_to_chinese_api(
+                third_pay_id=third_id,  # Use payment third_id here
+                third_id=order_third_id,  # Use order third_id here
+                mobile_model_id=mobile_model_id,
+                pic=final_image_url,
+                device_id=session.machine_id,
+                mobile_shell_id=mobile_shell_id
+            )
+            
+            print(f"✅ ORDERDATA CALL COMPLETED!")
+            print(f"Response: {json.dumps(order_response, indent=2, ensure_ascii=False) if order_response else 'None'}")
+            
+            # Update session with order information
+            if order_response and order_response.get('code') == 200:
+                session.user_progress = "order_submitted"
+                session.status = "payment_completed"
+                print(f"✅ Order successfully sent to Chinese API - Session {session_id} completed")
+                
+                # Store queue number and order info
+                order_data = order_response.get('data', {})
+                queue_number = order_data.get('queue_no')
+                chinese_order_id = order_data.get('id')
+                
+                order_info = {
+                    'chinese_order_response': order_response,
+                    'order_third_id': order_third_id,
+                    'payment_confirmed_at': datetime.now(timezone.utc).isoformat(),
+                    'queue_number': queue_number,
+                    'chinese_order_id': chinese_order_id
+                }
+                
+            else:
+                print(f"❌ OrderData call failed: {order_response}")
+                raise HTTPException(status_code=500, detail=f"Order creation failed: {order_response.get('msg') if order_response else 'No response'}")
+                
+        except Exception as order_err:
+            print(f"❌ Failed to create order after payment: {str(order_err)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Order creation failed: {str(order_err)}")
+        
+        # Store all session data including order information
         session_data = session.session_data or {}
         
-        # Store payment data in the structure expected by payStatus endpoint
+        # Store payment data
         if "payment_data" not in session_data:
             session_data["payment_data"] = {}
         session_data["payment_data"]["third_id"] = third_id
@@ -366,35 +466,31 @@ async def initialize_vending_payment(
         session_data["payment_data"]["mobile_model_id"] = mobile_model_id
         session_data["payment_data"]["device_id"] = session.machine_id
         session_data["payment_data"]["pay_type"] = 5  # Vending machine payment
+        session_data["payment_data"]["mobile_shell_id"] = mobile_shell_id
         
-        # Store mobile_shell_id for orderData call
-        if 'mobile_shell_id' in locals() and mobile_shell_id:
-            session_data["payment_data"]["mobile_shell_id"] = mobile_shell_id
-            # Also add to order_summary for consistency
-            if "order_summary" not in session_data:
-                session_data["order_summary"] = {}
-            session_data["order_summary"]["mobile_shell_id"] = mobile_shell_id
-        
-        # Also store for backward compatibility
+        # Store order information
+        session_data.update(order_info)  # Add order response data
         session_data["chinese_third_id"] = third_id
         session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
         session_data["chinese_response"] = chinese_response
         
-        # Update session status to payment_pending to indicate payment is initialized
-        session.user_progress = "payment_pending"
-        session.status = "payment_pending"
+        # Session is already updated above with order completion status
         session.session_data = session_data
         db.commit()
         
         return {
             "success": True,
-            "message": "Payment initialized with Chinese manufacturers",
+            "message": "Payment and order completed successfully",
             "session_id": session_id,
             "third_id": third_id,
+            "order_third_id": order_third_id,
             "payment_amount": payment_amount,
             "mobile_model_id": mobile_model_id,
             "device_id": session.machine_id,
-            "chinese_response": chinese_response
+            "queue_number": queue_number,
+            "chinese_order_id": chinese_order_id,
+            "chinese_response": chinese_response,
+            "order_response": order_response
         }
         
     except HTTPException:

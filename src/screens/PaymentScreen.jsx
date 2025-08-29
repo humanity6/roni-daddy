@@ -449,12 +449,42 @@ const PaymentScreen = () => {
         }
         
         const initResult = await initPaymentResponse.json()
-        console.log('✅ PaymentScreen - Vending payment initialized:', initResult)
+        console.log('✅ PaymentScreen - Vending payment and order completed:', initResult)
         
-        // Store payment initialization data
-        orderData.paymentThirdId = initResult.third_id
-        orderData.chinesePaymentId = initResult.chinese_response?.data?.id
-        orderData.mobileModelId = initResult.mobile_model_id
+        // Check if order was completed successfully
+        if (initResult.queue_number) {
+          console.log('✅ PaymentScreen - Order completed with queue number:', initResult.queue_number)
+          
+          // Store completed order data
+          orderData.paymentThirdId = initResult.third_id
+          orderData.orderThirdId = initResult.order_third_id
+          orderData.chinesePaymentId = initResult.chinese_response?.data?.id
+          orderData.chineseOrderId = initResult.chinese_order_id
+          orderData.queueNumber = initResult.queue_number
+          orderData.mobileModelId = initResult.mobile_model_id
+          orderData.paymentCompleted = true
+          orderData.orderCompleted = true
+          
+          // Navigate directly to success screen with queue number
+          navigate('/order-confirmed', {
+            state: {
+              orderData,
+              queueNumber: initResult.queue_number,
+              paymentAmount: initResult.payment_amount,
+              orderResponse: initResult.order_response,
+              isVendingMachine: true,
+              vendingMachineSession
+            }
+          })
+          return // Exit function - no need for polling/waiting
+        } else {
+          console.warn('PaymentScreen - Payment initialized but no queue number received')
+          // Store payment initialization data for fallback handling
+          orderData.paymentThirdId = initResult.third_id
+          orderData.orderThirdId = initResult.order_third_id
+          orderData.chinesePaymentId = initResult.chinese_response?.data?.id
+          orderData.mobileModelId = initResult.mobile_model_id
+        }
         
       } catch (initError) {
         console.error('PaymentScreen - Vending payment initialization failed:', initError)
