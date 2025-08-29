@@ -371,6 +371,28 @@ async def receive_payment_status_update(
                 order_data = vending_session.session_data['order_summary']
                 final_image_url = order_data.get('final_image_url')
             
+            # CRITICAL FIX: Generate partner token for Chinese API access
+            if final_image_url and 'pimpmycase.onrender.com' in final_image_url:
+                try:
+                    from backend.services.file_service import get_file_service
+                    file_service = get_file_service()
+                    
+                    # Extract filename from URL 
+                    if '/image/' in final_image_url:
+                        # Remove any existing token parameters
+                        base_url = final_image_url.split('?')[0]
+                        filename = base_url.split('/image/')[-1]
+                        
+                        # Generate partner token for Chinese API (24h expiry)
+                        token_info = file_service.generate_partner_token(filename, "chinese_api", 24 * 3600)
+                        if token_info.get('success'):
+                            final_image_url = f"{base_url}?token={token_info['token']}"
+                            logger.info(f"✅ Generated Chinese API partner token for image: {filename}")
+                        else:
+                            logger.error(f"❌ Failed to generate partner token for {filename}: {token_info.get('error')}")
+                except Exception as e:
+                    logger.error(f"❌ Error generating partner token for Chinese API: {str(e)}")
+            
             if not final_image_url:
                 logger.error(f"No final image URL found in session {vending_session.session_id}")
                 return {

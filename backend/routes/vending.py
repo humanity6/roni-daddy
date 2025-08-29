@@ -243,17 +243,44 @@ async def initialize_vending_payment(
         brand_id = order_summary.get("brand_id", "")
         payment_amount = session.payment_amount or order_summary.get("price", 19.99)
         
+        # DEBUG: Log the extracted values to identify the issue
+        print(f"🔍 DEBUG - Extracted order details:")
+        print(f"  - brand_name: '{brand_name}'")
+        print(f"  - brand_id: '{brand_id}'") 
+        print(f"  - model_name: '{model_name}'")
+        print(f"  - Available order_summary keys: {list(order_summary.keys())}")
+        
         # Validate stock availability with Chinese API
         mobile_model_id = None
         stock_available = False
+        
+        # CRITICAL FIX: Ensure we have a valid brand_id for Chinese API calls
+        if not brand_id and brand_name:
+            # Fallback: try to get Chinese brand_id from our database
+            try:
+                from db_services import BrandService
+                brand_obj = BrandService.get_brand_by_name(db, brand_name)
+                if brand_obj and hasattr(brand_obj, 'chinese_brand_id'):
+                    brand_id = brand_obj.chinese_brand_id
+                    print(f"✅ Found Chinese brand_id from database: {brand_id}")
+                else:
+                    print(f"❌ No Chinese brand_id found for brand: {brand_name}")
+            except Exception as e:
+                print(f"❌ Error looking up Chinese brand_id: {str(e)}")
         
         if brand_id and session.machine_id:
             try:
                 # Import Chinese API service
                 from backend.services.chinese_payment_service import get_chinese_stock
                 
+                # DEBUG: Log the parameters being passed to Chinese API
+                print(f"🚀 Calling get_chinese_stock with:")
+                print(f"  - device_id (machine_id): '{session.machine_id}'")
+                print(f"  - brand_id: '{brand_id}'")
+                
                 # Get real-time stock data from Chinese API
                 stock_result = get_chinese_stock(session.machine_id, brand_id)
+                print(f"📦 Stock validation result: {stock_result.get('success')}, items: {len(stock_result.get('stock_items', []))}")
                 
                 if stock_result.get("success"):
                     stock_items = stock_result.get("stock_items", [])
@@ -312,10 +339,11 @@ async def initialize_vending_payment(
         # Call Chinese API endpoint
         try:
             from backend.routes.chinese_api import send_payment_data_to_chinese_api
-            # Create mock request object
+            # Create mock request object with headers attribute
             class MockRequest:
                 def __init__(self):
                     self.client = type('obj', (object,), {'host': '127.0.0.1'})
+                    self.headers = {}  # Fix: Add missing headers attribute
                     
             mock_request = MockRequest()
             chinese_response = await send_payment_data_to_chinese_api(
