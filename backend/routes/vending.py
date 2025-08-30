@@ -395,6 +395,7 @@ async def initialize_vending_payment(
         session.user_progress = "payment_pending"
         session.status = "payment_pending"
         session.session_data = session_data
+        flag_modified(session, 'session_data')  # Critical: Ensure SQLAlchemy detects JSON changes
         db.commit()
         
         return {
