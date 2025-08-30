@@ -251,6 +251,39 @@ MD5 result: `85d4dabc0b38e27c382d90641eff73fd`
 }
 ```
 
+### Report Payment Status (Chinese API calls our endpoint)
+
+**Endpoint:** `order/payStatus`
+**Method:** POST
+**Auth:** Not required (webhook from Chinese system)
+
+**Request Parameters:**
+
+| Parameter name | Required | Type   | Description |
+| -------------- | -------- | ------ | ----------- |
+| third\_id      | yes      | string | Third-party payment ID |
+| status         | yes      | int    | Payment status: 1=pending, 2=processing, 3=paid, 4=failed, 5=abnormal |
+
+**Request Example:**
+
+```json
+{
+  "third_id": "PYEN250830532387",
+  "status": 3
+}
+```
+
+**Response:**
+
+```json
+{
+  "msg": "操作成功", 
+  "code": 200
+}
+```
+
+**Note:** The Chinese system calls OUR webhook endpoint at `/api/chinese/order/payStatus` to notify us when payment status changes. This triggers our automatic orderData call.
+
 ### Report Order Information
 
 **Endpoint:** `order/orderData`
