@@ -372,31 +372,62 @@ async def initialize_vending_payment(
         # For vending machine payments (pay_type: 5), orderData will be called 
         # by the payStatus webhook when the Chinese API confirms payment completion
         
-        # Store payment session data (orderData will be handled by webhook)
-        session_data = session.session_data or {}
+        # Use centralized SessionDataManager for guaranteed persistence
+        from backend.utils.session_data_manager import SessionDataManager
         
-        # Store payment data for webhook processing
-        if "payment_data" not in session_data:
-            session_data["payment_data"] = {}
-        session_data["payment_data"]["third_id"] = third_id
-        session_data["payment_data"]["amount"] = payment_amount
-        session_data["payment_data"]["mobile_model_id"] = mobile_model_id
-        session_data["payment_data"]["device_id"] = session.machine_id
-        session_data["payment_data"]["pay_type"] = 5  # Vending machine payment
-        session_data["payment_data"]["mobile_shell_id"] = mobile_shell_id
+        # DEBUG: Log session_data BEFORE modification
+        print(f"🔍 DEBUG - BEFORE using SessionDataManager:")
+        print(f"  - session_id: {session_id}")
+        print(f"  - existing session_data keys: {list(session.session_data.keys()) if session.session_data else 'None'}")
+        print(f"  - session status: {session.status}")
+        print(f"  - third_id to store: {third_id}")
         
-        # Store additional data needed for orderData webhook
-        session_data["chinese_third_id"] = third_id
-        session_data["chinese_payment_id"] = chinese_response.get('data', {}).get('id')
-        session_data["payment_initiated_at"] = datetime.now(timezone.utc).isoformat()
-        session_data["chinese_response"] = chinese_response
-        
-        # Update session status to indicate payment is pending physical completion
+        # Update session status first
         session.user_progress = "payment_pending"
         session.status = "payment_pending"
-        session.session_data = session_data
-        flag_modified(session, 'session_data')  # Critical: Ensure SQLAlchemy detects JSON changes
-        db.commit()
+        
+        # Prepare additional data for webhook processing
+        additional_updates = {
+            "chinese_payment_id": chinese_response.get('data', {}).get('id'),
+            "chinese_response": chinese_response
+        }
+        
+        # Use SessionDataManager to add payment data with guaranteed persistence
+        print(f"🔄 Using SessionDataManager to store payment data...")
+        payment_success = SessionDataManager.add_payment_data(
+            db=db,
+            session_object=session,
+            third_id=third_id,
+            payment_amount=payment_amount,
+            mobile_model_id=mobile_model_id,
+            device_id=session.machine_id,
+            mobile_shell_id=mobile_shell_id,
+            pay_type=5  # Vending machine payment
+        )
+        
+        if not payment_success:
+            print(f"❌ CRITICAL: SessionDataManager failed to store payment data!")
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to store payment data - please try again"
+            )
+        
+        # Add additional data
+        additional_success = SessionDataManager.update_session_data(
+            db=db,
+            session_object=session,
+            updates=additional_updates,
+            merge_strategy="update",
+            verify_persistence=True
+        )
+        
+        if not additional_success:
+            print(f"⚠️ WARNING: Failed to store additional data, but payment data is stored")
+        
+        print(f"✅ CRITICAL SUCCESS: Payment data stored using SessionDataManager!")
+        print(f"   - third_id: {third_id}")
+        print(f"   - Payment data persistence: {'✅ VERIFIED' if payment_success else '❌ FAILED'}")
+        print(f"   - Additional data persistence: {'✅ VERIFIED' if additional_success else '❌ FAILED'}")
         
         return {
             "success": True,
@@ -558,6 +589,9 @@ async def register_user_with_session(
             "scan_security_info": security_info
         })
         session.session_data = session_data
+        # CRITICAL FIX: Ensure SQLAlchemy detects JSON field changes
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(session, 'session_data')
         
         db.commit()
         db.refresh(session)
@@ -758,6 +792,9 @@ async def confirm_vending_machine_payment(
             "payment_amount_verified": request.payment_amount
         })
         session.session_data = session_data
+        # CRITICAL FIX: Ensure SQLAlchemy detects JSON field changes
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(session, 'session_data')
         
         # Decrement machine session count as payment is complete
         security_manager.decrement_machine_sessions(session.machine_id)

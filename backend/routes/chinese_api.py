@@ -321,46 +321,93 @@ async def receive_payment_status_update(
         print(f"Request data: {request.dict()}")
         print(f"Current time: {datetime.now(timezone.utc).isoformat()}")
         
-        # First check for vending machine sessions using third_id in session_data
-        from models import VendingMachineSession
-        vending_session = None
+        # Use SessionDataManager for robust session search
+        from backend.utils.session_data_manager import SessionDataManager
         
-        # Search for vending session that used this third_id for payment
-        # CRITICAL FIX: Include "payment_pending" sessions since status changes after init-payment
-        sessions = db.query(VendingMachineSession).filter(
-            VendingMachineSession.status.in_(["active", "payment_pending"])
-        ).all()
+        print(f"=== ENHANCED PAYSTATUS WEBHOOK WITH SESSIONDATAMANAGER ===")
+        print(f"🔍 Searching for vending session with third_id: {request.third_id}")
+        print(f"⏰ Webhook received at: {datetime.now(timezone.utc).isoformat()}")
         
-        logger.info(f"=== PAYSTATUS WEBHOOK DEBUGGING ===")
+        logger.info(f"=== PAYSTATUS WEBHOOK WITH SESSIONDATAMANAGER ===")
         logger.info(f"🔍 Searching for vending session with third_id: {request.third_id}")
-        logger.info(f"📊 Found {len(sessions)} sessions to check (active + payment_pending)")
         
-        # Log all session data for debugging
-        for session in sessions:
-            logger.info(f"📋 Session {session.session_id} (status: {session.status}):")
-            if session.session_data and isinstance(session.session_data, dict):
-                # Check if this session's payment used this third_id
-                payment_data = session.session_data.get('payment_data', {})
-                session_third_id = payment_data.get('third_id')
-                logger.info(f"  - session_data keys: {list(session.session_data.keys())}")
-                logger.info(f"  - payment_data keys: {list(payment_data.keys())}")
-                logger.info(f"  - session third_id: {session_third_id}")
-                logger.info(f"  - webhook third_id: {request.third_id}")
-                logger.info(f"  - third_id match: {session_third_id == request.third_id}")
-                
-                if session_third_id == request.third_id:
-                    vending_session = session
-                    logger.info(f"✅ FOUND MATCHING VENDING SESSION: {session.session_id}")
-                    break
+        # Use SessionDataManager for comprehensive search
+        vending_session = SessionDataManager.find_session_by_third_id(db, request.third_id)
+        
+        if vending_session:
+            print(f"✅ FOUND MATCHING VENDING SESSION: {vending_session.session_id}")
+            print(f"   - Status: {vending_session.status}")
+            print(f"   - User progress: {vending_session.user_progress}")
+            print(f"   - Created: {vending_session.created_at}")
+            print(f"   - Last activity: {vending_session.last_activity}")
+            
+            # Log session data details
+            payment_data = SessionDataManager.get_session_payment_data(vending_session)
+            if payment_data:
+                print(f"   - Payment data keys: {list(payment_data.keys())}")
+                print(f"   - Payment data third_id: {payment_data.get('third_id')}")
+                print(f"   - Payment amount: {payment_data.get('amount')}")
+                print(f"   - Mobile model ID: {payment_data.get('mobile_model_id')}")
+                print(f"   - Device ID: {payment_data.get('device_id')}")
             else:
-                logger.info(f"  - No session_data or invalid format")
+                print(f"   - ⚠️ No payment data found (unexpected)")
+            
+            logger.info(f"✅ FOUND MATCHING VENDING SESSION: {vending_session.session_id}")
+        else:
+            print(f"❌ No vending session found for third_id: {request.third_id}")
+            logger.warning(f"❌ No vending session found for third_id: {request.third_id}")
         
-        logger.info(f"🎯 Final result: vending_session = {vending_session.session_id if vending_session else 'None'}")
-        logger.info(f"=== END PAYSTATUS DEBUGGING ===")
+        print(f"🎯 SessionDataManager result: vending_session = {vending_session.session_id if vending_session else 'None'}")
+        print(f"=== END ENHANCED PAYSTATUS WEBHOOK ===")
+        
+        logger.info(f"🎯 SessionDataManager result: vending_session = {vending_session.session_id if vending_session else 'None'}")
                     
         if not vending_session:
             print(f"❌ No vending session found for third_id: {request.third_id}")
             logger.warning(f"❌ No vending session found for third_id: {request.third_id}")
+            
+            # ENHANCED FALLBACK: Try alternative search methods
+            print(f"🔍 FALLBACK: Attempting alternative session search methods...")
+            
+            # Try searching by chinese_payment_id from PaymentMapping
+            payment_mapping = db.query(PaymentMapping).filter(
+                PaymentMapping.third_id == request.third_id
+            ).first()
+            
+            if payment_mapping:
+                print(f"✅ FALLBACK: Found payment mapping, searching by chinese_payment_id")
+                
+                # Search sessions for this chinese_payment_id
+                fallback_sessions = db.query(VendingMachineSession).filter(
+                    VendingMachineSession.status.in_(["active", "payment_pending"])
+                ).all()
+                
+                for session in fallback_sessions:
+                    if (session.session_data and 
+                        isinstance(session.session_data, dict) and
+                        session.session_data.get('chinese_payment_id') == payment_mapping.chinese_payment_id):
+                        vending_session = session
+                        print(f"✅ FALLBACK SUCCESS: Found session by chinese_payment_id: {session.session_id}")
+                        logger.info(f"✅ FALLBACK SUCCESS: Found session {session.session_id} by chinese_payment_id")
+                        break
+            
+            # If still no session found, try broader search
+            if not vending_session:
+                print(f"🔍 FALLBACK: Trying recent session search (last 10 minutes)...")
+                recent_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+                recent_sessions = db.query(VendingMachineSession).filter(
+                    VendingMachineSession.status.in_(["active", "payment_pending"]),
+                    VendingMachineSession.last_activity >= recent_time
+                ).order_by(VendingMachineSession.last_activity.desc()).limit(5).all()
+                
+                for session in recent_sessions:
+                    if (session.session_data and 
+                        isinstance(session.session_data, dict)):
+                        payment_data = session.session_data.get('payment_data', {})
+                        if payment_data and not payment_data.get('third_id'):
+                            # Found a recent session without third_id - possible race condition
+                            print(f"🔄 POTENTIAL RACE CONDITION: Session {session.session_id} missing third_id")
+                            logger.warning(f"Found recent session {session.session_id} without third_id - possible race condition")
         else:
             print(f"✅ Found vending session: {vending_session.session_id}")
             print(f"Payment status received: {request.status} (expected: 3 for success)")
@@ -512,6 +559,9 @@ async def receive_payment_status_update(
                     vending_session.status = "payment_failed"
                     logger.error(f"❌ Order failed to send to Chinese API - Code: {order_response.get('code')}")
                 
+                # CRITICAL FIX: Ensure SQLAlchemy detects JSON field changes
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(vending_session, 'session_data')
                 db.commit()
                 
                 return {
@@ -1119,6 +1169,10 @@ async def send_order_data_to_chinese_api(
                         'error_type': 'orderdata_failed'
                     }
                     session.last_activity = datetime.now(timezone.utc)
+                    
+                    # CRITICAL FIX: Ensure SQLAlchemy detects JSON field changes
+                    from sqlalchemy.orm.attributes import flag_modified
+                    flag_modified(session, 'session_data')
                 
                 if active_sessions:
                     db.commit()

@@ -490,6 +490,8 @@ class VendingMachineSessionService:
     def update_session_progress(db: Session, session_id: str, progress: str, session_data: dict = None) -> Optional['VendingMachineSession']:
         """Update session progress and data"""
         from models import VendingMachineSession
+        from sqlalchemy.orm.attributes import flag_modified
+        
         session = db.query(VendingMachineSession).filter(VendingMachineSession.session_id == session_id).first()
         if session:
             session.user_progress = progress
@@ -498,6 +500,8 @@ class VendingMachineSessionService:
                 current_data = session.session_data or {}
                 current_data.update(session_data)
                 session.session_data = current_data
+                # CRITICAL FIX: Ensure SQLAlchemy detects JSON field changes
+                flag_modified(session, 'session_data')
             db.commit()
             db.refresh(session)
         return session
