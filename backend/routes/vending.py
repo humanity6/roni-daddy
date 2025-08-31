@@ -17,6 +17,7 @@ from security_middleware import (
 from db_services import BrandService, PhoneModelService, TemplateService, OrderService
 from models import VendingMachine, VendingMachineSession, Order
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 import secrets
 import json
 import time
@@ -242,7 +243,9 @@ async def initialize_vending_payment(
         brand_name = order_summary.get("brand", "")
         model_name = order_summary.get("model", "")
         brand_id = order_summary.get("brand_id", "")
-        payment_amount = session.payment_amount or order_summary.get("price", 19.99)
+        # Convert Decimal to float to avoid JSON serialization issues
+        raw_payment_amount = session.payment_amount or order_summary.get("price", 19.99)
+        payment_amount = float(raw_payment_amount) if raw_payment_amount is not None else 19.99
         
         # DEBUG: Log the extracted values to identify the issue
         print(f"🔍 DEBUG - Extracted order details:")

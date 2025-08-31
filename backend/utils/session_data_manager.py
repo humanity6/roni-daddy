@@ -10,11 +10,37 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Dict, Any, Optional, Union
 from datetime import datetime, timezone
+from decimal import Decimal
 import time
 import logging
 import json
 
 logger = logging.getLogger(__name__)
+
+def decimal_json_serializer(obj):
+    """
+    Custom JSON serializer that handles Decimal objects and other non-serializable types
+    """
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+def safe_json_dumps(data):
+    """
+    Safely serialize data to JSON, handling Decimal objects
+    """
+    try:
+        return json.dumps(data, default=decimal_json_serializer)
+    except (TypeError, ValueError) as e:
+        logger.error(f"JSON serialization error: {e}")
+        # Fallback: convert problematic values to strings
+        def fallback_serializer(obj):
+            if isinstance(obj, (Decimal, datetime)):
+                return str(obj)
+            return str(obj)
+        return json.dumps(data, default=fallback_serializer)
 
 class SessionDataManager:
     """Centralized utility for guaranteed session_data persistence"""
@@ -65,8 +91,10 @@ class SessionDataManager:
                 logger.info(f"   - Original keys: {list(original_session_data.keys())}")
                 logger.info(f"   - New keys: {list(new_session_data.keys())}")
                 
-                # Apply updates to session object
-                session_object.session_data = new_session_data
+                # Apply updates to session object with safe JSON serialization
+                # Convert any Decimal objects to float before storing
+                safe_session_data = json.loads(safe_json_dumps(new_session_data))
+                session_object.session_data = safe_session_data
                 session_object.last_activity = datetime.now(timezone.utc)
                 
                 # Critical: Mark JSON field as modified
@@ -230,10 +258,13 @@ class SessionDataManager:
         Returns:
             bool: True if successful, False otherwise
         """
+        # Ensure payment_amount is JSON serializable (convert Decimal to float)
+        safe_payment_amount = float(payment_amount) if isinstance(payment_amount, Decimal) else payment_amount
+        
         payment_updates = {
             "payment_data": {
                 "third_id": third_id,
-                "amount": payment_amount,
+                "amount": safe_payment_amount,
                 "mobile_model_id": mobile_model_id,
                 "device_id": device_id,
                 "pay_type": pay_type,
