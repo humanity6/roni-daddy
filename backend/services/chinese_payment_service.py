@@ -669,18 +669,36 @@ class ChinesePaymentAPIClient:
                     "data": {"third_pay_id": third_pay_id, "third_id": third_id}
                 }
             
-            # Shorten image URL by removing query parameters to fix Chinese database 'pic' column size limitation
-            shortened_pic = pic.split('?')[0] if pic and '?' in pic else pic
-            if pic and '?' in pic:
-                logger.info(f"URL shortened for database compatibility:")
-                logger.info(f"  Original: {pic}")  
-                logger.info(f"  Shortened: {shortened_pic}")
+            # CRITICAL FIX: DO NOT REMOVE AUTHENTICATION TOKENS - Chinese API needs them!
+            # Previous code was removing tokens, causing 422 authentication failures
+            logger.info(f"🔒 PRESERVING authentication tokens in URL for Chinese API access")
+            logger.info(f"Full authenticated URL: {pic}")
+            
+            # Validate that URL has required authentication token
+            if pic and 'pimpmycase.onrender.com' in pic and '?token=' not in pic:
+                logger.error(f"❌ CRITICAL: Image URL missing required authentication token!")
+                logger.error(f"URL: {pic}")
+                logger.error(f"Chinese API will reject this URL with 422 authentication error")
+                raise ValueError("Image URL missing required authentication token for Chinese API access")
+            elif pic and '?token=' in pic:
+                logger.info(f"✅ URL contains required authentication token")
+                # Count tokens to detect duplicate token bug
+                token_count = pic.count('?token=')
+                if token_count > 1:
+                    logger.error(f"❌ DUPLICATE TOKEN PARAMETERS DETECTED: {token_count} tokens in URL")
+                    logger.error(f"Malformed URL: {pic}")
+                    raise ValueError(f"URL has {token_count} token parameters - should have exactly 1")
+                logger.info(f"✅ Token validation passed: {token_count} token parameter")
+            
+            # Use the full authenticated URL (DO NOT SHORTEN/REMOVE TOKENS)
+            authenticated_pic = pic
+            logger.info(f"✅ Using AUTHENTICATED URL for Chinese API (NOT shortened): {authenticated_pic}")
             
             payload = {
                 "third_pay_id": third_pay_id,
                 "third_id": third_id,
                 "mobile_model_id": mobile_model_id,
-                "pic": shortened_pic,
+                "pic": authenticated_pic,  # Use authenticated URL with tokens
                 "device_id": device_id,
                 "mobile_shell_id": mobile_shell_id
             }

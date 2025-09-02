@@ -715,21 +715,24 @@ async def send_order_summary_to_vending_machine(
                     
                     # Extract filename from URL
                     if '/image/' in original_image_url:
-                        filename = original_image_url.split('/image/')[-1].split('?')[0]  # Remove any existing token
-                        print(f"DEBUG: Extracted filename for token generation: {filename}")
+                        # CRITICAL FIX: Extract clean filename, removing any existing token parameters
+                        filename = original_image_url.split('/image/')[-1].split('?')[0]  # Remove everything after ?
+                        print(f"DEBUG: Extracted clean filename for token generation: {filename}")
+                        print(f"DEBUG: Original URL had tokens: {'?' in original_image_url}")
                         
-                        # Generate secure URL with Chinese manufacturing partner token (48h expiry)
+                        # Generate completely new secure URL with ONLY Chinese manufacturing token
                         secure_image_url = generate_secure_image_url(
-                            filename=filename,
+                            filename=filename,  # Pass ONLY the filename, no existing tokens
                             partner_type="chinese_manufacturing", 
                             custom_expiry_hours=48,
                             base_url="https://pimpmycase.onrender.com"
                         )
                         
                         session_data['final_image_url'] = secure_image_url
-                        print(f"✅ DEBUG: Generated and stored secure image URL for Chinese API")
+                        print(f"✅ DEBUG: Successfully replaced existing tokens with Chinese manufacturing token")
                         print(f"DEBUG: Original URL: {original_image_url}")
-                        print(f"DEBUG: Secure URL: {secure_image_url}")
+                        print(f"DEBUG: New Secure URL: {secure_image_url}")
+                        print(f"DEBUG: Token count in new URL: {secure_image_url.count('?token=')}")
                         
                         # Also store original URL for reference
                         session_data['original_image_url'] = original_image_url

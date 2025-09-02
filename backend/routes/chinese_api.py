@@ -467,33 +467,44 @@ async def receive_payment_status_update(
                     
                     # Extract filename from URL 
                     if '/image/' in final_image_url:
-                        filename = final_image_url.split('/image/')[-1].split('?')[0]  # Remove any existing token
-                        logger.info(f"Extracted filename: {filename}")
+                        # CRITICAL FIX: Extract ONLY the filename, removing ALL existing token parameters
+                        filename = final_image_url.split('/image/')[-1].split('?')[0]  # Remove everything after first ?
+                        logger.info(f"Extracted clean filename: {filename}")
+                        logger.info(f"Original URL had tokens: {'?' in final_image_url}")
                         
                         # Validate filename is not empty
                         if not filename or filename.strip() == '':
                             logger.error(f"❌ Empty filename extracted from URL: {final_image_url}")
                             raise ValueError(f"Invalid filename extracted from URL")
                         
-                        # Generate secure URL with Chinese manufacturing partner token (48h expiry)
-                        logger.info(f"🔒 Generating secure URL with chinese_manufacturing token...")
+                        # Generate completely new secure URL with ONLY Chinese manufacturing token
+                        logger.info(f"🔒 Generating NEW secure URL with ONLY chinese_manufacturing token...")
+                        logger.info(f"🔒 Input filename (clean): {filename}")
                         original_final_image_url = final_image_url
                         final_image_url = generate_secure_image_url(
-                            filename=filename,
+                            filename=filename,  # Pass ONLY clean filename
                             partner_type="chinese_manufacturing", 
                             custom_expiry_hours=48,
                             base_url="https://pimpmycase.onrender.com"
                         )
                         
-                        # Validate that token was actually added
+                        # Validate that token was actually added and URL is properly formatted
                         if '?token=' not in final_image_url:
                             logger.error(f"❌ Token generation failed - no token found in generated URL: {final_image_url}")
                             raise ValueError("Generated URL does not contain token parameter")
                         
+                        # CRITICAL: Verify no duplicate token parameters
+                        token_count = final_image_url.count('?token=')
+                        if token_count != 1:
+                            logger.error(f"❌ DUPLICATE TOKEN PARAMETERS DETECTED: Found {token_count} '?token=' in URL")
+                            logger.error(f"Malformed URL: {final_image_url}")
+                            raise ValueError(f"URL has {token_count} token parameters - should have exactly 1")
+                        
                         logger.info(f"✅ SUCCESSFULLY generated Chinese API partner token")
                         logger.info(f"Original URL: {original_final_image_url}")
-                        logger.info(f"Tokenized URL: {final_image_url}")
+                        logger.info(f"New Clean URL: {final_image_url}")
                         logger.info(f"Filename: {filename}")
+                        logger.info(f"✅ Token count validation: {token_count} (correct)")
                         
                         # Verify token format is correct
                         token_part = final_image_url.split('?token=')[1]
@@ -503,6 +514,7 @@ async def receive_payment_status_update(
                             raise ValueError(f"Generated token has invalid format: expected 3 components, got {len(token_components)}")
                         
                         logger.info(f"✅ Token validation passed - format is correct with {len(token_components)} components")
+                        logger.info(f"✅ Token partner type: {token_components[1]}")
                         
                     else:
                         logger.error(f"❌ URL does not contain '/image/' path: {final_image_url}")
