@@ -245,6 +245,139 @@ async def receive_order_status_update(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update order status: {str(e)}")
 
+@router.post("/order/status-update")
+async def chinese_system_order_status_update(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Flexible endpoint for Chinese system order status updates
+    Handles various formats the Chinese system might send
+    """
+    try:
+        # Get raw request body to handle any format
+        body = await request.body()
+        
+        logger.info(f"Chinese order status update received")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Request body: {body.decode('utf-8') if body else 'Empty'}")
+        
+        # Try to parse JSON if available
+        data = {}
+        if body:
+            try:
+                import json
+                data = json.loads(body.decode('utf-8'))
+                logger.info(f"Parsed JSON data: {data}")
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                logger.warning(f"Failed to parse request body as JSON: {e}")
+                # Try form data
+                try:
+                    from urllib.parse import parse_qs
+                    form_data = parse_qs(body.decode('utf-8'))
+                    data = {k: v[0] if len(v) == 1 else v for k, v in form_data.items()}
+                    logger.info(f"Parsed form data: {data}")
+                except Exception as form_error:
+                    logger.warning(f"Failed to parse as form data: {form_error}")
+        
+        # Extract relevant information from various possible fields
+        order_id = data.get('order_id') or data.get('orderId') or data.get('third_id') or data.get('thirdId')
+        status = data.get('status') or data.get('orderStatus')
+        queue_number = data.get('queue_number') or data.get('queueNumber') or data.get('queue_no')
+        chinese_order_id = data.get('chinese_order_id') or data.get('chineseOrderId') or data.get('id')
+        device_id = data.get('device_id') or data.get('deviceId')
+        
+        logger.info(f"Extracted fields:")
+        logger.info(f"  - order_id: {order_id}")
+        logger.info(f"  - status: {status}")  
+        logger.info(f"  - queue_number: {queue_number}")
+        logger.info(f"  - chinese_order_id: {chinese_order_id}")
+        logger.info(f"  - device_id: {device_id}")
+        
+        # If we have a device_id, try to find the vending session and update it
+        if device_id and not order_id:
+            try:
+                from models import VendingMachineSession
+                from backend.utils.session_data_manager import SessionDataManager
+                
+                # Find vending session by device_id
+                vending_session = db.query(VendingMachineSession).filter(
+                    VendingMachineSession.machine_id == device_id,
+                    VendingMachineSession.status.in_(["active", "payment_pending"])
+                ).order_by(VendingMachineSession.created_at.desc()).first()
+                
+                if vending_session:
+                    logger.info(f"Found vending session {vending_session.session_id} for device {device_id}")
+                    
+                    # Update session data with Chinese order status
+                    status_updates = {
+                        "chinese_order_status": {
+                            "status": status,
+                            "queue_number": queue_number,
+                            "chinese_order_id": chinese_order_id,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                    
+                    success = SessionDataManager.update_session_data(
+                        db=db,
+                        session_object=vending_session,
+                        updates=status_updates,
+                        merge_strategy="update",
+                        verify_persistence=True
+                    )
+                    
+                    if success:
+                        logger.info(f"Successfully updated vending session {vending_session.session_id} with order status")
+                    else:
+                        logger.error(f"Failed to update vending session {vending_session.session_id}")
+                else:
+                    logger.warning(f"No active vending session found for device_id {device_id}")
+                    
+            except Exception as session_error:
+                logger.error(f"Error updating vending session: {str(session_error)}")
+        
+        # Try to update order if order_id is available
+        if order_id:
+            try:
+                order = OrderService.get_order_by_id(db, order_id)
+                if order:
+                    update_data = {}
+                    if status:
+                        update_data["status"] = str(status)
+                    if queue_number:
+                        update_data["queue_number"] = str(queue_number)
+                    if chinese_order_id:
+                        update_data["chinese_order_id"] = str(chinese_order_id)
+                    
+                    if update_data:
+                        updated_order = OrderService.update_order_status(db, order_id, update_data.get("status"), update_data)
+                        logger.info(f"Successfully updated order {order_id} with status {status}")
+                else:
+                    logger.warning(f"Order not found: {order_id}")
+            except Exception as order_error:
+                logger.error(f"Error updating order: {str(order_error)}")
+        
+        # Always return success to prevent Chinese system from retrying
+        return {
+            "success": True,
+            "message": "Order status update received and processed",
+            "received_data": data,
+            "processed_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error processing Chinese order status update: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Still return success to prevent endless retries from Chinese system
+        return {
+            "success": True,
+            "message": "Order status update received (with errors)",
+            "error": str(e),
+            "processed_at": datetime.now(timezone.utc).isoformat()
+        }
+
 @router.post("/send-print-command")
 async def send_print_command(
     request: PrintCommandRequest,

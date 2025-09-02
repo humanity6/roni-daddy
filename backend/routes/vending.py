@@ -561,10 +561,66 @@ async def register_user_with_session(
             db.commit()
             # Decrement machine session count
             security_manager.decrement_machine_sessions(session.machine_id)
-            raise HTTPException(
-                status_code=410, 
-                detail="Vending session has expired. Please rescan the QR code to start a new session."
-            )
+            
+            # ENHANCED: Try to auto-recover by creating a new session for the same machine
+            try:
+                print(f"⚠️ Session expired for machine {session.machine_id}, attempting auto-recovery...")
+                
+                # Create a new session with extended timeout for recovery
+                from datetime import timedelta
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                random_suffix = secrets.token_hex(4).upper()
+                new_session_id = f"{session.machine_id}_{timestamp}_{random_suffix}"
+                
+                # Extend timeout to 45 minutes for recovery
+                expires_at = datetime.now(timezone.utc) + timedelta(minutes=45)
+                
+                new_session = VendingMachineSession(
+                    session_id=new_session_id,
+                    machine_id=session.machine_id,
+                    status="active",
+                    user_progress="started",
+                    expires_at=expires_at,
+                    ip_address=security_info["client_ip"],
+                    created_at=datetime.now(timezone.utc),
+                    last_activity=datetime.now(timezone.utc),
+                    qr_data={
+                        "machine_id": session.machine_id,
+                        "location": session.qr_data.get("location") if session.qr_data else "Recovery Session",
+                        "timeout_minutes": 45,
+                        "metadata": {"auto_recovery": True, "original_session": session.session_id},
+                        "security_info": security_info
+                    }
+                )
+                
+                db.add(new_session)
+                db.commit()
+                db.refresh(new_session)
+                
+                print(f"✅ Auto-recovery successful: Created new session {new_session_id}")
+                
+                # Return 410 with recovery information
+                raise HTTPException(
+                    status_code=410, 
+                    detail={
+                        "error": "Vending session has expired",
+                        "message": "Session expired but auto-recovery is available", 
+                        "recovery": {
+                            "new_session_id": new_session_id,
+                            "machine_id": session.machine_id,
+                            "expires_at": expires_at.isoformat(),
+                            "auto_recovery": True
+                        }
+                    }
+                )
+                
+            except Exception as recovery_error:
+                print(f"❌ Auto-recovery failed: {str(recovery_error)}")
+                # Fall back to standard 410 error
+                raise HTTPException(
+                    status_code=410, 
+                    detail="Vending session has expired. Please rescan the QR code to start a new session."
+                )
         
         # Validate machine ID matches session machine
         if session.machine_id != request.machine_id:

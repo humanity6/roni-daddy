@@ -196,9 +196,250 @@ async def process_payment_success(
         try:
             print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
             
-            # Get Chinese model ID from order data or device_id from request
+            # CRITICAL FIX: Retrieve vending session data if device_id is present
             device_id = request.order_data.get('device_id')
-            chinese_model_id = request.order_data.get('chinese_model_id') or model.chinese_model_id
+            vending_session_data = None
+            
+            # If this is a vending machine payment, retrieve stored session data
+            if device_id:
+                try:
+                    from backend.utils.session_data_manager import SessionDataManager
+                    from models import VendingMachineSession
+                    
+                    print(f"🔍 VENDING PAYMENT DETECTED: Comprehensive session search for device_id {device_id}")
+                    
+                    # COMPREHENSIVE SESSION SEARCH - try multiple strategies
+                    vending_session = None
+                    
+                    # Strategy 1: Recent sessions with payment-related statuses
+                    recent_sessions = db.query(VendingMachineSession).filter(
+                        VendingMachineSession.machine_id == device_id,
+                        VendingMachineSession.status.in_(["active", "payment_pending", "payment_completed"])
+                    ).order_by(VendingMachineSession.created_at.desc()).limit(3).all()
+                    
+                    print(f"📊 Found {len(recent_sessions)} recent payment-related sessions")
+                    for session in recent_sessions:
+                        print(f"   - Session {session.session_id}: status={session.status}, created={session.created_at}")
+                        if session.session_data:
+                            print(f"     Has session_data with keys: {list(session.session_data.keys())}")
+                            if 'payment_data' in session.session_data:
+                                vending_session = session
+                                print(f"     ✅ FOUND payment_data in session {session.session_id}")
+                                break
+                    
+                    # Strategy 2: If no payment data found, try ANY recent session
+                    if not vending_session:
+                        print(f"🔍 No payment_data found, searching ALL recent sessions for device_id {device_id}")
+                        all_sessions = db.query(VendingMachineSession).filter(
+                            VendingMachineSession.machine_id == device_id
+                        ).order_by(VendingMachineSession.created_at.desc()).limit(5).all()
+                        
+                        print(f"📊 Found {len(all_sessions)} total sessions:")
+                        for session in all_sessions:
+                            print(f"   - Session {session.session_id}: status={session.status}, created={session.created_at}")
+                            if session.session_data:
+                                print(f"     Session data keys: {list(session.session_data.keys())}")
+                                # Use the first session with any meaningful data
+                                if not vending_session and len(session.session_data.keys()) > 2:
+                                    vending_session = session
+                                    print(f"     ✅ Using session {session.session_id} as fallback")
+                    
+                    # Strategy 3: Try to find by third_id from previous logs (if available)
+                    if not vending_session:
+                        print(f"🔍 Strategy 3: Checking recent sessions with chinese_third_id")
+                        sessions_with_chinese_data = db.query(VendingMachineSession).filter(
+                            VendingMachineSession.machine_id == device_id
+                        ).order_by(VendingMachineSession.created_at.desc()).limit(10).all()
+                        
+                        for session in sessions_with_chinese_data:
+                            if session.session_data and 'chinese_third_id' in session.session_data:
+                                vending_session = session
+                                print(f"     ✅ Found session with chinese_third_id: {session.session_id}")
+                                break
+                    
+                    # Strategy 4: Last resort - use SessionDataManager's find_session_by_third_id
+                    if not vending_session:
+                        print(f"🔍 Strategy 4: Last resort - checking payment mappings for device {device_id}")
+                        # Try to find any recent third_id from logs or payment mappings
+                        try:
+                            # Check if there are any PaymentMapping entries for this device
+                            from models import PaymentMapping
+                            recent_payments = db.query(PaymentMapping).filter(
+                                PaymentMapping.device_id == device_id
+                            ).order_by(PaymentMapping.created_at.desc()).limit(3).all()
+                            
+                            for payment in recent_payments:
+                                print(f"     Checking payment mapping third_id: {payment.third_id}")
+                                found_session = SessionDataManager.find_session_by_third_id(db, payment.third_id)
+                                if found_session and found_session.machine_id == device_id:
+                                    vending_session = found_session
+                                    print(f"     ✅ Found session via PaymentMapping: {found_session.session_id}")
+                                    break
+                        except Exception as mapping_error:
+                            print(f"     PaymentMapping lookup failed: {mapping_error}")
+                    
+                    # Extract data if session found
+                    if vending_session and vending_session.session_data:
+                        vending_session_data = vending_session.session_data
+                        print(f"✅ FINAL: Using vending session {vending_session.session_id}")
+                        print(f"📊 Session status: {vending_session.status}")
+                        print(f"📊 Session data keys: {list(vending_session_data.keys())}")
+                        
+                        # Extract payment data using SessionDataManager
+                        payment_data = SessionDataManager.get_session_payment_data(vending_session)
+                        if payment_data:
+                            print(f"✅ Extracted payment data keys: {list(payment_data.keys())}")
+                            for key, value in payment_data.items():
+                                print(f"     - {key}: {value}")
+                        else:
+                            print(f"⚠️ No payment_data found in session, checking raw session_data")
+                            # Fallback: check for chinese_third_id and other data directly
+                            if 'chinese_third_id' in vending_session_data:
+                                print(f"     Found chinese_third_id: {vending_session_data['chinese_third_id']}")
+                            if 'order_summary' in vending_session_data:
+                                order_summary = vending_session_data['order_summary']
+                                print(f"     Found order_summary with keys: {list(order_summary.keys())}")
+                    else:
+                        print(f"❌ CRITICAL: NO VENDING SESSION DATA FOUND for device_id {device_id}")
+                        print(f"❌ This means payment initialization may have failed or session was lost")
+                        
+                        # FINAL DEBUGGING: List ALL sessions for this device to understand what happened
+                        try:
+                            print(f"🔍 FINAL DEBUG: Listing ALL sessions for device {device_id}:")
+                            debug_sessions = db.query(VendingMachineSession).filter(
+                                VendingMachineSession.machine_id == device_id
+                            ).order_by(VendingMachineSession.created_at.desc()).limit(10).all()
+                            
+                            if debug_sessions:
+                                for i, session in enumerate(debug_sessions):
+                                    print(f"   {i+1}. {session.session_id}")
+                                    print(f"      Status: {session.status}")
+                                    print(f"      Created: {session.created_at}")
+                                    print(f"      Has session_data: {session.session_data is not None}")
+                                    if session.session_data:
+                                        print(f"      Session data size: {len(str(session.session_data))} chars")
+                                        print(f"      Session data keys: {list(session.session_data.keys())}")
+                                        # Show first few chars of each value for debugging
+                                        for key, value in session.session_data.items():
+                                            if isinstance(value, dict):
+                                                print(f"        {key}: {{{', '.join(value.keys())}}}")
+                                            else:
+                                                value_str = str(value)[:50] + "..." if len(str(value)) > 50 else str(value)
+                                                print(f"        {key}: {value_str}")
+                            else:
+                                print(f"   NO SESSIONS FOUND AT ALL for device_id {device_id}")
+                        except Exception as debug_error:
+                            print(f"   Debug session listing failed: {debug_error}")
+                        
+                        vending_session_data = None
+                        
+                except Exception as session_error:
+                    print(f"❌ CRITICAL ERROR in session retrieval: {str(session_error)}")
+                    import traceback
+                    print(f"❌ Traceback: {traceback.format_exc()}")
+                    vending_session_data = None
+            
+            # Get Chinese model ID from multiple sources (priority order)
+            chinese_model_id = None
+            mobile_shell_id = None
+            stored_third_id = None
+            
+            # Priority 1: Vending session data (comprehensive extraction)
+            if vending_session_data:
+                print(f"🔍 EXTRACTING DATA from vending session...")
+                
+                # Method 1: Extract from payment_data structure
+                if 'payment_data' in vending_session_data:
+                    payment_data = vending_session_data['payment_data']
+                    chinese_model_id = payment_data.get('mobile_model_id')
+                    mobile_shell_id = payment_data.get('mobile_shell_id')
+                    stored_third_id = payment_data.get('third_id')
+                    print(f"✅ Extracted from payment_data structure")
+                
+                # Method 2: Extract from order_summary if payment_data not available
+                if not chinese_model_id and 'order_summary' in vending_session_data:
+                    order_summary = vending_session_data['order_summary']
+                    chinese_model_id = order_summary.get('chinese_model_id')
+                    mobile_shell_id = order_summary.get('mobile_shell_id')
+                    print(f"📋 Extracted from order_summary: chinese_model_id={chinese_model_id}")
+                
+                # Method 3: Extract from root level (legacy compatibility)
+                if not stored_third_id:
+                    stored_third_id = vending_session_data.get('chinese_third_id')
+                    print(f"🔧 Found stored_third_id at root level: {stored_third_id}")
+                
+                # Method 4: Try to get device_id from session if not from request
+                session_device_id = vending_session_data.get('device_id') or vending_session_data.get('machine_id')
+                if session_device_id and session_device_id != device_id:
+                    print(f"⚠️ Device ID mismatch: request={device_id}, session={session_device_id}")
+                
+                print(f"✅ FINAL EXTRACTED DATA from vending session:")
+                print(f"   - chinese_model_id: {chinese_model_id}")
+                print(f"   - mobile_shell_id: {mobile_shell_id}")
+                print(f"   - stored_third_id: {stored_third_id}")
+                print(f"   - session_device_id: {session_device_id}")
+            
+            # Priority 2: Request order data  
+            if not chinese_model_id:
+                chinese_model_id = request.order_data.get('chinese_model_id')
+                print(f"📝 Using chinese_model_id from request: {chinese_model_id}")
+            
+            # Priority 3: Database model lookup
+            if not chinese_model_id:
+                chinese_model_id = model.chinese_model_id
+                print(f"🗄️ Using chinese_model_id from database: {chinese_model_id}")
+            
+            # Get mobile_shell_id from multiple sources if not from vending session
+            if not mobile_shell_id:
+                mobile_shell_id = (
+                    request.order_data.get('mobile_shell_id') or 
+                    request.order_data.get('selectedModelData', {}).get('mobile_shell_id')
+                )
+                print(f"📝 Using mobile_shell_id from request: {mobile_shell_id}")
+            
+            # Get stored third_id from multiple sources if not from vending session
+            if not stored_third_id:
+                stored_third_id = request.order_data.get('paymentThirdId') or request.order_data.get('third_id')
+                print(f"📝 Using stored_third_id from request: {stored_third_id}")
+            
+            print(f"🎯 FINAL RESOLVED DATA:")
+            print(f"   - device_id: {device_id}")
+            print(f"   - chinese_model_id: {chinese_model_id}")
+            print(f"   - mobile_shell_id: {mobile_shell_id}")
+            print(f"   - stored_third_id: {stored_third_id}")
+            
+            # CRITICAL: Enhanced validation layers for vending payments
+            if device_id:  # This is a vending payment
+                validation_errors = []
+                
+                if not chinese_model_id:
+                    validation_errors.append("chinese_model_id is missing")
+                if not mobile_shell_id:
+                    validation_errors.append("mobile_shell_id is missing")
+                
+                if validation_errors:
+                    print(f"❌ CRITICAL VALIDATION FAILED for vending payment:")
+                    for error in validation_errors:
+                        print(f"   - {error}")
+                    
+                    print(f"📊 Data availability analysis:")
+                    print(f"   - vending_session_data available: {vending_session_data is not None}")
+                    print(f"   - vending_session_data keys: {list(vending_session_data.keys()) if vending_session_data else 'N/A'}")
+                    print(f"   - payment_data available: {'payment_data' in (vending_session_data or {})}")
+                    print(f"   - request.order_data keys: {list(request.order_data.keys())}")
+                    
+                    # Provide detailed error with recovery suggestions
+                    error_detail = f"Vending machine payment validation failed: {', '.join(validation_errors)}. "
+                    if not vending_session_data:
+                        error_detail += "No vending session data found. Please restart the vending machine flow."
+                    elif 'payment_data' not in vending_session_data:
+                        error_detail += "Payment initialization data missing. Please try the payment again."
+                    else:
+                        error_detail += "Required model information missing. Please select your phone model again."
+                    
+                    raise HTTPException(status_code=400, detail=error_detail)
+                else:
+                    print(f"✅ Vending payment validation PASSED - all required fields present")
             
             # Determine if this is a vending machine payment based on payment method or presence of device_id
             payment_method = request.order_data.get('paymentMethod', 'app')
@@ -214,9 +455,13 @@ async def process_payment_success(
                 # Skip Chinese API integration for app-only payments without device_id
                 print(f"=== COMPLETE CHINESE API INTEGRATION END (SKIPPED - NO DEVICE_ID) ===")
             else:
-                # CRITICAL FIX: Enhanced validation for stored payment data
-                existing_third_id = request.order_data.get('paymentThirdId') or request.order_data.get('third_id')
+                # CRITICAL FIX: Use resolved stored payment data
+                existing_third_id = stored_third_id
                 existing_chinese_payment_id = request.order_data.get('chinesePaymentId') or request.order_data.get('chinese_payment_id')
+                
+                # Extract Chinese payment ID from vending session data if available
+                if not existing_chinese_payment_id and vending_session_data:
+                    existing_chinese_payment_id = vending_session_data.get('chinese_payment_id')
                 
                 print(f"Payment data validation:")
                 print(f"  - existing_third_id: {existing_third_id}")
@@ -224,11 +469,14 @@ async def process_payment_success(
                 print(f"  - device_id: {device_id}")
                 print(f"  - chinese_model_id: {chinese_model_id}")
                 
-                # Validate that we have stored payment data for vending payments
+                # Enhanced validation for vending payments
                 if is_vending_payment and device_id and not existing_third_id:
-                    print(f"❌ CRITICAL: Vending payment missing stored payment data - this will cause duplicate payData")
-                    print(f"Available order_data keys: {list(request.order_data.keys())}")
-                    # Don't fail here, but log warning - the duplicate call will still work
+                    if vending_session_data:
+                        print(f"⚠️ WARNING: Vending payment found session data but missing third_id - will generate new one")
+                    else:
+                        print(f"❌ CRITICAL: Vending payment missing stored payment data - this will cause duplicate payData")
+                        print(f"Available order_data keys: {list(request.order_data.keys())}")
+                        # Don't fail here, but log warning - the duplicate call will still work
                 
                 if chinese_model_id:
                     # Generate third_id for Chinese API if not provided from frontend
@@ -397,13 +645,7 @@ async def process_payment_success(
                         # CRITICAL FIX: Extract mobile_shell_id from multiple sources with validation
                         print(f"DEBUG: Full order_data received: {request.order_data}")
                         
-                        # Try multiple sources for mobile_shell_id
-                        mobile_shell_id = (
-                            request.order_data.get('mobile_shell_id') or 
-                            request.order_data.get('selectedModelData', {}).get('mobile_shell_id')
-                        )
-                        
-                        # Additional validation - get from database if available
+                        # CRITICAL FIX: Use mobile_shell_id already resolved from vending session or fallback to database
                         if not mobile_shell_id and chinese_model_id:
                             try:
                                 # Try to find mobile_shell_id from phone model database
@@ -418,9 +660,8 @@ async def process_payment_success(
                                 print(f"⚠️ Database lookup for mobile_shell_id failed: {db_error}")
                         
                         if not mobile_shell_id:
-                            print(f"❌ CRITICAL: mobile_shell_id not found in any source - this WILL cause orderData to fail")
-                            print(f"Available keys in order_data: {list(request.order_data.keys())}")
-                            print(f"selectedModelData keys: {list(request.order_data.get('selectedModelData', {}).keys())}")
+                            print(f"❌ CRITICAL: mobile_shell_id not found - this WILL cause orderData to fail")
+                            print(f"Sources checked: vending_session_data, request.order_data, database")
                             
                             # CRITICAL FIX: Fail the vending machine payment if mobile_shell_id is missing
                             if is_vending_payment and device_id:
@@ -433,7 +674,7 @@ async def process_payment_success(
                                 print(f"⚠️ App payment proceeding without mobile_shell_id - Chinese API may fail")
                                 mobile_shell_id = None
                         else:
-                            print(f"✅ Mobile shell ID extracted: {mobile_shell_id}")
+                            print(f"✅ Mobile shell ID resolved: {mobile_shell_id}")
                         
                         print(f"Sending order data: third_pay_id={effective_third_pay_id} (Chinese ID), third_id={order_third_id}")
                         print(f"Original payment ID: {third_id}")
