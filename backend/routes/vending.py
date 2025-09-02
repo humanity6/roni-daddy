@@ -703,10 +703,50 @@ async def send_order_summary_to_vending_machine(
             "order_security_info": security_info
         })
         
-        # CRITICAL: Store final image URL if provided for future orderData call
+        # CRITICAL: Store final image URL with Chinese API authentication token if provided for future orderData call
         if 'finalImagePublicUrl' in enhanced_order_data:
-            session_data['final_image_url'] = enhanced_order_data['finalImagePublicUrl']
-            print(f"DEBUG: Stored final image URL in session: {enhanced_order_data['finalImagePublicUrl']}")
+            original_image_url = enhanced_order_data['finalImagePublicUrl']
+            print(f"DEBUG: Processing final image URL for Chinese API: {original_image_url}")
+            
+            try:
+                # Generate secure URL with Chinese manufacturing partner token for API access
+                if original_image_url and 'pimpmycase.onrender.com' in original_image_url:
+                    from backend.services.file_service import generate_secure_image_url
+                    
+                    # Extract filename from URL
+                    if '/image/' in original_image_url:
+                        filename = original_image_url.split('/image/')[-1].split('?')[0]  # Remove any existing token
+                        print(f"DEBUG: Extracted filename for token generation: {filename}")
+                        
+                        # Generate secure URL with Chinese manufacturing partner token (48h expiry)
+                        secure_image_url = generate_secure_image_url(
+                            filename=filename,
+                            partner_type="chinese_manufacturing", 
+                            custom_expiry_hours=48,
+                            base_url="https://pimpmycase.onrender.com"
+                        )
+                        
+                        session_data['final_image_url'] = secure_image_url
+                        print(f"✅ DEBUG: Generated and stored secure image URL for Chinese API")
+                        print(f"DEBUG: Original URL: {original_image_url}")
+                        print(f"DEBUG: Secure URL: {secure_image_url}")
+                        
+                        # Also store original URL for reference
+                        session_data['original_image_url'] = original_image_url
+                        
+                    else:
+                        print(f"⚠️  DEBUG: URL doesn't contain '/image/' path, storing as-is: {original_image_url}")
+                        session_data['final_image_url'] = original_image_url
+                else:
+                    print(f"⚠️  DEBUG: URL is not from expected domain, storing as-is: {original_image_url}")
+                    session_data['final_image_url'] = original_image_url
+                    
+            except Exception as e:
+                print(f"❌ ERROR: Failed to generate secure URL, storing original: {str(e)}")
+                import traceback
+                print(f"Token generation error traceback: {traceback.format_exc()}")
+                # Fallback to original URL if token generation fails
+                session_data['final_image_url'] = original_image_url
         
         # IMPORTANT: SQLAlchemy doesn't detect changes to mutable JSON objects
         # We need to mark the attribute as changed to trigger persistence

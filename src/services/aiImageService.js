@@ -69,6 +69,46 @@ class AIImageService {
     return `${API_BASE_URL}/image/${filename}`
   }
 
+  /**
+   * Get secure image URL with authentication token for Chinese manufacturing partners
+   * @param {string} filename - Generated image filename
+   * @param {string} partnerType - Partner type (chinese_manufacturing, end_user)
+   * @param {number} expiryHours - Token expiry in hours
+   * @returns {Promise<string>} Secure image URL with token
+   */
+  async getSecureImageUrl(filename, partnerType = 'chinese_manufacturing', expiryHours = 48) {
+    try {
+      console.log(`🔒 Generating secure URL for ${filename}, partner: ${partnerType}, expiry: ${expiryHours}h`)
+      
+      const response = await fetch(`${API_BASE_URL}/api/image/generate-secure-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          filename: filename,
+          partner_type: partnerType,
+          expiry_hours: expiryHours.toString()
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to generate secure URL')
+      }
+
+      const result = await response.json()
+      console.log(`🔒 Secure URL generated successfully: ${result.secure_url}`)
+      return result.secure_url
+      
+    } catch (error) {
+      console.error('❌ Error generating secure image URL:', error)
+      // Fallback to basic URL if secure URL generation fails
+      console.warn('⚠️  Falling back to basic URL')
+      return this.getImageUrl(filename)
+    }
+  }
+
 
   /**
    * Get available phone brands from Chinese API

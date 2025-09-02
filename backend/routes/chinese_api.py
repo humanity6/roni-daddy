@@ -462,20 +462,74 @@ async def receive_payment_status_update(
                 try:
                     from backend.services.file_service import generate_secure_image_url
                     
+                    logger.info(f"🔒 PROCESSING IMAGE URL FOR CHINESE API TOKEN GENERATION")
+                    logger.info(f"Original URL: {final_image_url}")
+                    
                     # Extract filename from URL 
                     if '/image/' in final_image_url:
                         filename = final_image_url.split('/image/')[-1].split('?')[0]  # Remove any existing token
+                        logger.info(f"Extracted filename: {filename}")
+                        
+                        # Validate filename is not empty
+                        if not filename or filename.strip() == '':
+                            logger.error(f"❌ Empty filename extracted from URL: {final_image_url}")
+                            raise ValueError(f"Invalid filename extracted from URL")
                         
                         # Generate secure URL with Chinese manufacturing partner token (48h expiry)
+                        logger.info(f"🔒 Generating secure URL with chinese_manufacturing token...")
+                        original_final_image_url = final_image_url
                         final_image_url = generate_secure_image_url(
                             filename=filename,
                             partner_type="chinese_manufacturing", 
                             custom_expiry_hours=48,
                             base_url="https://pimpmycase.onrender.com"
                         )
-                        logger.info(f"✅ Generated Chinese API partner token for image: {filename}")
+                        
+                        # Validate that token was actually added
+                        if '?token=' not in final_image_url:
+                            logger.error(f"❌ Token generation failed - no token found in generated URL: {final_image_url}")
+                            raise ValueError("Generated URL does not contain token parameter")
+                        
+                        logger.info(f"✅ SUCCESSFULLY generated Chinese API partner token")
+                        logger.info(f"Original URL: {original_final_image_url}")
+                        logger.info(f"Tokenized URL: {final_image_url}")
+                        logger.info(f"Filename: {filename}")
+                        
+                        # Verify token format is correct
+                        token_part = final_image_url.split('?token=')[1]
+                        token_components = token_part.split(':')
+                        if len(token_components) != 3:
+                            logger.error(f"❌ Invalid token format: {token_part}")
+                            raise ValueError(f"Generated token has invalid format: expected 3 components, got {len(token_components)}")
+                        
+                        logger.info(f"✅ Token validation passed - format is correct with {len(token_components)} components")
+                        
+                    else:
+                        logger.error(f"❌ URL does not contain '/image/' path: {final_image_url}")
+                        raise ValueError(f"Invalid image URL format - no '/image/' path found")
+                        
                 except Exception as e:
-                    logger.error(f"❌ Error generating partner token for Chinese API: {str(e)}")
+                    logger.error(f"❌ CRITICAL ERROR generating partner token for Chinese API: {str(e)}")
+                    logger.error(f"Original URL: {final_image_url}")
+                    import traceback
+                    logger.error(f"Token generation traceback: {traceback.format_exc()}")
+                    
+                    # This is critical - we cannot proceed without tokens for Chinese API
+                    logger.error(f"❌ CANNOT PROCEED - Chinese API requires authenticated URLs")
+                    return {
+                        "msg": f"Failed to generate required authentication token for image access: {str(e)}",
+                        "code": 500,
+                        "third_id": request.third_id,
+                        "status": request.status,
+                        "error_type": "token_generation_failed"
+                    }
+            else:
+                # Handle case where URL doesn't contain expected domain or is empty
+                if not final_image_url:
+                    logger.error(f"❌ No final_image_url found in vending session {vending_session.session_id}")
+                elif 'pimpmycase.onrender.com' not in final_image_url:
+                    logger.warning(f"⚠️  Image URL is not from expected domain: {final_image_url}")
+                    logger.warning(f"⚠️  Chinese API may not be able to access external URLs")
             
             if not final_image_url:
                 logger.error(f"No final image URL found in session {vending_session.session_id}")
@@ -490,19 +544,74 @@ async def receive_payment_status_update(
             import time
             order_third_id = f"OREN{int(time.time() * 1000) % 1000000000000:012d}"
             
-            # Send orderData to Chinese API now that payment is confirmed
+            # FINAL VALIDATION: Ensure image URL has authentication token before sending to Chinese API
+            try:
+                from backend.services.file_service import validate_secure_token
+                
+                logger.info(f"🔍 FINAL URL VALIDATION BEFORE CHINESE API CALL")
+                logger.info(f"Final image URL to validate: {final_image_url}")
+                
+                # Validate that the URL has a token parameter
+                if '?token=' not in final_image_url:
+                    logger.error(f"❌ VALIDATION FAILED: Image URL missing token parameter")
+                    logger.error(f"URL: {final_image_url}")
+                    return {
+                        "msg": "Image URL validation failed - missing authentication token",
+                        "code": 500,
+                        "third_id": request.third_id,
+                        "status": request.status,
+                        "error_type": "url_validation_failed"
+                    }
+                
+                # Extract token and filename for validation
+                token = final_image_url.split('?token=')[1]
+                filename = final_image_url.split('/image/')[-1].split('?')[0]
+                
+                # Validate the token
+                validation_result = validate_secure_token(token, filename, allow_partner_types=["chinese_manufacturing"])
+                
+                if not validation_result.get("valid"):
+                    logger.error(f"❌ TOKEN VALIDATION FAILED: {validation_result.get('error')}")
+                    logger.error(f"Token: {token}")
+                    logger.error(f"Filename: {filename}")
+                    return {
+                        "msg": f"Image URL token validation failed: {validation_result.get('error')}",
+                        "code": 500,
+                        "third_id": request.third_id,
+                        "status": request.status,
+                        "error_type": "token_validation_failed"
+                    }
+                
+                logger.info(f"✅ URL VALIDATION PASSED")
+                logger.info(f"Partner type: {validation_result.get('partner_type')}")
+                logger.info(f"Time remaining: {validation_result.get('time_remaining_seconds')}s")
+                logger.info(f"Expires at: {validation_result.get('expires_at')}")
+                
+            except Exception as validation_error:
+                logger.error(f"❌ URL validation error: {str(validation_error)}")
+                import traceback
+                logger.error(f"Validation error traceback: {traceback.format_exc()}")
+                return {
+                    "msg": f"Failed to validate image URL: {str(validation_error)}",
+                    "code": 500,
+                    "third_id": request.third_id,
+                    "status": request.status,
+                    "error_type": "validation_error"
+                }
+
+            # Send orderData to Chinese API now that payment is confirmed and URL is validated
             try:
                 from backend.services.chinese_payment_service import send_order_data_to_chinese_api
                 
                 print(f"🚀 CALLING ORDERDATA ENDPOINT NOW:")
                 print(f"URL: http://app-dev.deligp.com:8500/mobileShell/en/order/orderData")
                 logger.info(f"🚀 CALLING ORDERDATA ENDPOINT NOW")
-                logger.info(f"Sending orderData to Chinese API after payment confirmation")
+                logger.info(f"Sending orderData to Chinese API after payment confirmation and URL validation")
                 logger.info(f"Payment Third ID: {request.third_id}")
                 logger.info(f"Order Third ID: {order_third_id}")
                 logger.info(f"Mobile Model ID: {order_summary.get('chinese_model_id')}")
                 logger.info(f"Device ID: {order_summary.get('device_id')}")
-                logger.info(f"Image URL: {final_image_url}")
+                logger.info(f"Validated Image URL: {final_image_url}")
                 
                 # Get mobile_shell_id from session data
                 mobile_shell_id = order_summary.get('mobile_shell_id') or vending_session.session_data.get('payment_data', {}).get('mobile_shell_id')
