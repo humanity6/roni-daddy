@@ -315,16 +315,18 @@ async def process_payment_success(
                         # Priority 3: Check if designImage is already a permanent URL
                         elif request.order_data.get('designImage') and request.order_data.get('designImage').startswith('https://pimpmycase.onrender.com'):
                             base_image_url = request.order_data.get('designImage')
-                            # Extract filename from URL for token generation
-                            filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                            # CRITICAL FIX: Extract CLEAN filename, removing ALL existing token parameters
+                            filename = base_image_url.split('/image/')[-1].split('?')[0] if '/image/' in base_image_url else None
                             print(f"✅ Using existing permanent URL from designImage: {base_image_url}")
+                            print(f"🔧 Extracted clean filename: {filename}")
                             
                         # Priority 4: Check if pic field contains permanent URL  
                         elif request.order_data.get('pic') and request.order_data.get('pic').startswith('https://pimpmycase.onrender.com'):
                             base_image_url = request.order_data.get('pic')
-                            # Extract filename from URL for token generation
-                            filename = base_image_url.split('/image/')[-1] if '/image/' in base_image_url else None
+                            # CRITICAL FIX: Extract CLEAN filename, removing ALL existing token parameters
+                            filename = base_image_url.split('/image/')[-1].split('?')[0] if '/image/' in base_image_url else None
                             print(f"✅ Using existing permanent URL from pic field: {base_image_url}")
+                            print(f"🔧 Extracted clean filename: {filename}")
                             
                         # NO FALLBACK - User specifically requested no fallback handling
                         else:
@@ -338,20 +340,37 @@ async def process_payment_success(
                         # Generate secure token for Chinese API access (48 hours expiry)
                         if filename and base_image_url.startswith('https://pimpmycase.onrender.com/image/'):
                             try:
+                                print(f"🔧 CRITICAL FIX: Generating NEW secure URL with CLEAN filename")
+                                print(f"   Clean filename: {filename}")
+                                print(f"   Original URL had tokens: {'?' in base_image_url}")
+                                
                                 # Generate Chinese manufacturing partner token with 48-hour expiry
                                 secure_token = generate_partner_specific_token(
                                     filename, 
                                     partner_type="chinese_manufacturing", 
                                     custom_expiry_hours=48
                                 )
-                                design_image_url = f"{base_image_url}?token={secure_token}"
-                                print(f"🔒 Generated secure Chinese manufacturing token (48h) for: {design_image_url}")
+                                
+                                # CRITICAL FIX: Build NEW clean URL using ONLY the filename and new token
+                                design_image_url = f"https://pimpmycase.onrender.com/image/{filename}?token={secure_token}"
+                                
+                                # Validate no duplicate tokens
+                                token_count = design_image_url.count('?token=')
+                                if token_count != 1:
+                                    raise ValueError(f"Generated URL has {token_count} token parameters - should have exactly 1")
+                                
+                                print(f"✅ Generated CLEAN secure Chinese manufacturing token (48h)")
+                                print(f"   Original URL: {base_image_url}")
+                                print(f"   New Clean URL: {design_image_url}")
+                                print(f"   Token count: {token_count} (correct)")
+                                
                             except Exception as token_error:
-                                print(f"⚠️ Chinese manufacturing token generation failed: {token_error}, using base URL")
+                                print(f"❌ Chinese manufacturing token generation failed: {token_error}")
+                                print(f"⚠️ Falling back to base URL - this may cause Chinese API authentication failures")
                                 design_image_url = base_image_url
                         else:
                             design_image_url = base_image_url
-                            print(f"ℹ️ Using base URL (no token needed): {design_image_url}")
+                            print(f"ℹ️ Using base URL (no Chinese manufacturing token needed): {design_image_url}")
                         
                         # Generate order third_id (different from payment third_id) 
                         # Use session ID as base if available for consistency
