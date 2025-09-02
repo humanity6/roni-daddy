@@ -218,13 +218,13 @@ async def process_payment_success(
                     ).order_by(VendingMachineSession.created_at.desc()).limit(3).all()
                     
                     print(f"📊 Found {len(recent_sessions)} recent payment-related sessions")
-                    for session in recent_sessions:
-                        print(f"   - Session {session.session_id}: status={session.status}, created={session.created_at}")
-                        if session.session_data:
-                            print(f"     Has session_data with keys: {list(session.session_data.keys())}")
-                            if 'payment_data' in session.session_data:
-                                vending_session = session
-                                print(f"     ✅ FOUND payment_data in session {session.session_id}")
+                    for db_session in recent_sessions:
+                        print(f"   - Session {db_session.session_id}: status={db_session.status}, created={db_session.created_at}")
+                        if db_session.session_data:
+                            print(f"     Has session_data with keys: {list(db_session.session_data.keys())}")
+                            if 'payment_data' in db_session.session_data:
+                                vending_session = db_session
+                                print(f"     ✅ FOUND payment_data in session {db_session.session_id}")
                                 break
                     
                     # Strategy 2: If no payment data found, try ANY recent session
@@ -235,14 +235,14 @@ async def process_payment_success(
                         ).order_by(VendingMachineSession.created_at.desc()).limit(5).all()
                         
                         print(f"📊 Found {len(all_sessions)} total sessions:")
-                        for session in all_sessions:
-                            print(f"   - Session {session.session_id}: status={session.status}, created={session.created_at}")
-                            if session.session_data:
-                                print(f"     Session data keys: {list(session.session_data.keys())}")
+                        for db_session in all_sessions:
+                            print(f"   - Session {db_session.session_id}: status={db_session.status}, created={db_session.created_at}")
+                            if db_session.session_data:
+                                print(f"     Session data keys: {list(db_session.session_data.keys())}")
                                 # Use the first session with any meaningful data
-                                if not vending_session and len(session.session_data.keys()) > 2:
-                                    vending_session = session
-                                    print(f"     ✅ Using session {session.session_id} as fallback")
+                                if not vending_session and len(db_session.session_data.keys()) > 2:
+                                    vending_session = db_session
+                                    print(f"     ✅ Using session {db_session.session_id} as fallback")
                     
                     # Strategy 3: Try to find by third_id from previous logs (if available)
                     if not vending_session:
@@ -251,10 +251,10 @@ async def process_payment_success(
                             VendingMachineSession.machine_id == device_id
                         ).order_by(VendingMachineSession.created_at.desc()).limit(10).all()
                         
-                        for session in sessions_with_chinese_data:
-                            if session.session_data and 'chinese_third_id' in session.session_data:
-                                vending_session = session
-                                print(f"     ✅ Found session with chinese_third_id: {session.session_id}")
+                        for db_session in sessions_with_chinese_data:
+                            if db_session.session_data and 'chinese_third_id' in db_session.session_data:
+                                vending_session = db_session
+                                print(f"     ✅ Found session with chinese_third_id: {db_session.session_id}")
                                 break
                     
                     # Strategy 4: Last resort - use SessionDataManager's find_session_by_third_id
@@ -311,16 +311,16 @@ async def process_payment_success(
                             ).order_by(VendingMachineSession.created_at.desc()).limit(10).all()
                             
                             if debug_sessions:
-                                for i, session in enumerate(debug_sessions):
-                                    print(f"   {i+1}. {session.session_id}")
-                                    print(f"      Status: {session.status}")
-                                    print(f"      Created: {session.created_at}")
-                                    print(f"      Has session_data: {session.session_data is not None}")
-                                    if session.session_data:
-                                        print(f"      Session data size: {len(str(session.session_data))} chars")
-                                        print(f"      Session data keys: {list(session.session_data.keys())}")
+                                for i, db_session in enumerate(debug_sessions):
+                                    print(f"   {i+1}. {db_session.session_id}")
+                                    print(f"      Status: {db_session.status}")
+                                    print(f"      Created: {db_session.created_at}")
+                                    print(f"      Has session_data: {db_session.session_data is not None}")
+                                    if db_session.session_data:
+                                        print(f"      Session data size: {len(str(db_session.session_data))} chars")
+                                        print(f"      Session data keys: {list(db_session.session_data.keys())}")
                                         # Show first few chars of each value for debugging
-                                        for key, value in session.session_data.items():
+                                        for key, value in db_session.session_data.items():
                                             if isinstance(value, dict):
                                                 print(f"        {key}: {{{', '.join(value.keys())}}}")
                                             else:
