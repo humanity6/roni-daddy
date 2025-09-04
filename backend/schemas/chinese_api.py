@@ -202,6 +202,7 @@ class ChineseOrderDataRequest(BaseModel):
     mobile_model_id: str
     pic: str
     device_id: str
+    mobile_shell_id: str
     
     @field_validator('third_pay_id')
     @classmethod
@@ -228,6 +229,10 @@ class ChineseOrderDataRequest(BaseModel):
             raise ValueError('Mobile model ID cannot be empty')
         if len(v) > 100:
             raise ValueError('Mobile model ID too long')
+        # Reject known test/hardcoded values
+        test_values = ['MM020250224000010', 'UNKNOWN_MODEL', 'TEST_MODEL']
+        if v.strip() in test_values:
+            raise ValueError(f'Mobile model ID appears to be a test/hardcoded value: {v}')
         return v.strip()
     
     @field_validator('pic')
@@ -248,4 +253,17 @@ class ChineseOrderDataRequest(BaseModel):
             raise ValueError('Device ID cannot be empty')
         if len(v) > 100:
             raise ValueError('Device ID too long')
+        return v.strip()
+    
+    @field_validator('mobile_shell_id')
+    @classmethod
+    def validate_mobile_shell_id(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Mobile shell ID cannot be empty')
+        if len(v) > 100:
+            raise ValueError('Mobile shell ID too long')
+        # Reject known test/hardcoded values
+        test_values = ['MS102503270003', 'DYNAMIC_SHELL', 'TEST_SHELL']
+        if v.strip() in test_values:
+            raise ValueError(f'Mobile shell ID appears to be a test/hardcoded value: {v}')
         return v.strip()

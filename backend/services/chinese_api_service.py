@@ -210,14 +210,15 @@ class ChineseAPIService:
             }
     
     def send_order_data(self, third_pay_id: str, third_id: str, mobile_model_id: str, 
-                       pic: str, device_id: str) -> Dict[str, Any]:
+                       pic: str, device_id: str, mobile_shell_id: str) -> Dict[str, Any]:
         """Send order data to Chinese API"""
         payload = {
             "third_pay_id": third_pay_id,
             "third_id": third_id,
             "mobile_model_id": mobile_model_id,
             "pic": pic,
-            "device_id": device_id
+            "device_id": device_id,
+            "mobile_shell_id": mobile_shell_id
         }
         return self._make_request("order/orderData", payload)
     

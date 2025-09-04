@@ -1325,7 +1325,8 @@ async def send_order_data_to_chinese_api(
             third_id=request.third_id,
             mobile_model_id=request.mobile_model_id,
             pic=request.pic,
-            device_id=request.device_id
+            device_id=request.device_id,
+            mobile_shell_id=request.mobile_shell_id
         )
         request_duration = time.time() - request_start
 
@@ -1356,7 +1357,8 @@ async def send_order_data_to_chinese_api(
                 third_id=request.third_id,
                 mobile_model_id=request.mobile_model_id,
                 pic=request.pic,
-                device_id=request.device_id
+                device_id=request.device_id,
+                mobile_shell_id=request.mobile_shell_id
             )
             retry_duration = time.time() - retry_start
             logger.info(f"Chinese API orderData RETRY completed in {retry_duration:.2f}s")
@@ -1382,7 +1384,8 @@ async def send_order_data_to_chinese_api(
                         third_id=request.third_id,
                         mobile_model_id=request.mobile_model_id,
                         pic=request.pic,
-                        device_id=request.device_id
+                        device_id=request.device_id,
+                        mobile_shell_id=request.mobile_shell_id
                     )
                     fb_duration = time.time() - fb_start
                     logger.info(f"Fallback orderData attempt completed in {fb_duration:.2f}s")
@@ -1411,7 +1414,8 @@ async def send_order_data_to_chinese_api(
                             third_id=request.third_id,
                             mobile_model_id=request.mobile_model_id,
                             pic=sanitized_pic,
-                            device_id=request.device_id
+                            device_id=request.device_id,
+                            mobile_shell_id=request.mobile_shell_id
                         )
                         san_duration = time.time() - san_start
                         logger.info(f"Sanitized pic fallback completed in {san_duration:.2f}s")
