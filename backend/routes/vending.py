@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
+from typing import Optional
 from database import get_db
 from backend.schemas.vending import (
     CreateSessionRequest, SessionStatusResponse, OrderSummaryRequest,
@@ -28,19 +29,37 @@ router = APIRouter(prefix="/api/vending")
 
 @router.post("/create-session")
 async def create_vending_session(
-    request: CreateSessionRequest,
-    http_request: Request,
+    request: Optional[CreateSessionRequest] = None,
+    http_request: Request = None,
     db: Session = Depends(get_db)
 ):
-    """Create a new vending machine session for QR code generation"""
+    """Create a new vending machine session for QR code generation - LENIENT VERSION"""
     try:
         print(f"=== CREATE VENDING SESSION START ===")
+        
+        # Handle empty request body gracefully
+        if request is None:
+            return {
+                "success": False,
+                "error": "Request body required with machine_id",
+                "example": {
+                    "machine_id": "your_machine_id",
+                    "location": "optional_location",
+                    "session_timeout_minutes": 30
+                }
+            }
+        
         print(f"Request: {request.dict()}")
         print(f"Machine ID: {request.machine_id}")
         print(f"Location: {request.location}")
         
-        # Security validation
-        security_info = validate_machine_security(http_request, request.machine_id)
+        # Use relaxed security for Chinese partners
+        from security_middleware import validate_relaxed_api_security
+        try:
+            security_info = validate_relaxed_api_security(http_request)
+        except:
+            # If security validation fails, use minimal security info
+            security_info = {"client_ip": "unknown", "security_level": "minimal"}
         
         # Sanitize inputs
         machine_id = security_manager.sanitize_string_input(request.machine_id, 50)

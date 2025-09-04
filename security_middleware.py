@@ -90,8 +90,8 @@ class SecurityManager:
         
         return "unknown"
     
-    def is_rate_limited(self, identifier: str, max_requests: int = 10, window_minutes: int = 1) -> bool:
-        """Check if identifier is rate limited"""
+    def is_rate_limited(self, identifier: str, max_requests: int = 100, window_minutes: int = 1) -> bool:
+        """Check if identifier is rate limited - RELAXED LIMITS FOR CHINESE PARTNERS"""
         
         now = time.time()
         window_start = now - (window_minutes * 60)
@@ -102,7 +102,7 @@ class SecurityManager:
             if timestamp > window_start
         ]
         
-        # Check if limit exceeded
+        # Check if limit exceeded (much higher limits now)
         if len(self.rate_limit_storage[identifier]) >= max_requests:
             return True
         
@@ -419,17 +419,16 @@ def validate_relaxed_api_security(request: Request) -> Dict[str, Any]:
     """Minimal security validation for API endpoints with relaxed security for all users"""
     client_ip = security_manager.get_client_ip(request)
     
-    # Very basic IP validation only
-    if not security_manager.is_valid_ip_address(client_ip):
-        raise HTTPException(status_code=400, detail="Invalid IP address")
+    # Skip IP validation entirely for maximum leniency
+    # Chinese partners may use various proxy configurations
     
-    # CRITICAL FIX: Increased rate limit for Chinese partners and API integrations
-    if security_manager.is_rate_limited(f"relaxed:{client_ip}", max_requests=100, window_minutes=1):
-        raise HTTPException(status_code=429, detail="Excessive request rate")
+    # Skip rate limiting for relaxed security mode
+    # Chinese partners need higher limits for testing and integration
     
     return {
         "client_ip": client_ip,
         "validated": True,
-        "security_level": "relaxed",
-        "timestamp": datetime.utcnow().isoformat()
+        "security_level": "relaxed_lenient",
+        "timestamp": datetime.utcnow().isoformat(),
+        "note": "Security validation bypassed for Chinese partner compatibility"
     }

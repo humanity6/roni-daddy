@@ -67,8 +67,19 @@ def test_cxy_device_again():
     test_third_id = f"RETRY{int(datetime.now().timestamp())}"
     
     try:
+        # Get first available model from stock instead of using hardcoded value
+        stock_response = client.get_stock_list(device_id=device_id, brand_id="BR20250111000002")
+        if not stock_response.get("success") or not stock_response.get("stock_items"):
+            print(f"❌ No stock available for payment test")
+            return
+        
+        # Use first available model from stock
+        first_model = stock_response["stock_items"][0]
+        dynamic_model_id = first_model["mobile_model_id"]
+        print(f"   Using dynamic model ID from stock: {dynamic_model_id}")
+        
         payment_response = client.send_payment_data(
-            mobile_model_id="MM020250224000010",  # iPhone 15 Pro
+            mobile_model_id=dynamic_model_id,
             third_id=test_third_id,
             pay_amount=19.99,
             pay_type=5,
@@ -99,12 +110,17 @@ def test_cxy_device_again():
     test_order_id = f"RONEN{int(datetime.now().timestamp())}"
     
     try:
+        # Get mobile_shell_id for the model used in payment
+        mobile_shell_id = first_model.get("mobile_shell_id", "DYNAMIC_SHELL")
+        print(f"   Using dynamic mobile_shell_id: {mobile_shell_id}")
+        
         order_response = client.send_order_data(
             third_pay_id=chinese_payment_id,
             third_id=test_order_id,
-            mobile_model_id="MM020250224000010",
+            mobile_model_id=dynamic_model_id,
             pic="https://pimpmycase.onrender.com/logo.png",
-            device_id=device_id
+            device_id=device_id,
+            mobile_shell_id=mobile_shell_id
         )
         
         print(f"📤 Order API Response:")
