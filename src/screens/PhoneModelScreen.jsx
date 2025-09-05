@@ -3,11 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
+import { useAppState } from '../contexts/AppStateContext'
 
 const PhoneModelScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { brand, apiSource } = location.state || {}
+  const { actions } = useAppState()
   
   const [selectedModel, setSelectedModel] = useState('')
   const [models, setModels] = useState([])
@@ -69,12 +71,57 @@ const PhoneModelScreen = () => {
   }
 
   const handleSubmit = () => {
-    const selectedModelData = models.find(m => m.name === selectedModel)
+    const selectedModelObj = models.find(m => m.name === selectedModel)
+    
+    // Prepare complete model data with physical dimensions from Chinese API
+    const selectedModelData = {
+      brand: brand?.name?.toLowerCase() || brand?.display_name?.toLowerCase() || 'unknown',
+      model: selectedModelObj?.name || selectedModelObj?.display_name,
+      chinese_model_id: selectedModelObj?.chinese_model_id || selectedModelObj?.mobile_model_id || selectedModelObj?.id,
+      price: selectedModelObj?.price,
+      stock: selectedModelObj?.stock,
+      device_id: selectedModelObj?.device_id,
+      // Chinese API physical dimensions in millimeters
+      width: selectedModelObj?.width ? parseFloat(selectedModelObj.width) : null,
+      height: selectedModelObj?.height ? parseFloat(selectedModelObj.height) : null,
+      mobile_shell_id: selectedModelObj?.mobile_shell_id
+    }
+    
+    console.log('PhoneModelScreen - Selected model data with physical dimensions:', selectedModelData)
+    
+    // Validate physical dimensions from Chinese API
+    if (selectedModelData.width && selectedModelData.height) {
+      const physicalWidth = parseFloat(selectedModelData.width)
+      const physicalHeight = parseFloat(selectedModelData.height) 
+      const aspectRatio = physicalHeight / physicalWidth
+      
+      if (physicalWidth < 30 || physicalWidth > 200 || physicalHeight < 100 || physicalHeight > 300 || aspectRatio < 1.2 || aspectRatio > 3.0) {
+        console.warn('⚠️  Unusual physical dimensions detected:', {
+          width: physicalWidth,
+          height: physicalHeight,
+          aspectRatio: aspectRatio.toFixed(3),
+          model: selectedModelData.model
+        })
+      } else {
+        console.log('✅ Valid physical dimensions:', {
+          width: physicalWidth,
+          height: physicalHeight,
+          aspectRatio: aspectRatio.toFixed(3)
+        })
+      }
+    } else {
+      console.warn('⚠️  No physical dimensions available for selected model:', selectedModelData.model)
+    }
+    
+    // Save to app state for access throughout the app
+    actions.setPhoneSelection(selectedModelData.brand, selectedModelData.model, selectedModelData)
+    
     navigate('/template-selection', {
       state: {
         brand: brand,
-        model: selectedModelData,
-        apiSource: apiSource
+        model: selectedModelObj,
+        apiSource: apiSource,
+        selectedModelData: selectedModelData
       }
     })
   }

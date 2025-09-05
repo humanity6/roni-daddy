@@ -15,13 +15,82 @@ export async function composeFinalImage(options) {
     selectedTextColor = '#ffffff',
     selectedBackgroundColor = '#ffffff',
     textPosition = { x: 50, y: 50 },
-    transform = { x: 0, y: 0, scale: 1 }
+    transform = { x: 0, y: 0, scale: 1 },
+    modelData = null // Phone model data with physical dimensions
   } = options
 
-  // Canvas dimensions - high resolution for print quality
-  // Increased resolution for better quality (2x scaling)
-  const CANVAS_WIDTH = 1390  // 695 * 2
-  const CANVAS_HEIGHT = 2542 // 1271 * 2
+  // Canvas dimensions - proportional to phone model physical dimensions
+  // Use fixed width of 1390px and calculate height based on physical dimensions ratio
+  const CANVAS_WIDTH = 1390  // Fixed reference width for consistent quality
+  
+  let CANVAS_HEIGHT
+  if (modelData?.width && modelData?.height) {
+    // Validate and parse physical dimensions from Chinese API (in mm)
+    const physicalWidth = parseFloat(modelData.width)
+    const physicalHeight = parseFloat(modelData.height)
+    
+    // Validation: Ensure dimensions are reasonable for phone cases
+    const isValidWidth = !isNaN(physicalWidth) && physicalWidth > 30 && physicalWidth < 200  // 30-200mm width range
+    const isValidHeight = !isNaN(physicalHeight) && physicalHeight > 100 && physicalHeight < 300  // 100-300mm height range
+    const aspectRatio = physicalHeight / physicalWidth
+    const isValidAspectRatio = aspectRatio > 1.2 && aspectRatio < 3.0  // Reasonable phone aspect ratios
+    
+    if (isValidWidth && isValidHeight && isValidAspectRatio) {
+      // Calculate proportional height using validated physical dimensions
+      CANVAS_HEIGHT = Math.round((physicalHeight / physicalWidth) * CANVAS_WIDTH)
+      
+      // Additional validation: Ensure calculated height is reasonable
+      if (CANVAS_HEIGHT < 1000 || CANVAS_HEIGHT > 5000) {
+        console.warn(`⚠️  Calculated canvas height ${CANVAS_HEIGHT}px is outside expected range, using fallback`)
+        CANVAS_HEIGHT = 2542
+      } else {
+        console.log(`📐 Using proportional canvas dimensions based on phone model:`)
+        console.log(`   Physical: ${physicalWidth}mm x ${physicalHeight}mm`)
+        console.log(`   Canvas: ${CANVAS_WIDTH}px x ${CANVAS_HEIGHT}px`)
+        console.log(`   Aspect ratio: ${aspectRatio.toFixed(3)}`)
+        
+        // Special validation for Chinese team's reported iPhone dimensions
+        if (modelData?.model) {
+          const modelName = modelData.model.toLowerCase()
+          if (modelName.includes('iphone 16') && !modelName.includes('pro')) {
+            // Expected: iPhone 16 with 74.42 x 150.96 mm → 1390 x 2836 px
+            const expectedHeight = Math.round((150.96 / 74.42) * 1390) // Should be ~2819px
+            console.log(`🔍 iPhone 16 verification:`)
+            console.log(`   Expected from Chinese specs (74.42 x 150.96): ${expectedHeight}px height`)
+            console.log(`   Chinese team expects: 2836px height`)
+            console.log(`   Actual calculated: ${CANVAS_HEIGHT}px height`)
+          } else if (modelName.includes('iphone 15') && !modelName.includes('pro')) {
+            // Expected: iPhone 15 with 76.28 x 151.72 mm → 1390 x 2780 px  
+            const expectedHeight = Math.round((151.72 / 76.28) * 1390) // Should be ~2765px
+            console.log(`🔍 iPhone 15 verification:`)
+            console.log(`   Expected from Chinese specs (76.28 x 151.72): ${expectedHeight}px height`)
+            console.log(`   Chinese team expects: 2780px height`)
+            console.log(`   Actual calculated: ${CANVAS_HEIGHT}px height`)
+          }
+        }
+      }
+    } else {
+      // Invalid dimensions detected
+      CANVAS_HEIGHT = 2542
+      console.warn(`⚠️  Invalid physical dimensions detected, using fallback:`)
+      console.warn(`   Width: ${physicalWidth}mm (valid: ${isValidWidth})`)
+      console.warn(`   Height: ${physicalHeight}mm (valid: ${isValidHeight})`)
+      console.warn(`   Aspect ratio: ${aspectRatio.toFixed(3)} (valid: ${isValidAspectRatio})`)
+    }
+  } else {
+    // No physical dimensions available
+    CANVAS_HEIGHT = 2542
+    console.log(`⚠️  No physical dimensions available, using fallback: ${CANVAS_WIDTH}x${CANVAS_HEIGHT}`)
+    if (modelData) {
+      console.log('   Model data available but missing width/height:', {
+        width: modelData.width,
+        height: modelData.height,
+        model: modelData.model
+      })
+    } else {
+      console.log('   No model data provided')
+    }
+  }
 
   // Create canvas with high-quality settings
   const canvas = document.createElement('canvas')

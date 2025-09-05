@@ -146,7 +146,8 @@ const BackgroundColorSelectionScreen = () => {
         selectedTextColor,
         selectedBackgroundColor,
         textPosition,
-        transform: initialTransform
+        transform: initialTransform,
+        modelData: appState.modelData // Pass phone model data with physical dimensions
       })
       
       console.log('✅ Final image composed successfully')
