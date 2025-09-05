@@ -12,7 +12,7 @@ const MultiImageUploadScreen = () => {
 
   // Each slot keeps src + transform data
   const [images, setImages] = useState(
-    Array(requiredCount).fill(null).map(() => ({ src: null, x: 0, y: 0, scale: 2 }))
+    Array(requiredCount).fill(null).map(() => ({ src: null, x: 0, y: 0, scale: 1 }))
   )
   const [currentIdx, setCurrentIdx] = useState(0)
   const fileInputRef = useRef(null)
@@ -36,7 +36,7 @@ const MultiImageUploadScreen = () => {
       const processed = await enhanceImage(file)
       setImages((prev) => {
         const next = [...prev]
-        next[currentIdx] = { ...next[currentIdx], src: processed, scale: 2 }
+        next[currentIdx] = { ...next[currentIdx], src: processed, scale: 1 }
         return next
       })
     } catch (err) {
@@ -139,13 +139,13 @@ const MultiImageUploadScreen = () => {
       console.log('Resetting transform for image', activeIdx)
       setImages((prev) => {
         const next = [...prev]
-        next[activeIdx] = { ...next[activeIdx], x: 0, y: 0, scale: 2 }
+        next[activeIdx] = { ...next[activeIdx], x: 0, y: 0, scale: 1 }
         return next
       })
     }
   }
 
-  const resetImages = () => setImages(Array(requiredCount).fill(null).map(() => ({ src: null, x: 0, y: 0, scale: 2 })))
+  const resetImages = () => setImages(Array(requiredCount).fill(null).map(() => ({ src: null, x: 0, y: 0, scale: 1 })))
 
   const handleNext = () => {
     // Extract image URLs and transforms from the images array
@@ -231,7 +231,7 @@ const MultiImageUploadScreen = () => {
                           <img
                             src={img.src}
                             alt={`img-${idx}`}
-                            className="absolute w-full h-full object-cover"
+                            className="absolute w-full h-full object-contain"
                             style={{ 
                               transform: `translate(${img.x}%, ${img.y}%) scale(${img.scale})`,
                               transformOrigin: 'center center'
@@ -281,7 +281,7 @@ const MultiImageUploadScreen = () => {
                           <img
                             src={img.src}
                             alt={`img-${idx}`}
-                            className="absolute w-full h-full object-cover"
+                            className="absolute w-full h-full object-contain"
                             style={{ 
                               transform: `translate(${img.x}%, ${img.y}%) scale(${img.scale})`,
                               transformOrigin: 'center center'

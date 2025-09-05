@@ -179,7 +179,7 @@ const TextColorSelectionScreen = () => {
                     <img 
                       src={img} 
                       alt={`Photo ${idx + 1}`} 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       style={{
                         objectPosition: `${imageTransforms?.[idx]?.x || 50}% ${imageTransforms?.[idx]?.y || 50}%`,
                         transform: `scale(${imageTransforms?.[idx]?.scale || 1})`
@@ -221,7 +221,7 @@ const TextColorSelectionScreen = () => {
                             <img 
                               src={img} 
                               alt={`design ${idx+1}`} 
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                               style={{
                                 transform: imageTransforms && imageTransforms[idx] 
                                   ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`
@@ -239,7 +239,7 @@ const TextColorSelectionScreen = () => {
                             <img 
                               src={img} 
                               alt={`design ${idx+1}`} 
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                               style={{
                                 transform: imageTransforms && imageTransforms[idx] 
                                   ? `translate(${imageTransforms[idx].x}%, ${imageTransforms[idx].y}%) scale(${imageTransforms[idx].scale})`

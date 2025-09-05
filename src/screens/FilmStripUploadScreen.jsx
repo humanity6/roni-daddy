@@ -146,22 +146,8 @@ const FilmStripUploadScreen = () => {
 
   const moveUp = () => updateTransform(currentIdx, (t) => ({ y: t.y - 5 }))
   const moveDown = () => updateTransform(currentIdx, (t) => ({ y: t.y + 5 }))
-  const moveLeft = () => {
-    const orient = imageOrientations[currentIdx]
-    if (orient === 'landscape') {
-      updateTransform(currentIdx, (t) => ({ x: t.x - 10 }))
-    } else {
-      updateTransform(currentIdx, (t) => ({ y: t.y - 10 }))
-    }
-  }
-  const moveRight = () => {
-    const orient = imageOrientations[currentIdx]
-    if (orient === 'landscape') {
-      updateTransform(currentIdx, (t) => ({ x: t.x + 10 }))
-    } else {
-      updateTransform(currentIdx, (t) => ({ y: t.y + 10 }))
-    }
-  }
+  const moveLeft = () => updateTransform(currentIdx, (t) => ({ x: t.x - 10 }))
+  const moveRight = () => updateTransform(currentIdx, (t) => ({ x: t.x + 10 }))
   const zoomIn = () => updateTransform(currentIdx, (t) => ({ scale: t.scale + 0.1 }))
   const zoomOut = () => updateTransform(currentIdx, (t) => ({ scale: t.scale - 0.1 }))
   const resetTransform = () => updateTransform(currentIdx, defaultTransform)
@@ -206,7 +192,7 @@ const FilmStripUploadScreen = () => {
                     <img
                       src={uploadedImages[idx]}
                       alt={`Photo ${idx + 1}`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                       style={{
                         objectPosition: `${imageTransforms[idx].x}% ${imageTransforms[idx].y}%`,
                         transform: `scale(${imageTransforms[idx].scale})`
@@ -257,26 +243,54 @@ const FilmStripUploadScreen = () => {
 
         {/* Control Buttons Row (optional placeholders) */}
         <div className="flex items-center justify-center space-x-3 mb-6">
-          <button onClick={zoomOut} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ZoomOut size={20} className="text-gray-700" />
+          <button 
+            onClick={zoomOut} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <ZoomOut size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
-          <button onClick={zoomIn} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ZoomIn size={20} className="text-gray-700" />
+          <button 
+            onClick={zoomIn} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <ZoomIn size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
-          <button onClick={resetTransform} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <RefreshCw size={20} className="text-gray-700" />
+          <button 
+            onClick={resetTransform} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <RefreshCw size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
-          <button onClick={moveLeft} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ArrowLeft size={20} className="text-gray-700" />
+          <button 
+            onClick={moveLeft} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <ArrowLeft size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
-          <button onClick={moveRight} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ArrowRight size={20} className="text-gray-700" />
+          <button 
+            onClick={moveRight} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <ArrowRight size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
-          <button onClick={moveDown} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ArrowDown size={20} className="text-gray-700" />
+          <button 
+            onClick={moveDown} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <ArrowDown size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
-          <button onClick={moveUp} className="w-12 h-12 rounded-md bg-green-100 flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            <ArrowUp size={20} className="text-gray-700" />
+          <button 
+            onClick={moveUp} 
+            disabled={!uploadedImages[currentIdx]}
+            className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImages[currentIdx] ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+          >
+            <ArrowUp size={20} className={uploadedImages[currentIdx] ? "text-gray-700" : "text-gray-400"} />
           </button>
         </div>
 
