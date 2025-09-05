@@ -68,7 +68,7 @@ const MultiImageUploadScreen = () => {
       setImages((prev) => {
         const next = [...prev]
         const img = next[activeIdx]
-        next[activeIdx] = { ...img, x: Math.max(-100, img.x - 10) }
+        next[activeIdx] = { ...img, x: Math.max(-300, img.x - 10) }
         return next
       })
     }
@@ -80,7 +80,7 @@ const MultiImageUploadScreen = () => {
       setImages((prev) => {
         const next = [...prev]
         const img = next[activeIdx]
-        next[activeIdx] = { ...img, x: Math.min(100, img.x + 10) }
+        next[activeIdx] = { ...img, x: Math.min(300, img.x + 10) }
         return next
       })
     }
@@ -92,7 +92,7 @@ const MultiImageUploadScreen = () => {
       setImages((prev) => {
         const next = [...prev]
         const img = next[activeIdx]
-        next[activeIdx] = { ...img, y: Math.max(-100, img.y - 10) }
+        next[activeIdx] = { ...img, y: Math.max(-300, img.y - 10) }
         return next
       })
     }
@@ -104,7 +104,7 @@ const MultiImageUploadScreen = () => {
       setImages((prev) => {
         const next = [...prev]
         const img = next[activeIdx]
-        next[activeIdx] = { ...img, y: Math.min(100, img.y + 10) }
+        next[activeIdx] = { ...img, y: Math.min(300, img.y + 10) }
         return next
       })
     }

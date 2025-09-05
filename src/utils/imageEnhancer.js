@@ -53,8 +53,7 @@ export async function enhanceImage(file, options = {}) {
   canvas.height = ch
   const ctx = canvas.getContext('2d')
 
-  // Apply very subtle global adjustments for exposure / WB & saturation
-  ctx.filter = 'brightness(1.02) contrast(1.03) saturate(1.03)'
+  // No color correction - preserve original image colors as requested
 
   // Handle EXIF orientation
   switch (orientationVal) {

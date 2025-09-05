@@ -265,23 +265,39 @@ async function drawImageInCell(ctx, imageDataUrl, transform, cellX, cellY, cellW
         const imageAspect = img.width / img.height
         const cellAspect = cellWidth / cellHeight
         
-        let drawWidth, drawHeight
+        let baseDrawWidth, baseDrawHeight
         if (imageAspect > cellAspect) {
           // Image is wider - fit to cell width
-          drawWidth = cellWidth
-          drawHeight = cellWidth / imageAspect
+          baseDrawWidth = cellWidth
+          baseDrawHeight = cellWidth / imageAspect
         } else {
           // Image is taller - fit to cell height
-          drawHeight = cellHeight
-          drawWidth = cellHeight * imageAspect
+          baseDrawHeight = cellHeight
+          baseDrawWidth = cellHeight * imageAspect
         }
         
-        // Center the image in the cell without user transforms for consistency
+        // Apply user transforms (positioning and scaling)
+        const { x = 0, y = 0, scale = 1 } = transform || {}
+        
+        // Apply user's scale to base dimensions
+        const drawWidth = baseDrawWidth * scale
+        const drawHeight = baseDrawHeight * scale
+        
+        // Calculate position within cell with user's positioning offset
+        // Convert percentage-based positioning to pixel offset within the cell
         const centerX = cellX + cellWidth / 2
         const centerY = cellY + cellHeight / 2
+        const offsetX = (x / 100) * cellWidth * 0.5 // Scale offset by cell size
+        const offsetY = (y / 100) * cellHeight * 0.5
         
-        // Draw image centered in cell with calculated dimensions (no user transforms)
-        ctx.drawImage(img, centerX - drawWidth / 2, centerY - drawHeight / 2, drawWidth, drawHeight)
+        // Draw image with user transforms applied
+        ctx.drawImage(
+          img, 
+          centerX - drawWidth / 2 + offsetX, 
+          centerY - drawHeight / 2 + offsetY, 
+          drawWidth, 
+          drawHeight
+        )
         
         ctx.restore()
         resolve()
@@ -351,8 +367,8 @@ function drawTextOverlay(ctx, options) {
   // Set font with scaled size
   ctx.font = `${scaledFontSize}px ${font}, sans-serif`
   ctx.fillStyle = color
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
   
   // Enable text stroke for better visibility (also scale stroke width)
   ctx.strokeStyle = color === '#ffffff' ? '#000000' : '#ffffff'
@@ -365,10 +381,12 @@ function drawTextOverlay(ctx, options) {
   // Handle multi-line text with scaled line height
   const lines = text.split('\n')
   const lineHeight = scaledFontSize * 1.2
+  const totalTextHeight = lines.length * lineHeight
+  const startY = textY - (totalTextHeight / 2) + (lineHeight / 2) // Center vertically
   
   lines.forEach((line, index) => {
-    const y = textY + (index * lineHeight)
-    if (y < canvasHeight - scaledFontSize) { // Don't draw text outside canvas
+    const y = startY + (index * lineHeight)
+    if (y > 0 && y < canvasHeight) { // Don't draw text outside canvas
       // Draw stroke first (outline)
       ctx.strokeText(line, textX, y)
       // Draw fill text on top
