@@ -15,7 +15,11 @@ const SamsungModelScreen = () => {
   const [error, setError] = useState(null)
   
   // Get parameters from navigation state
-  const { deviceId, chineseBrandId, apiModels } = location.state || {}
+  const { deviceId, chineseBrandId, apiModels, brandData } = location.state || {}
+  
+  // Extract brand information from Chinese API data or fallback
+  const brandName = brandData?.name?.toUpperCase() || brandData?.display_name?.toUpperCase() || 'SAMSUNG'
+  const brandDisplayName = brandData?.display_name || brandData?.name || 'Samsung'
 
   // No fallback models - Chinese API is required
   console.log('SamsungModelScreen - Parameters:', { deviceId, chineseBrandId, apiModels })
@@ -37,30 +41,30 @@ const SamsungModelScreen = () => {
       if (apiModels && apiModels.length > 0) {
         console.log('✅ SamsungModelScreen - Using pre-loaded API models:', apiModels.length)
         setSamsungModels(apiModels)
-        setSelectedModel(apiModels[0])
+        setSelectedModel(apiModels[0]?.mobile_model_name || apiModels[0]?.name || apiModels[0]?.display_name || 'Unknown Model')
       } else {
-        console.log('🔄 SamsungModelScreen - Fetching models from Chinese API...')
+        console.log(`🔄 SamsungModelScreen - Fetching models from Chinese API for ${brandDisplayName}...`)
         
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-        const response = await fetch(`${API_BASE_URL}/api/brands/samsung/models?device_id=${deviceId}`)
+        const response = await fetch(`${API_BASE_URL}/api/chinese/stock/${deviceId}/${chineseBrandId}`)
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch Samsung models: ${response.status} ${response.statusText}`)
+          throw new Error(`Failed to fetch ${brandDisplayName} models: ${response.status} ${response.statusText}`)
         }
         
         const result = await response.json()
         
         if (!result.success) {
-          throw new Error(`Samsung models API error: ${result.detail || 'Unknown error'}`)
+          throw new Error(`${brandDisplayName} models API error: ${result.error || 'Unknown error'}`)
         }
         
-        if (!result.models || result.models.length === 0) {
-          throw new Error('No Samsung models available with current stock')
+        if (!result.available_items || result.available_items.length === 0) {
+          throw new Error(`No ${brandDisplayName} models available with current stock`)
         }
         
-        console.log('✅ SamsungModelScreen - Models loaded from Chinese API:', result.models)
-        setSamsungModels(result.models)
-        setSelectedModel(result.models[0])
+        console.log(`✅ SamsungModelScreen - Models loaded from Chinese API:`, result.available_items)
+        setSamsungModels(result.available_items)
+        setSelectedModel(result.available_items[0]?.mobile_model_name || result.available_items[0]?.name || 'Unknown Model')
       }
     } catch (error) {
       console.error('❌ SamsungModelScreen - Error loading models:', error)
@@ -76,18 +80,28 @@ const SamsungModelScreen = () => {
       return
     }
     
+    // Find the selected model object from the models array
+    const selectedModelObj = samsungModels.find(model => 
+      (model.mobile_model_name || model.name || model.display_name) === selectedModel
+    )
+    
+    if (!selectedModelObj) {
+      alert('Selected model not found')
+      return
+    }
+    
     // Pass Chinese model data to app state including dimensions
     const selectedModelData = {
-      brand: 'samsung',
-      model: selectedModel.name || selectedModel.display_name,
-      chinese_model_id: selectedModel.chinese_model_id || selectedModel.id,
-      price: selectedModel.price,
-      stock: selectedModel.stock,
+      brand: brandData?.name?.toLowerCase() || brandData?.display_name?.toLowerCase() || 'samsung',
+      model: selectedModelObj.mobile_model_name || selectedModelObj.name || selectedModelObj.display_name,
+      chinese_model_id: selectedModelObj.mobile_model_id || selectedModelObj.chinese_model_id || selectedModelObj.id,
+      price: selectedModelObj.price,
+      stock: selectedModelObj.stock,
       device_id: deviceId,
       // Chinese API dimensions in millimeters
-      width: selectedModel.width ? parseFloat(selectedModel.width) : null,
-      height: selectedModel.height ? parseFloat(selectedModel.height) : null,
-      mobile_shell_id: selectedModel.mobile_shell_id
+      width: selectedModelObj.width ? parseFloat(selectedModelObj.width) : null,
+      height: selectedModelObj.height ? parseFloat(selectedModelObj.height) : null,
+      mobile_shell_id: selectedModelObj.mobile_shell_id
     }
     
     console.log('SamsungModelScreen - Selected model data:', selectedModelData)
@@ -139,7 +153,7 @@ const SamsungModelScreen = () => {
             animation: 'spin 1s linear infinite',
             margin: '0 auto 20px'
           }}></div>
-          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading Models...</h2>
+          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading {brandDisplayName} Models...</h2>
         </div>
         
         <style>{`
@@ -181,7 +195,7 @@ const SamsungModelScreen = () => {
           height: '60px',
           borderRadius: '50%',
           background: 'white',
-          border: '5px solid #0066cc',
+          border: `5px solid ${brandData?.button_color || '#0066cc'}`,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -194,7 +208,7 @@ const SamsungModelScreen = () => {
         onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15 18L9 12L15 6" stroke="#0066cc" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M15 18L9 12L15 6" stroke={brandData?.button_color || "#0066cc"} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
@@ -213,7 +227,7 @@ const SamsungModelScreen = () => {
         }}
       >
         <img
-          src="/samsung blob.svg"
+          src={brandData?.image_path || "/samsung blob.svg"}
           alt="Header Background"
           style={{
             position: 'absolute',
@@ -237,7 +251,7 @@ const SamsungModelScreen = () => {
             zIndex: 1
           }}
         >
-          SAMSUNG MODEL
+          {brandName} MODEL
         </h1>
       </div>
 
@@ -336,7 +350,7 @@ const SamsungModelScreen = () => {
                 <div
                   key={index}
                   onClick={() => {
-                    setSelectedModel(model)
+                    setSelectedModel(model.mobile_model_name || model.name || model.display_name || 'Unknown Model')
                     setDropdownOpen(false)
                   }}
                   style={{
@@ -351,7 +365,7 @@ const SamsungModelScreen = () => {
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  {model}
+                  {model.mobile_model_name || model.name || model.display_name || 'Unknown Model'}
                 </div>
               ))}
             </div>
@@ -362,7 +376,7 @@ const SamsungModelScreen = () => {
         <CircleSubmitButton
           onClick={handleSubmit}
           label="Submit"
-          color="#deecd0"
+          color={brandData?.button_color || "#deecd0"}
           position="absolute"
           style={{
             bottom: '60px',

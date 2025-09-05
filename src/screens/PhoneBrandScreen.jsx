@@ -135,7 +135,8 @@ const PhoneBrandScreen = () => {
         const navigationState = { 
           apiModels: apiModels[brandId],
           deviceId: deviceId,
-          chineseBrandId: selectedBrandData.chinese_brand_id
+          chineseBrandId: selectedBrandData.chinese_brand_id,
+          brandData: selectedBrandData // Pass complete brand data for dynamic rendering
         }
         
         switch(brandId) {
