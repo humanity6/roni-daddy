@@ -2,7 +2,7 @@
 
 ## 1. Interface Configuration
 
-**Test Environment:** `http://app-dev.deligp.com:8500/mobileShell/en`
+**Production Environment:** `https://api.inkele.net/mobileShell/en`
 
 **System Configuration:**
 

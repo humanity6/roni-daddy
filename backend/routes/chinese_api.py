@@ -789,7 +789,7 @@ async def receive_payment_status_update(
                 from backend.services.chinese_payment_service import send_order_data_to_chinese_api
                 
                 print(f"🚀 CALLING ORDERDATA ENDPOINT NOW:")
-                print(f"URL: http://app-dev.deligp.com:8500/mobileShell/en/order/orderData")
+                print(f"URL: https://api.inkele.net/mobileShell/en/order/orderData")
                 logger.info(f"🚀 CALLING ORDERDATA ENDPOINT NOW")
                 logger.info(f"Sending orderData to Chinese API after payment confirmation and URL validation")
                 logger.info(f"Payment Third ID: {request.third_id}")

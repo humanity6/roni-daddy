@@ -27,7 +27,7 @@ if not JWT_SECRET_KEY:
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Chinese API Configuration
-CHINESE_API_BASE_URL = os.getenv('CHINESE_API_BASE_URL', 'http://app-dev.deligp.com:8500/mobileShell/en')
+CHINESE_API_BASE_URL = os.getenv('CHINESE_API_BASE_URL', 'https://api.inkele.net/mobileShell/en')
 CHINESE_API_ACCOUNT = os.getenv('CHINESE_API_ACCOUNT', 'taharizvi.ai@gmail.com')
 CHINESE_API_PASSWORD = os.getenv('CHINESE_API_PASSWORD', 'EN112233')
 CHINESE_API_SYSTEM_NAME = os.getenv('CHINESE_API_SYSTEM_NAME', 'mobileShell')

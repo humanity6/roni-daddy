@@ -289,7 +289,7 @@ GET /api/vending/session/{session_id}/status
 
 ### Authentication
 ```http
-POST http://app-dev.deligp.com:8500/mobileShell/en/user/login
+POST https://api.inkele.net/mobileShell/en/user/login
 Content-Type: application/json
 sign: {MD5_SIGNATURE}
 req_source: en
@@ -304,7 +304,7 @@ req_source: en
 
 #### 1. Get Stock List
 ```http
-POST http://app-dev.deligp.com:8500/mobileShell/en/stock/list
+POST https://api.inkele.net/mobileShell/en/stock/list
 Content-Type: application/json
 Authorization: {JWT_TOKEN}
 sign: {MD5_SIGNATURE}
@@ -318,7 +318,7 @@ req_source: en
 
 #### 2. Send Payment Data
 ```http
-POST http://app-dev.deligp.com:8500/mobileShell/en/order/payData
+POST https://api.inkele.net/mobileShell/en/order/payData
 Content-Type: application/json
 Authorization: {JWT_TOKEN}
 sign: {MD5_SIGNATURE}
@@ -335,7 +335,7 @@ req_source: en
 
 #### 3. Send Order Data
 ```http
-POST http://app-dev.deligp.com:8500/mobileShell/en/order/orderData
+POST https://api.inkele.net/mobileShell/en/order/orderData
 Content-Type: application/json
 Authorization: {JWT_TOKEN}
 sign: {MD5_SIGNATURE}
@@ -475,7 +475,7 @@ For successful webhook processing, vending sessions must contain:
 
 ### Test Environment Setup
 
-1. **Chinese API Base URL**: `http://app-dev.deligp.com:8500/mobileShell/en`
+1. **Chinese API Base URL**: `https://api.inkele.net/mobileShell/en`
 2. **Test Device IDs**: `CXYLOGD8OQUK`, `VM_TEST_MANUFACTURER`
 3. **Test Credentials**: Provided separately for security
 
