@@ -29,7 +29,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # Chinese API Configuration
 CHINESE_API_BASE_URL = os.getenv('CHINESE_API_BASE_URL', 'https://api.inkele.net/mobileShell/en')
 CHINESE_API_ACCOUNT = os.getenv('CHINESE_API_ACCOUNT', 'taharizvi.ai@gmail.com')
-CHINESE_API_PASSWORD = os.getenv('CHINESE_API_PASSWORD', 'EN112233')
+CHINESE_API_PASSWORD = os.getenv('CHINESE_API_PASSWORD', 'bri123')
 CHINESE_API_SYSTEM_NAME = os.getenv('CHINESE_API_SYSTEM_NAME', 'mobileShell')
 CHINESE_API_FIXED_KEY = os.getenv('CHINESE_API_FIXED_KEY', 'shfoa3sfwoehnf3290rqefiz4efd')
 CHINESE_API_DEVICE_ID = os.getenv('CHINESE_API_DEVICE_ID', '1CBRONIQRWQQ')
