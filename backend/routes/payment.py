@@ -6,6 +6,7 @@ from database import get_db
 from backend.schemas.payment import CheckoutSessionRequest, PaymentSuccessRequest
 from backend.services.payment_service import initialize_stripe
 from db_services import OrderService, BrandService, PhoneModelService, TemplateService
+from models import Brand, PhoneModel  # Added for Chinese API fallback validation
 from datetime import datetime, timezone
 import stripe
 import os
@@ -163,17 +164,31 @@ async def process_payment_success(
                 raise HTTPException(status_code=404, detail="Order not found")
         else:
             # Validate that brand, model, and template exist in database
+            print(f"🔍 DEBUGGING: Validating brand='{brand_name}', model='{model_name}', template='{template_name}'")
+            
             brand = BrandService.get_brand_by_name(db, brand_name)
             if not brand:
+                print(f"❌ Brand '{brand_name}' not found in database")
                 raise HTTPException(status_code=400, detail=f"Brand '{brand_name}' not found in database")
+            else:
+                print(f"✅ Brand found: '{brand.name}' (ID: {brand.id})")
             
             model = PhoneModelService.get_model_by_name(db, model_name, brand.id)
             if not model:
+                print(f"❌ Model '{model_name}' not found for brand '{brand_name}' (brand_id: {brand.id})")
+                # Debug: Show available models for this brand
+                available_models = PhoneModelService.get_models_by_brand(db, brand.id, include_unavailable=True)
+                print(f"Available models for brand {brand.name}: {[m.name for m in available_models]}")
                 raise HTTPException(status_code=400, detail=f"Model '{model_name}' not found for brand '{brand_name}'")
+            else:
+                print(f"✅ Model found: '{model.name}' (ID: {model.id})")
             
             template = TemplateService.get_template_by_id(db, template_name)
             if not template:
+                print(f"❌ Template '{template_name}' not found in database")
                 raise HTTPException(status_code=400, detail=f"Template '{template_name}' not found in database")
+            else:
+                print(f"✅ Template found: '{template.name}' (ID: {template.id})")
             
             # Create new order
             order_data = {

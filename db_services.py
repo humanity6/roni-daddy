@@ -34,7 +34,18 @@ class BrandService:
     
     @staticmethod
     def get_brand_by_name(db: Session, name: str) -> Optional[Brand]:
-        """Get brand by name (case insensitive)"""
+        """Get brand by name (case insensitive with exact match priority)"""
+        # Try exact match first
+        exact_match = db.query(Brand).filter(Brand.name == name).first()
+        if exact_match:
+            return exact_match
+        
+        # Try case-insensitive exact match
+        case_insensitive_match = db.query(Brand).filter(Brand.name.ilike(name)).first() 
+        if case_insensitive_match:
+            return case_insensitive_match
+        
+        # Fallback to fuzzy matching
         return db.query(Brand).filter(Brand.name.ilike(f"%{name}%")).first()
     
     @staticmethod
@@ -67,11 +78,23 @@ class PhoneModelService:
     
     @staticmethod
     def get_model_by_name(db: Session, name: str, brand_id: str = None) -> Optional[PhoneModel]:
-        """Get model by name (case insensitive), optionally within a brand"""
-        query = db.query(PhoneModel).filter(PhoneModel.name.ilike(f"%{name}%"))
+        """Get model by name (case insensitive with exact match priority), optionally within a brand"""
+        base_query = db.query(PhoneModel)
         if brand_id:
-            query = query.filter(PhoneModel.brand_id == brand_id)
-        return query.first()
+            base_query = base_query.filter(PhoneModel.brand_id == brand_id)
+        
+        # Try exact match first
+        exact_match = base_query.filter(PhoneModel.name == name).first()
+        if exact_match:
+            return exact_match
+        
+        # Try case-insensitive exact match
+        case_insensitive_match = base_query.filter(PhoneModel.name.ilike(name)).first()
+        if case_insensitive_match:
+            return case_insensitive_match
+        
+        # Fallback to fuzzy matching
+        return base_query.filter(PhoneModel.name.ilike(f"%{name}%")).first()
     
     @staticmethod
     def update_stock(db: Session, model_id: str, new_stock: int) -> Optional[PhoneModel]:
