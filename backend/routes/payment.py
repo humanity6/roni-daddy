@@ -163,48 +163,71 @@ async def process_payment_success(
             else:
                 raise HTTPException(status_code=404, detail="Order not found")
         else:
-            # Validate that brand, model, and template exist in database
-            print(f"🔍 DEBUGGING: Validating brand='{brand_name}', model='{model_name}', template='{template_name}'")
-            
-            brand = BrandService.get_brand_by_name(db, brand_name)
-            if not brand:
-                print(f"❌ Brand '{brand_name}' not found in database")
-                raise HTTPException(status_code=400, detail=f"Brand '{brand_name}' not found in database")
+            # Check if Chinese model data is available - skip local validation if so
+            chinese_model_id_from_request = request.order_data.get('chinese_model_id')
+            if chinese_model_id_from_request:
+                print(f"✅ Chinese model data available: {chinese_model_id_from_request}")
+                print(f"🔄 Skipping local database validation - Chinese API is source of truth")
+                
+                # Create minimal order without local validation - Chinese API integration will handle model validation
+                order_data = {
+                    "stripe_session_id": request.session_id,
+                    "stripe_payment_intent_id": session.payment_intent,
+                    "payment_status": "paid",
+                    "paid_at": datetime.now(timezone.utc),
+                    "status": "paid",
+                    "total_amount": session.amount_total / 100,
+                    "currency": session.currency.upper(),
+                    "brand_id": None,  # Will be resolved by Chinese API integration
+                    "model_id": None,  # Will be resolved by Chinese API integration  
+                    "template_id": template_name,  # Use template name directly
+                    "user_data": request.order_data
+                }
+                order = OrderService.create_order(db, order_data)
+                print(f"✅ Created order {order.id} with Chinese model data - proceeding to Chinese API integration")
             else:
-                print(f"✅ Brand found: '{brand.name}' (ID: {brand.id})")
-            
-            model = PhoneModelService.get_model_by_name(db, model_name, brand.id)
-            if not model:
-                print(f"❌ Model '{model_name}' not found for brand '{brand_name}' (brand_id: {brand.id})")
-                # Debug: Show available models for this brand
-                available_models = PhoneModelService.get_models_by_brand(db, brand.id, include_unavailable=True)
-                print(f"Available models for brand {brand.name}: {[m.name for m in available_models]}")
-                raise HTTPException(status_code=400, detail=f"Model '{model_name}' not found for brand '{brand_name}'")
-            else:
-                print(f"✅ Model found: '{model.name}' (ID: {model.id})")
-            
-            template = TemplateService.get_template_by_id(db, template_name)
-            if not template:
-                print(f"❌ Template '{template_name}' not found in database")
-                raise HTTPException(status_code=400, detail=f"Template '{template_name}' not found in database")
-            else:
-                print(f"✅ Template found: '{template.name}' (ID: {template.id})")
-            
-            # Create new order
-            order_data = {
-                "stripe_session_id": request.session_id,
-                "stripe_payment_intent_id": session.payment_intent,
-                "payment_status": "paid",
-                "paid_at": datetime.now(timezone.utc),
-                "status": "paid",
-                "total_amount": session.amount_total / 100,
-                "currency": session.currency.upper(),
-                "brand_id": brand.id,
-                "model_id": model.id,
-                "template_id": template.id,
-                "user_data": request.order_data
-            }
-            order = OrderService.create_order(db, order_data)
+                # Validate that brand, model, and template exist in database (existing logic)
+                print(f"🔍 DEBUGGING: Validating brand='{brand_name}', model='{model_name}', template='{template_name}'")
+                
+                brand = BrandService.get_brand_by_name(db, brand_name)
+                if not brand:
+                    print(f"❌ Brand '{brand_name}' not found in database")
+                    raise HTTPException(status_code=400, detail=f"Brand '{brand_name}' not found in database")
+                else:
+                    print(f"✅ Brand found: '{brand.name}' (ID: {brand.id})")
+                
+                model = PhoneModelService.get_model_by_name(db, model_name, brand.id)
+                if not model:
+                    print(f"❌ Model '{model_name}' not found for brand '{brand_name}' (brand_id: {brand.id})")
+                    # Debug: Show available models for this brand
+                    available_models = PhoneModelService.get_models_by_brand(db, brand.id, include_unavailable=True)
+                    print(f"Available models for brand {brand.name}: {[m.name for m in available_models]}")
+                    raise HTTPException(status_code=400, detail=f"Model '{model_name}' not found for brand '{brand_name}'")
+                else:
+                    print(f"✅ Model found: '{model.name}' (ID: {model.id})")
+                
+                template = TemplateService.get_template_by_id(db, template_name)
+                if not template:
+                    print(f"❌ Template '{template_name}' not found in database")
+                    raise HTTPException(status_code=400, detail=f"Template '{template_name}' not found in database")
+                else:
+                    print(f"✅ Template found: '{template.name}' (ID: {template.id})")
+                
+                # Create new order
+                order_data = {
+                    "stripe_session_id": request.session_id,
+                    "stripe_payment_intent_id": session.payment_intent,
+                    "payment_status": "paid",
+                    "paid_at": datetime.now(timezone.utc),
+                    "status": "paid",
+                    "total_amount": session.amount_total / 100,
+                    "currency": session.currency.upper(),
+                    "brand_id": brand.id,
+                    "model_id": model.id,
+                    "template_id": template.id,
+                    "user_data": request.order_data
+                }
+                order = OrderService.create_order(db, order_data)
         
         # Complete Chinese API integration for "Pay on App" orders - all 3 endpoints
         chinese_queue_no = None  # Initialize Chinese queue number
@@ -399,8 +422,8 @@ async def process_payment_success(
                 chinese_model_id = request.order_data.get('chinese_model_id')
                 print(f"📝 Using chinese_model_id from request: {chinese_model_id}")
             
-            # Priority 3: Database model lookup
-            if not chinese_model_id:
+            # Priority 3: Database model lookup (only if model object exists from validation)
+            if not chinese_model_id and 'model' in locals():
                 chinese_model_id = model.chinese_model_id
                 print(f"🗄️ Using chinese_model_id from database: {chinese_model_id}")
             
