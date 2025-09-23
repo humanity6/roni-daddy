@@ -10,14 +10,18 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { useAppState } from '../contexts/AppStateContext'
 // Film-strip rails overlay
 // Using public filmstrip case image
 
 const FilmStripScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  //  brand / model / colour / template passed from previous screens if needed
-  const { brand, model, color, template, uploadedImages, imageTransforms, imageOrientations, stripCount: incomingStripCount, selectedModelData, deviceId } = location.state || {}
+  const { brand, model, color, template, imageTransforms, imageOrientations, stripCount: incomingStripCount, selectedModelData, deviceId } = location.state || {}
+  const { state: appState, actions } = useAppState()
+
+  // Get uploaded images from centralized state
+  const uploadedImages = appState.uploadedImages
 
   // keep track of user flow
   const [stripCount, setStripCount] = useState(incomingStripCount || null) // 3 or 4

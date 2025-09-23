@@ -19,10 +19,12 @@ import { useAppState } from '../contexts/AppStateContext'
 const PhonePreviewScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { state: appState } = useAppState()
+  const { state: appState, actions } = useAppState()
   const { brand, model, color, template, selectedModelData, deviceId } = location.state || {}
-  
-  const [uploadedImage, setUploadedImage] = useState(null)
+
+  // Use centralized state for uploaded images
+  const uploadedImage = appState.uploadedImages.length > 0 ? appState.uploadedImages[0] : null
+  const [localUploadedImage, setLocalUploadedImage] = useState(uploadedImage)
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 2 })
 
   // Calculate model-specific dimensions from Chinese API data (memoized to prevent excessive logging)
@@ -61,7 +63,14 @@ const PhonePreviewScreen = () => {
     if (file) {
       try {
         const processed = await enhanceImage(file)
-        setUploadedImage(processed)
+
+        // Update centralized state
+        if (appState.uploadedImages.length > 0) {
+          // Replace existing image
+          actions.removeImage(0)
+        }
+        actions.addImage(processed)
+        setLocalUploadedImage(processed)
         
         // Calculate auto-fit scale based on image dimensions and model-specific phone case size
         const img = new Image()
@@ -203,7 +212,11 @@ const PhonePreviewScreen = () => {
   }
 
   const resetInputs = () => {
-    setUploadedImage(null)
+    // Clear from centralized state
+    if (appState.uploadedImages.length > 0) {
+      actions.removeImage(0)
+    }
+    setLocalUploadedImage(null)
     resetTransform()
   }
 
@@ -261,10 +274,10 @@ const PhonePreviewScreen = () => {
             
             {/* User's uploaded image - positioned to fit exactly within phone template boundaries */}
             <div className="phone-case-content">
-              {uploadedImage ? (
-                <img 
-                  src={uploadedImage} 
-                  alt="Uploaded design" 
+              {localUploadedImage || uploadedImage ? (
+                <img
+                  src={localUploadedImage || uploadedImage}
+                  alt="Uploaded design"
                   className="phone-case-image-contain"
                   style={{ transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`, transformOrigin: 'center center' }}
                 />
@@ -288,7 +301,7 @@ const PhonePreviewScreen = () => {
             </div>
             
             {/* Hidden file input and clickable overlay for upload */}
-            {!uploadedImage && (
+            {!(localUploadedImage || uploadedImage) && (
               <div className="absolute inset-0 z-10">
                 <input
                   type="file"
@@ -320,10 +333,10 @@ const PhonePreviewScreen = () => {
             <button
               key={idx}
               onClick={action}
-              disabled={!uploadedImage}
-              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${uploadedImage ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
+              disabled={!(localUploadedImage || uploadedImage)}
+              className={`w-12 h-12 rounded-md flex items-center justify-center shadow-md active:scale-95 transition-all ${(localUploadedImage || uploadedImage) ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-100 cursor-not-allowed'}`}
             >
-              <Icon size={20} className={uploadedImage ? 'text-gray-700' : 'text-gray-400'} />
+              <Icon size={20} className={(localUploadedImage || uploadedImage) ? 'text-gray-700' : 'text-gray-400'} />
             </button>
           ))}
         </div>
@@ -336,17 +349,17 @@ const PhonePreviewScreen = () => {
           >
             <ChevronLeft size={24} className="text-gray-600" />
           </button>
-          <button 
+          <button
             onClick={handleNext}
-            disabled={!uploadedImage && !template?.id?.startsWith('film-strip') && !(template?.imageCount && template.imageCount > 1)}
+            disabled={!(localUploadedImage || uploadedImage) && !template?.id?.startsWith('film-strip') && !(template?.imageCount && template.imageCount > 1)}
             className={`w-12 h-12 rounded-md border border-gray-300 flex items-center justify-center shadow-md active:scale-95 transition-transform ${
-              uploadedImage || template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1)
+              (localUploadedImage || uploadedImage) || template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1)
                 ? 'bg-white cursor-pointer'
                 : 'bg-gray-100 cursor-not-allowed'
             }`}
           >
             <ChevronRight size={24} className={`${
-              uploadedImage || template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1)
+              (localUploadedImage || uploadedImage) || template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1)
                 ? 'text-gray-600'
                 : 'text-gray-400'
             }`} />
@@ -372,7 +385,7 @@ const PhonePreviewScreen = () => {
         </div>
 
         {/* Reset Inputs Button */}
-        {uploadedImage && (
+        {(localUploadedImage || uploadedImage) && (
           <button 
             onClick={resetInputs}
             className="w-full max-w-xs bg-green-200 text-gray-800 font-medium py-3 px-6 rounded-full text-center active:scale-95 transition-transform shadow-lg mb-4"
@@ -384,7 +397,7 @@ const PhonePreviewScreen = () => {
 
       {/* Submit Button */}
       <div className="relative z-10 p-6 flex justify-center">
-        {(template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1) || uploadedImage) ? (
+        {(template?.id?.startsWith('film-strip') || (template?.imageCount && template.imageCount > 1) || localUploadedImage || uploadedImage) ? (
           /* Outer Pink Ring - only show when ready to submit */
           <div className="w-24 h-24 rounded-full border-8 border-pink-400 flex items-center justify-center shadow-xl">
             {/* Updated: minimal gap between circles */}

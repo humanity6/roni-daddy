@@ -1,10 +1,12 @@
 import { useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAppState } from '../contexts/AppStateContext'
 
 const CustomizeImageScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { selectedModelData, deviceId } = location.state || {}
+  const { state: appState, actions } = useAppState()
 
   const fileInputRef = useRef(null)
 
@@ -35,12 +37,14 @@ const CustomizeImageScreen = () => {
     if (file) {
       const reader = new FileReader()
       reader.onload = (e) => {
-        // Navigate to template selection with uploaded image
+        // Add image to centralized state
+        actions.addImage(e.target.result)
+
+        // Navigate to template selection
         navigate('/template-selection', {
           state: {
             selectedModelData,
             deviceId,
-            uploadedImage: e.target.result,
             imageMode: 'full-background',
             brand: selectedModelData?.brand,
             model: selectedModelData?.model
@@ -52,12 +56,11 @@ const CustomizeImageScreen = () => {
   }
 
   const handleBrowseDesigns = () => {
-    // Navigate to template selection without uploaded image
+    // Navigate to template selection - images from centralized state
     navigate('/template-selection', {
       state: {
         selectedModelData,
         deviceId,
-        uploadedImage: null,
         imageMode: 'full-background',
         brand: selectedModelData?.brand,
         model: selectedModelData?.model
