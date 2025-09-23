@@ -1,0 +1,148 @@
+{
+  "data": [
+    {
+      "mobile_model_id": "MM020250224000010",
+      "mobile_shell_id": "MS102503270003",
+      "device_id": "TEST_DEVICE_001",
+      "brand_id": "BR20250111000002",
+      "brand_name": "APPLE",
+      "model_name": "iPhone 15 Pro Max",
+      "model_display_name": "IPHONE 15 PRO MAX",
+      "price": 19.99,
+      "stock": 45,
+      "dimensions": {
+        "width": 77.6,
+        "height": 159.9,
+        "thickness": 8.25
+      },
+      "status": "active",
+      "sort_order": 1
+    },
+    {
+      "mobile_model_id": "MM020250224000011",
+      "mobile_shell_id": "MS102503270004",
+      "device_id": "TEST_DEVICE_001",
+      "brand_id": "BR20250111000002",
+      "brand_name": "APPLE",
+      "model_name": "iPhone 15 Pro",
+      "model_display_name": "IPHONE 15 PRO",
+      "price": 19.99,
+      "stock": 32,
+      "dimensions": {
+        "width": 70.6,
+        "height": 146.6,
+        "thickness": 8.25
+      },
+      "status": "active",
+      "sort_order": 2
+    },
+    {
+      "mobile_model_id": "MM020250224000012",
+      "mobile_shell_id": "MS102503270005",
+      "device_id": "TEST_DEVICE_001",
+      "brand_id": "BR20250111000002",
+      "brand_name": "APPLE",
+      "model_name": "iPhone 15",
+      "model_display_name": "IPHONE 15",
+      "price": 19.99,
+      "stock": 28,
+      "dimensions": {
+        "width": 71.6,
+        "height": 147.6,
+        "thickness": 7.80
+      },
+      "status": "active",
+      "sort_order": 3
+    },
+    {
+      "mobile_model_id": "MM020250224000013",
+      "mobile_shell_id": "MS102503270006",
+      "device_id": "TEST_DEVICE_001",
+      "brand_id": "BR20250111000003",
+      "brand_name": "SAMSUNG",
+      "model_name": "Galaxy S24 Ultra",
+      "model_display_name": "GALAXY S24 ULTRA",
+      "price": 19.99,
+      "stock": 22,
+      "dimensions": {
+        "width": 79.0,
+        "height": 162.3,
+        "thickness": 8.6
+      },
+      "status": "active",
+      "sort_order": 1
+    },
+    {
+      "mobile_model_id": "MM020250224000014",
+      "mobile_shell_id": "MS102503270007",
+      "device_id": "TEST_DEVICE_001",
+      "brand_id": "BR20250111000003",
+      "brand_name": "SAMSUNG",
+      "model_name": "Galaxy S24+",
+      "model_display_name": "GALAXY S24+",
+      "price": 19.99,
+      "stock": 18,
+      "dimensions": {
+        "width": 75.9,
+        "height": 158.5,
+        "thickness": 7.7
+      },
+      "status": "active",
+      "sort_order": 2
+    },
+    {
+      "mobile_model_id": "MM020250224000015",
+      "mobile_shell_id": "MS102503270008",
+      "device_id": "TEST_DEVICE_001",
+      "brand_id": "BR20250111000003",
+      "brand_name": "SAMSUNG",
+      "model_name": "Galaxy S24",
+      "model_display_name": "GALAXY S24",
+      "price": 19.99,
+      "stock": 35,
+      "dimensions": {
+        "width": 70.6,
+        "height": 147.0,
+        "thickness": 7.6
+      },
+      "status": "active",
+      "sort_order": 3
+    },
+    {
+      "mobile_model_id": "MM020250224000016",
+      "mobile_shell_id": "MS102503270009",
+      "device_id": "TEST_DEVICE_002",
+      "brand_id": "BR20250111000002",
+      "brand_name": "APPLE",
+      "model_name": "iPhone 14 Pro Max",
+      "model_display_name": "IPHONE 14 PRO MAX",
+      "price": 19.99,
+      "stock": 15,
+      "dimensions": {
+        "width": 77.6,
+        "height": 160.7,
+        "thickness": 7.85
+      },
+      "status": "active",
+      "sort_order": 4
+    },
+    {
+      "mobile_model_id": "MM020250224000017",
+      "mobile_shell_id": "MS102503270010",
+      "device_id": "TEST_DEVICE_002",
+      "brand_id": "BR20250111000004",
+      "brand_name": "HUAWEI",
+      "model_name": "P60 Pro",
+      "model_display_name": "P60 PRO",
+      "price": 19.99,
+      "stock": 12,
+      "dimensions": {
+        "width": 74.8,
+        "height": 161.0,
+        "thickness": 8.3
+      },
+      "status": "active",
+      "sort_order": 1
+    }
+  ]
+}

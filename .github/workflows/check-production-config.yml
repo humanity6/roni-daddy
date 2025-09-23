@@ -1,0 +1,75 @@
+name: Production Configuration Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-config:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check Production API URLs
+      run: |
+        echo "🔍 Checking production configuration..."
+
+        # Check that production environment doesn't have localhost URLs
+        if [ -f .env.production ]; then
+          if grep -q "localhost" .env.production; then
+            echo "❌ FAIL: .env.production contains localhost URLs"
+            grep "localhost" .env.production
+            exit 1
+          else
+            echo "✅ PASS: .env.production has no localhost URLs"
+          fi
+        fi
+
+        # Check backend settings for production safety
+        if grep -q "localhost" backend/config/settings.py; then
+          echo "⚠️  WARNING: backend/config/settings.py contains localhost (should be env-based)"
+        fi
+
+        # Verify Chinese API base URL is env-based
+        if grep -qE "CHINESE_API_BASE_URL.*=" backend/config/settings.py; then
+          echo "✅ PASS: Chinese API URL is environment-based"
+        else
+          echo "❌ FAIL: Chinese API URL not found in settings"
+          exit 1
+        fi
+
+        echo "✅ All production configuration checks passed"
+
+    - name: Verify Mock Service Structure
+      run: |
+        echo "🔍 Checking mock service structure..."
+
+        # Check that mock service exists
+        if [ ! -d "chinese-api-mock" ]; then
+          echo "❌ FAIL: chinese-api-mock directory missing"
+          exit 1
+        fi
+
+        # Check required files exist
+        required_files=(
+          "chinese-api-mock/main.py"
+          "chinese-api-mock/requirements.txt"
+          "chinese-api-mock/fixtures/login.json"
+          "chinese-api-mock/fixtures/brands.json"
+          "chinese-api-mock/fixtures/device_models.json"
+          "chinese-api-mock/fixtures/payment_responses.json"
+        )
+
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ FAIL: Required file missing: $file"
+            exit 1
+          else
+            echo "✅ FOUND: $file"
+          fi
+        done
+
+        echo "✅ All mock service files present"

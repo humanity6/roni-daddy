@@ -25,11 +25,44 @@ class ChineseAPIConfig:
 
 class ChineseAPIService:
     """Service for communicating with Chinese manufacturer API"""
-    
+
     def __init__(self):
         self.config = ChineseAPIConfig()
         self.token = None
         self.session = requests.Session()
+        self._is_mock_mode = "localhost" in self.config.base_url.lower()
+
+        # Log which API mode is active
+        if self._is_mock_mode:
+            print(f"🔧 DEVELOPMENT MODE: Using Chinese API Mock at {self.config.base_url}")
+        else:
+            print(f"🌐 PRODUCTION MODE: Using real Chinese API at {self.config.base_url}")
+
+    def is_mock_mode(self) -> bool:
+        """Check if service is running in mock mode"""
+        return self._is_mock_mode
+
+    def _log_payload_keys(self, endpoint: str, payload: Dict[str, Any]) -> None:
+        """Log hash of payload keys to detect field drift"""
+        import hashlib
+        keys = sorted(payload.keys())
+        keys_string = ",".join(keys)
+        keys_hash = hashlib.md5(keys_string.encode()).hexdigest()[:8]
+
+        print(f"🔑 {endpoint} payload keys hash: {keys_hash} (keys: {keys_string})")
+
+        # Expected hashes for known endpoints (update when API changes intentionally)
+        expected_hashes = {
+            "orderData": "a1b2c3d4"  # Update this when orderData payload changes
+        }
+
+        if endpoint in expected_hashes:
+            expected = expected_hashes[endpoint]
+            if keys_hash != expected:
+                print(f"⚠️  WARNING: {endpoint} payload keys changed!")
+                print(f"   Expected hash: {expected}")
+                print(f"   Current hash: {keys_hash}")
+                print(f"   This may indicate API contract drift")
     
     def _generate_signature(self, params: Dict[str, Any]) -> str:
         """Generate MD5 signature for API request"""
@@ -209,7 +242,7 @@ class ChineseAPIService:
                 "data": None
             }
     
-    def send_order_data(self, third_pay_id: str, third_id: str, mobile_model_id: str, 
+    def send_order_data(self, third_pay_id: str, third_id: str, mobile_model_id: str,
                        pic: str, device_id: str, mobile_shell_id: str) -> Dict[str, Any]:
         """Send order data to Chinese API"""
         payload = {
@@ -220,6 +253,10 @@ class ChineseAPIService:
             "device_id": device_id,
             "mobile_shell_id": mobile_shell_id
         }
+
+        # Log payload key hash for drift detection
+        self._log_payload_keys("orderData", payload)
+
         return self._make_request("order/orderData", payload)
     
     def get_order_status(self, third_ids: List[str]) -> Dict[str, Any]:

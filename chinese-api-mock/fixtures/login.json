@@ -1,0 +1,15 @@
+{
+  "success_response": {
+    "data": {
+      "token": "mock_token_placeholder",
+      "user_id": "mock_user_123",
+      "account": "taharizvi.ai@gmail.com",
+      "system_name": "mobileShell",
+      "permissions": ["order", "payment", "status"],
+      "expires_in": 86400
+    }
+  },
+  "error_response": {
+    "data": null
+  }
+}

@@ -1,14 +1,48 @@
-node_modules
-.vercel
-.env
-*.pyc
-*.pyo
-*.pyd
-*.pyw
-*.pyz
-*.pywz
-*.pyzw
-*.pyzwz
-*.pyzwzw
-dist
+# === Node.js (for frontend like Next.js) ===
+node_modules/
+.vercel/
 dist/
+build/
+
+# === Python ===
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Compiled files (all extensions you've mentioned, simplified)
+*.py[codwz]*
+
+# Virtual environment
+venv/
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables
+.env
+.env.*
+
+# Pytest
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+
+# Coverage
+htmlcov/
+coverage.xml
+
+# IDE/editor-specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
