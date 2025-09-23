@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom'
-import PastelBlobs from '../components/PastelBlobs'
 
 const GoogleModelScreen = () => {
   const navigate = useNavigate()
@@ -10,93 +9,76 @@ const GoogleModelScreen = () => {
 
   // Google is not available yet - show coming soon message
   return (
-    <div 
-      style={{ 
-        height: '100vh',
-        background: '#f8f8f8',
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#FFFFFF',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        padding: '20px',
-        position: 'relative',
-        overflow: 'hidden',
-        fontFamily: 'PoppinsLight, sans-serif',
+        justifyContent: 'center',
+        padding: '40px 20px',
+        fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
       }}
     >
-      {/* Pastel Blobs Background */}
-      <PastelBlobs />
-
       {/* Back Arrow */}
       <button
         onClick={handleBack}
         style={{
           position: 'absolute',
-          top: '20px',
-          left: '30px',
-          width: '60px',
-          height: '60px',
+          top: '40px',
+          left: '40px',
+          width: '48px',
+          height: '48px',
           borderRadius: '50%',
-          background: 'white',
-          border: '5px solid #CBE8F4',
+          backgroundColor: '#FFFFFF',
+          border: '2px solid #E5E5E5',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 20,
-          transition: 'transform 0.2s ease'
+          transition: 'all 150ms ease-out',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
         }}
-        onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        onMouseEnter={(e) => {
+          e.target.style.borderColor = '#111111'
+          e.target.style.transform = 'scale(1.05)'
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.borderColor = '#E5E5E5'
+          e.target.style.transform = 'scale(1)'
+        }}
+        onFocus={(e) => {
+          e.target.style.outline = '2px solid #FF7CA3'
+          e.target.style.outlineOffset = '4px'
+        }}
+        onBlur={(e) => {
+          e.target.style.outline = 'none'
+          e.target.style.outlineOffset = '0'
+        }}
+        aria-label="Go back to phone brands"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15 18L9 12L15 6" stroke="#CBE8F4" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 18L9 12L15 6" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
       {/* Header */}
-      <div
+      <h1
         style={{
-          position: 'relative',
-          width: '380px',
-          height: '140px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '0px',
-          marginTop: '60px',
-          zIndex: 10
+          fontSize: '36px',
+          fontWeight: '800',
+          color: '#111111',
+          textAlign: 'center',
+          margin: '0 0 56px 0',
+          lineHeight: '1.1',
+          fontFamily: '"GT Walsheim", "Proxima Nova", "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+          letterSpacing: '-0.02em'
         }}
       >
-        <img
-          src="/google blob.svg"
-          alt="Header Background"
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            zIndex: -1
-          }}
-        />
-        <h1 
-          style={{
-            fontSize: '36px',
-            fontWeight: 'bold',
-            color: '#474746',
-            textAlign: 'center',
-            margin: '0',
-            fontFamily: 'Cubano, sans-serif',
-            letterSpacing: '1px',
-            whiteSpace: 'nowrap',
-            position: 'relative',
-            zIndex: 1
-          }}
-        >
-          GOOGLE PIXEL
-        </h1>
-      </div>
+        Select Google Model
+      </h1>
 
       {/* Coming Soon Message */}
       <div
@@ -105,41 +87,38 @@ const GoogleModelScreen = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          flex: 1,
-          zIndex: 10,
           textAlign: 'center',
-          maxWidth: '400px',
-          margin: '0 auto'
+          maxWidth: '480px'
         }}
       >
-        <div 
+        <div
           style={{
-            fontSize: '72px',
-            marginBottom: '30px',
+            fontSize: '64px',
+            marginBottom: '32px',
             opacity: 0.3
           }}
         >
           🚧
         </div>
-        
-        <h2 
+
+        <h2
           style={{
             fontSize: '28px',
-            fontWeight: 'bold',
-            color: '#474746',
-            margin: '0 0 15px 0',
-            fontFamily: 'Cubano, sans-serif'
+            fontWeight: '700',
+            color: '#111111',
+            margin: '0 0 24px 0',
+            fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
           }}
         >
-          COMING SOON
+          Coming Soon
         </h2>
-        
-        <p 
+
+        <p
           style={{
-            fontSize: '18px',
-            color: '#666',
-            margin: '0 0 30px 0',
-            fontFamily: 'PoppinsLight, sans-serif',
+            fontSize: '16px',
+            color: '#666666',
+            margin: '0 0 48px 0',
+            fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace',
             lineHeight: '1.6'
           }}
         >
@@ -147,29 +126,49 @@ const GoogleModelScreen = () => {
           <br />
           Check back later for more options!
         </p>
-        
+
         <button
           onClick={handleBack}
           style={{
-            backgroundColor: '#CBE8F4',
-            color: '#474746',
+            padding: '16px 32px',
+            backgroundColor: '#FF7CA3',
+            color: 'white',
             border: 'none',
-            borderRadius: '25px',
-            padding: '15px 30px',
+            borderRadius: '12px',
+            cursor: 'pointer',
             fontSize: '16px',
             fontWeight: '600',
-            cursor: 'pointer',
-            fontFamily: 'Cubano, sans-serif',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+            transition: 'all 150ms ease-out',
+            boxShadow: '0 4px 12px rgba(255, 124, 163, 0.24)',
+            fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
           }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#FF69A0'
+            e.target.style.transform = 'translateY(-2px)'
+            e.target.style.boxShadow = '0 6px 16px rgba(255, 124, 163, 0.32)'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#FF7CA3'
+            e.target.style.transform = 'translateY(0px)'
+            e.target.style.boxShadow = '0 4px 12px rgba(255, 124, 163, 0.24)'
+          }}
+          onFocus={(e) => {
+            e.target.style.outline = '2px solid #FF7CA3'
+            e.target.style.outlineOffset = '4px'
+          }}
+          onBlur={(e) => {
+            e.target.style.outline = 'none'
+            e.target.style.outlineOffset = '0'
+          }}
         >
-          BACK TO BRANDS
+          Back to Brands
         </button>
       </div>
+
+      {/* Font Import */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap');
+      `}</style>
     </div>
   )
 }

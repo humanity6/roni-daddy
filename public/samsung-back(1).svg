@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240" height="480" viewBox="0 0 240 480" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Phone back - Samsung style">
+  <!-- Phone body -->
+  <rect x="12" y="12" width="216" height="456" rx="28" ry="28" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <!-- Separate vertical cameras -->
+  <circle cx="62" cy="62" r="13" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <circle cx="62" cy="102" r="13" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <circle cx="62" cy="142" r="13" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <!-- Flash and depth sensor next to top lens -->
+  <rect x="86" y="54" width="12" height="18" rx="4" ry="4" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <circle cx="92" cy="86" r="4" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+</svg>

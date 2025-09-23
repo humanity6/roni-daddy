@@ -91,6 +91,44 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+@app.post("/mobileShell/en/device/generateQR")
+async def generate_qr_code(request: Request):
+    """Mock QR code generation endpoint - simulates vending machine QR generation"""
+    logger.info("Mock QR code generation request received")
+
+    body = await request.json()
+    machine_id = body.get("machine_id", "MOCK_MACHINE_001")
+
+    # Use predefined device IDs that have models in fixtures
+    available_devices = ["TEST_DEVICE_001", "TEST_DEVICE_002"]
+    device_id = available_devices[int(time.time()) % len(available_devices)]
+
+    # Generate QR code URL that points to frontend with device_id
+    qr_url = f"http://localhost:5173/?device_id={device_id}&machine_id={machine_id}"
+
+    response_data = {
+        "device_id": device_id,
+        "machine_id": machine_id,
+        "qr_url": qr_url,
+        "qr_data": qr_url,  # The actual data in the QR code
+        "expires_at": int(time.time()) + 1800,  # 30 minutes from now
+        "status": "active"
+    }
+
+    logger.info(f"Generated QR code for device: {device_id}")
+    return mock_response(response_data)
+
+@app.get("/qr/{device_id}")
+async def get_qr_redirect(device_id: str):
+    """Mock QR code redirect endpoint - simulates scanning QR code"""
+    logger.info(f"QR code scanned for device: {device_id}")
+
+    # Redirect to frontend with device_id
+    from fastapi.responses import RedirectResponse
+    redirect_url = f"http://localhost:5173/?device_id={device_id}&source=qr_scan"
+
+    return RedirectResponse(url=redirect_url, status_code=302)
+
 @app.post("/mobileShell/en/user/login")
 async def login(request: Request):
     """Mock login endpoint"""
@@ -143,9 +181,23 @@ async def get_stock_models(request: Request, authorization: str = Header(None)):
     filtered_models = []
 
     for model in all_models:
-        if (model.get("device_id") == device_id or not device_id) and \
-           (model.get("brand_id") == brand_id or not brand_id):
+        # If device_id is provided, filter by it, otherwise show all
+        device_match = not device_id or model.get("device_id") == device_id
+        # If brand_id is provided, filter by it, otherwise show all
+        brand_match = not brand_id or model.get("brand_id") == brand_id
+
+        if device_match and brand_match:
             filtered_models.append(model)
+
+    # If no models found for specific device, return all models from TEST_DEVICE_001 as fallback
+    if not filtered_models and device_id:
+        logger.info(f"No models found for device {device_id}, using fallback device TEST_DEVICE_001")
+        for model in all_models:
+            if model.get("device_id") == "TEST_DEVICE_001":
+                # Update the device_id to match the requested one for frontend consistency
+                model_copy = model.copy()
+                model_copy["device_id"] = device_id
+                filtered_models.append(model_copy)
 
     logger.info(f"Returning {len(filtered_models)} models")
     return mock_response(filtered_models)
@@ -308,6 +360,6 @@ async def update_payment_status(request: Request):
         return {"success": False, "message": f"Payment {third_id} not found"}
 
 if __name__ == "__main__":
-    logger.info("Starting Chinese API Mock Server on port 9000")
+    logger.info("Starting Chinese API Mock Server on port 8001")
     logger.info("Mock mode active - blocking real network calls")
-    uvicorn.run(app, host="0.0.0.0", port=9000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

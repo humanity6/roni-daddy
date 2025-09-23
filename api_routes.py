@@ -186,7 +186,7 @@ async def get_phone_models(brand_id: str, device_id: str, db: Session = Depends(
         # Find the Chinese brand ID for the requested brand
         chinese_brand_id = None
         brand_mapping = {
-            "iphone": ["Apple", "苹果"],
+            "iphone": ["Apple", "APPLE", "苹果"],
             "samsung": ["SAMSUNG", "三星"],
             "google": []  # Google not available yet
         }
