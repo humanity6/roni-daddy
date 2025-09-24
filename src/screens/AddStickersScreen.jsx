@@ -863,7 +863,7 @@ const AddStickersScreen = () => {
           color: '#666',
           fontWeight: '500'
         }}>
-          {brand && model ? `${brand} ${model}` : 'Phone Case Preview'}
+          {brand && model ? `${brand.toUpperCase()} ${model}` : 'Phone Case Preview'}
         </div>
 
         <div
@@ -871,9 +871,6 @@ const AddStickersScreen = () => {
           style={{
             width: '200px',
             height: '300px',
-            backgroundColor: '#FFFFFF',
-            border: '3px solid #333',
-            borderRadius: '28px',
             margin: '0 auto',
             display: 'flex',
             alignItems: 'center',
@@ -881,50 +878,50 @@ const AddStickersScreen = () => {
             fontSize: '14px',
             color: '#666',
             position: 'relative',
-            overflow: 'hidden',
-            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+            overflow: 'visible'
           }}
           onClick={() => setSelectedStickerForEdit(null)} // Deselect when clicking empty area
         >
-          {/* Phone case cutouts */}
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '60px',
-            height: '6px',
-            backgroundColor: '#333',
-            borderRadius: '3px',
-            zIndex: 5
-          }} />
+          {/* Phone Model SVG */}
+          {brand && (
+            <img
+              src={
+                brand.toLowerCase() === 'apple' || brand.toLowerCase() === 'iphone'
+                  ? '/iphone-back-dual.svg'
+                  : brand.toLowerCase() === 'samsung'
+                  ? '/samsung-back(1).svg'
+                  : brand.toLowerCase() === 'google'
+                  ? '/google-back(1).svg'
+                  : '/iphone-back-dual.svg' // fallback
+              }
+              alt={`${brand} ${model} back view`}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                zIndex: 1,
+                filter: 'brightness(0) saturate(100%) invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0%) contrast(100%)'
+              }}
+            />
+          )}
 
-          {/* Camera cutout */}
-          <div style={{
-            position: 'absolute',
-            top: '15px',
-            right: '15px',
-            width: '40px',
-            height: '40px',
-            backgroundColor: '#333',
-            borderRadius: '8px',
-            zIndex: 5
-          }} />
-
-          {/* Show the design from previous screen */}
+          {/* Show the design from previous screen as phone case background */}
           {appState.uploadedImages.length > 0 && (
             <img
               src={appState.uploadedImages[0]}
               alt="Selected design"
               style={{
-                width: 'calc(100% - 10px)',
-                height: 'calc(100% - 10px)',
+                width: '140px',
+                height: '220px',
                 objectFit: 'cover',
-                borderRadius: '24px',
+                borderRadius: '20px',
                 position: 'absolute',
-                top: '5px',
-                left: '5px',
-                zIndex: 1
+                top: '40px',
+                left: '30px',
+                zIndex: 0
               }}
             />
           )}
@@ -944,8 +941,15 @@ const AddStickersScreen = () => {
           ))}
 
           {appState.uploadedImages.length === 0 && placedStickers.length === 0 && (
-            <div style={{ zIndex: 1, position: 'relative', textAlign: 'center' }}>
-              <div style={{ fontSize: '32px', marginBottom: '8px' }}>📱</div>
+            <div style={{
+              zIndex: 2,
+              position: 'absolute',
+              textAlign: 'center',
+              color: '#888',
+              fontSize: '12px',
+              fontWeight: '500'
+            }}>
+              <div style={{ fontSize: '24px', marginBottom: '4px' }}>📱</div>
               <div>Add stickers to your case</div>
             </div>
           )}
