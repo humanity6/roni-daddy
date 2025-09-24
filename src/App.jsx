@@ -6,6 +6,8 @@ import IPhoneModelScreen from './screens/IPhoneModelScreen'
 import GoogleModelScreen from './screens/GoogleModelScreen'
 import SamsungModelScreen from './screens/SamsungModelScreen'
 import CustomizeImageScreen from './screens/CustomizeImageScreen'
+import BrowseDesignsScreen from './screens/BrowseDesignsScreen'
+import AddStickersScreen from './screens/AddStickersScreen'
 import TemplateSelectionScreen from './screens/TemplateSelectionScreen'
 import PhonePreviewScreen from './screens/PhonePreviewScreen'
 import TextInputScreen from './screens/TextInputScreen'
@@ -45,6 +47,8 @@ function App() {
           <Route path="/google-model" element={<GoogleModelScreen />} />
           <Route path="/samsung-model" element={<SamsungModelScreen />} />
           <Route path="/customize-image" element={<CustomizeImageScreen />} />
+          <Route path="/browse-designs" element={<BrowseDesignsScreen />} />
+          <Route path="/add-stickers" element={<AddStickersScreen />} />
           <Route path="/template-selection" element={<TemplateSelectionScreen />} />
           <Route path="/phone-preview" element={<PhonePreviewScreen />} />
           <Route path="/text-input" element={<TextInputScreen />} />

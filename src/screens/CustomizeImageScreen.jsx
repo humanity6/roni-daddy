@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppState } from '../contexts/AppStateContext'
 
@@ -9,6 +9,7 @@ const CustomizeImageScreen = () => {
   const { state: appState, actions } = useAppState()
 
   const fileInputRef = useRef(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleBack = () => {
     // Navigate back to the appropriate model screen based on the brand
@@ -32,13 +33,33 @@ const CustomizeImageScreen = () => {
     fileInputRef.current?.click()
   }
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
+      setIsLoading(true)
+
+      try {
+        const reader = new FileReader()
+
+        const imageData = await new Promise((resolve, reject) => {
+          reader.onload = (e) => resolve(e.target.result)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+
+        // Clear any existing uploaded images first (asynchronously)
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            const currentImageCount = appState.uploadedImages.length
+            for (let i = 0; i < currentImageCount; i++) {
+              actions.removeImage(0) // Always remove the first image
+            }
+            resolve()
+          })
+        })
+
         // Add image to centralized state
-        actions.addImage(e.target.result)
+        actions.addImage(imageData)
 
         // Navigate to template selection
         navigate('/template-selection', {
@@ -50,14 +71,17 @@ const CustomizeImageScreen = () => {
             model: selectedModelData?.model
           }
         })
+      } catch (error) {
+        console.error('Error uploading image:', error)
+      } finally {
+        setIsLoading(false)
       }
-      reader.readAsDataURL(file)
     }
   }
 
   const handleBrowseDesigns = () => {
-    // Navigate to template selection - images from centralized state
-    navigate('/template-selection', {
+    // Navigate to browse designs screen
+    navigate('/browse-designs', {
       state: {
         selectedModelData,
         deviceId,
@@ -153,34 +177,42 @@ const CustomizeImageScreen = () => {
         {/* Upload Photo Button */}
         <button
           onClick={handleUploadPhoto}
+          disabled={isLoading}
           style={{
             width: '100%',
             padding: '24px 32px',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: isLoading ? '#F0F0F0' : '#FFFFFF',
             border: '2px solid #E5E5E5',
             borderRadius: '16px',
-            cursor: 'pointer',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
             transition: 'all 200ms ease-out',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '12px',
-            fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+            fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace',
+            opacity: isLoading ? 0.7 : 1
           }}
           onMouseEnter={(e) => {
-            e.target.style.borderColor = '#111111'
-            e.target.style.transform = 'translateY(-2px)'
-            e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            if (!isLoading) {
+              e.target.style.borderColor = '#111111'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            }
           }}
           onMouseLeave={(e) => {
-            e.target.style.borderColor = '#E5E5E5'
-            e.target.style.transform = 'translateY(0px)'
-            e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            if (!isLoading) {
+              e.target.style.borderColor = '#E5E5E5'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }
           }}
           onFocus={(e) => {
-            e.target.style.outline = '2px solid #FF7CA3'
-            e.target.style.outlineOffset = '4px'
+            if (!isLoading) {
+              e.target.style.outline = '2px solid #FF7CA3'
+              e.target.style.outlineOffset = '4px'
+            }
           }}
           onBlur={(e) => {
             e.target.style.outline = 'none'
@@ -188,23 +220,36 @@ const CustomizeImageScreen = () => {
           }}
           aria-label="Upload your own photo"
         >
-          {/* Upload Icon */}
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M7 10L12 5L17 10" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 5V15" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          {/* Upload Icon or Loading Spinner */}
+          {isLoading ? (
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                border: '3px solid #ccc',
+                borderTop: '3px solid #FF7CA3',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}
+            />
+          ) : (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7 10L12 5L17 10" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 5V15" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
 
           {/* Button Text */}
           <span
             style={{
               fontSize: '18px',
               fontWeight: '500',
-              color: '#111111',
+              color: isLoading ? '#666666' : '#111111',
               textAlign: 'center'
             }}
           >
-            Upload Photo
+            {isLoading ? 'Processing...' : 'Upload Photo'}
           </span>
         </button>
 
@@ -268,9 +313,13 @@ const CustomizeImageScreen = () => {
         style={{ display: 'none' }}
       />
 
-      {/* Font Import */}
+      {/* Font Import and Animation */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap');
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
       `}</style>
     </div>
   )

@@ -791,3 +791,319 @@
 2025-09-24 00:01:22,926 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
 2025-09-24 00:01:26,861 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
 2025-09-24 00:04:20,311 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 01:36:27,295 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 01:36:27,295 - backend.services.chinese_payment_service - INFO - Authenticating with Chinese API
+2025-09-24 01:36:27,295 - backend.services.chinese_payment_service - DEBUG - Signature string: taharizvi.ai@gmail.comEN112233mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 01:36:27,296 - backend.services.chinese_payment_service - DEBUG - Generated signature: a22664d06749e18629f68935d2a63755
+2025-09-24 01:36:27,302 - backend.services.chinese_payment_service - INFO - Login response status: 200
+2025-09-24 01:36:27,303 - backend.services.chinese_payment_service - DEBUG - Login response: {
+  "code": 200,
+  "msg": "Success",
+  "data": {
+    "token": "mock_token_1758659787",
+    "user_id": "mock_user_123",
+    "account": "taharizvi.ai@gmail.com",
+    "system_name": "mobileShell",
+    "permissions": [
+      "order",
+      "payment",
+      "status"
+    ],
+    "expires_in": 86400
+  }
+}
+2025-09-24 01:36:27,303 - backend.services.chinese_payment_service - INFO - Login successful! Token: mock_token_175865978...
+2025-09-24 01:36:27,303 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 01:36:27,303 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 01:36:27,306 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 01:36:27,307 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 01:36:27,307 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 01:36:27,307 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 01:39:58,089 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 01:51:49,548 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 01:51:49,550 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 01:51:49,551 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 01:51:49,562 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 01:51:49,562 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 01:51:49,563 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 01:51:49,563 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 02:00:10,441 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 02:00:10,442 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 02:00:10,442 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 02:00:10,446 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 02:00:10,447 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 02:00:10,447 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 02:00:10,447 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 02:02:28,135 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 02:05:25,461 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 02:05:25,461 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 02:05:25,462 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 02:05:25,483 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 02:05:25,484 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 02:05:25,484 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 02:05:25,488 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 02:08:11,821 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 02:14:34,804 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 02:14:34,804 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 02:14:34,804 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 02:14:34,808 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 02:14:34,809 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 02:14:34,809 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 02:14:34,809 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 07:48:35,134 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 07:48:35,134 - backend.services.chinese_payment_service - INFO - Authenticating with Chinese API
+2025-09-24 07:48:35,135 - backend.services.chinese_payment_service - DEBUG - Signature string: taharizvi.ai@gmail.comEN112233mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 07:48:35,135 - backend.services.chinese_payment_service - DEBUG - Generated signature: a22664d06749e18629f68935d2a63755
+2025-09-24 07:48:35,141 - backend.services.chinese_payment_service - INFO - Login response status: 200
+2025-09-24 07:48:35,141 - backend.services.chinese_payment_service - DEBUG - Login response: {
+  "code": 200,
+  "msg": "Success",
+  "data": {
+    "token": "mock_token_1758682115",
+    "user_id": "mock_user_123",
+    "account": "taharizvi.ai@gmail.com",
+    "system_name": "mobileShell",
+    "permissions": [
+      "order",
+      "payment",
+      "status"
+    ],
+    "expires_in": 86400
+  }
+}
+2025-09-24 07:48:35,142 - backend.services.chinese_payment_service - INFO - Login successful! Token: mock_token_175868211...
+2025-09-24 07:48:35,142 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 07:48:35,142 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 07:48:35,146 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 07:48:35,146 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 07:48:35,146 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 07:48:35,146 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 07:48:35,274 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 07:51:45,309 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 07:56:14,707 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 07:56:14,708 - backend.services.chinese_payment_service - INFO - Authenticating with Chinese API
+2025-09-24 07:56:14,709 - backend.services.chinese_payment_service - DEBUG - Signature string: your-chinese-api-account@example.comyour-chinese-api-passwordmobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 07:56:14,709 - backend.services.chinese_payment_service - DEBUG - Generated signature: 61361a925533e9ddeb6c8170e212e96c
+2025-09-24 07:56:17,435 - backend.services.chinese_payment_service - INFO - Login response status: 200
+2025-09-24 07:56:17,436 - backend.services.chinese_payment_service - DEBUG - Login response: {
+  "msg": "The merchant account does not exist",
+  "code": 500
+}
+2025-09-24 07:56:17,436 - backend.services.chinese_payment_service - ERROR - Login failed - API error: 500 - The merchant account does not exist
+2025-09-24 07:56:38,426 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 07:56:38,428 - backend.services.chinese_payment_service - INFO - Authenticating with Chinese API
+2025-09-24 07:56:38,428 - backend.services.chinese_payment_service - DEBUG - Signature string: your-chinese-api-account@example.comyour-chinese-api-passwordmobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 07:56:38,429 - backend.services.chinese_payment_service - DEBUG - Generated signature: 61361a925533e9ddeb6c8170e212e96c
+2025-09-24 07:56:39,259 - backend.services.chinese_payment_service - INFO - Login response status: 200
+2025-09-24 07:56:39,260 - backend.services.chinese_payment_service - DEBUG - Login response: {
+  "msg": "The merchant account does not exist",
+  "code": 500
+}
+2025-09-24 07:56:39,260 - backend.services.chinese_payment_service - ERROR - Login failed - API error: 500 - The merchant account does not exist
+2025-09-24 07:58:33,564 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 07:58:33,564 - backend.services.chinese_payment_service - INFO - Authenticating with Chinese API
+2025-09-24 07:58:33,564 - backend.services.chinese_payment_service - DEBUG - Signature string: taharizvi.ai@gmail.comEN112233mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 07:58:33,564 - backend.services.chinese_payment_service - DEBUG - Generated signature: a22664d06749e18629f68935d2a63755
+2025-09-24 07:58:33,570 - backend.services.chinese_payment_service - INFO - Login response status: 200
+2025-09-24 07:58:33,570 - backend.services.chinese_payment_service - DEBUG - Login response: {
+  "code": 200,
+  "msg": "Success",
+  "data": {
+    "token": "mock_token_1758682713",
+    "user_id": "mock_user_123",
+    "account": "taharizvi.ai@gmail.com",
+    "system_name": "mobileShell",
+    "permissions": [
+      "order",
+      "payment",
+      "status"
+    ],
+    "expires_in": 86400
+  }
+}
+2025-09-24 07:58:33,570 - backend.services.chinese_payment_service - INFO - Login successful! Token: mock_token_175868271...
+2025-09-24 07:58:33,570 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 07:58:33,571 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 07:58:33,575 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 07:58:33,575 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 07:58:33,575 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 07:58:33,575 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
+2025-09-24 07:59:04,122 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 08:00:47,055 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 08:01:30,281 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 08:01:50,779 - backend.services.chinese_payment_service - INFO - Cache HIT for brand_list
+2025-09-24 08:14:58,894 - backend.services.chinese_payment_service - INFO - Fetching brand list from Chinese API (cache miss)
+2025-09-24 08:14:58,895 - backend.services.chinese_payment_service - DEBUG - Signature string: mobileShellshfoa3sfwoehnf3290rqefiz4efd
+2025-09-24 08:14:58,895 - backend.services.chinese_payment_service - DEBUG - Generated signature: e3d312ec208de5f1c32c8c6850116b1e
+2025-09-24 08:14:58,899 - backend.services.chinese_payment_service - INFO - Brand list response status: 200
+2025-09-24 08:14:58,899 - backend.services.chinese_payment_service - DEBUG - Brand list response: {
+  "code": 200,
+  "msg": "Success",
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}
+2025-09-24 08:14:58,899 - backend.services.chinese_payment_service - INFO - Successfully fetched 2 brands
+2025-09-24 08:14:58,899 - backend.services.chinese_payment_service - INFO - Cache SET for brand_list
