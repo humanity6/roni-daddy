@@ -1,0 +1,20 @@
+{
+  "data": [
+    {
+      "id": "BR20250111000002",
+      "e_name": "APPLE",
+      "name": "苹果",
+      "logo_url": "https://example.com/logos/apple.png",
+      "sort_order": 1,
+      "status": "active"
+    },
+    {
+      "id": "BR20250111000003",
+      "e_name": "SAMSUNG",
+      "name": "三星",
+      "logo_url": "https://example.com/logos/samsung.png",
+      "sort_order": 2,
+      "status": "active"
+    }
+  ]
+}

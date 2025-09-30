@@ -1,290 +1,475 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
-import PastelBlobs from '../components/PastelBlobs'
-import { getTemplatePriceDisplay } from '../config/templatePricing'
+import { useAppState } from '../contexts/AppStateContext'
 
 const TemplateSelectionScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, uploadedImage, selectedModelData, deviceId } = location.state || {}
-  
-  // State kept only for quick visual selection feedback (optional)
+  const { brand, model, color, selectedModelData, deviceId, imageMode } = location.state || {}
+  const { state: appState, actions } = useAppState()
+
   const [selectedTemplate, setSelectedTemplate] = useState('')
 
-  const templates = [
-    // Basic Templates
+  // Get uploaded image from centralized state
+  const uploadedImage = appState.uploadedImages.length > 0 ? appState.uploadedImages[0] : null
+
+  // Programme definitions matching the 5 options specified
+  const programmes = [
     {
       id: 'classic',
       name: 'Classic',
-      price: getTemplatePriceDisplay('classic'),
       category: 'basic',
       description: 'Single image with background',
-      imageCount: 1,
-      features: ['Background colors', 'Text overlay', 'Border options'],
-      preview: 'classic-preview',
-      imagePath: '/ui-mockups/pickadesignmode_classic.png'
+      imageCount: 1
     },
     {
-      id: '2-in-1',
-      name: '2 in 1',
-      price: getTemplatePriceDisplay('2-in-1'),
-      category: 'basic',
-      description: '2 images with layouts',
-      imageCount: 2,
-      features: ['Dual layouts', 'Custom backgrounds', 'Text options'],
-      preview: '2in1-preview',
-      imagePath: '/ui-mockups/pickadesignmode_2in1.png'
+      id: 'retro-remix',
+      name: 'Retro Remix',
+      category: 'ai',
+      description: 'AI retro style enhancement',
+      imageCount: 1
     },
     {
-      id: '3-in-1',
-      name: '3 in 1',
-      price: getTemplatePriceDisplay('3-in-1'),
-      category: 'basic',
-      description: '3 images with layouts',
-      imageCount: 3,
-      features: ['Triple layouts', 'Backgrounds', 'Text styling'],
-      preview: '3in1-preview',
-      imagePath: '/ui-mockups/pickadesignmode_3in1.png'
-    },
-    {
-      id: '4-in-1',
-      name: '4 in 1',
-      price: getTemplatePriceDisplay('4-in-1'),
-      category: 'basic',
-      description: '4 images with layouts',
-      imageCount: 4,
-      features: ['Quad layouts', 'Custom backgrounds', 'Typography'],
-      preview: '4in1-preview',
-      imagePath: '/ui-mockups/pickadesignmode_4in1.png'
-    },
-    
-    // AI-Enhanced Templates - REMOVED: retro-remix, cover-shoot, glitch-pro, footy-fan
-    // {
-    //   id: 'retro-remix',
-    //   name: 'Retro Remix',
-    //   price: '£21.99',
-    //   category: 'ai',
-    //   description: 'AI retro style',
-    //   imageCount: 1,
-    //   features: ['AI enhancement', 'Retro filters', 'Keyword prompts'],
-    //   preview: 'retro-preview',
-    //   imagePath: '/ui-mockups/pickadesignmode_retroremix.png'
-    // },
-    // Film Strip Template (order swapped to appear after Retro Remix)
-    {
-      id: 'film-strip-3',
+      id: 'film-strip',
       name: 'Film Strip',
-      price: getTemplatePriceDisplay('film-strip-3'),
       category: 'film',
       description: '3 in 1 Film Strip',
-      imageCount: 3,
-      features: ['Vintage film look', 'Sequential layout', 'Film grain effect'],
-      preview: 'filmstrip-preview',
-      imagePath: '/ui-mockups/pickadesignmode_filmstrip.png'
+      imageCount: 3
     },
-    // {
-    //   id: 'cover-shoot',
-    //   name: 'Cover Shoot',
-    //   price: '£21.99',
-    //   category: 'ai',
-    //   description: 'Model-style AI enhancement',
-    //   imageCount: 1,
-    //   features: ['AI styling', 'Professional look', 'Magazine cover'],
-    //   preview: 'cover-preview',
-    //   imagePath: '/ui-mockups/pickadesignmode_covershoot.png'
-    // },
     {
-      id: 'funny-toon',
-      name: 'Funny Toon',
-      price: getTemplatePriceDisplay('funny-toon'),
+      id: 'toonify',
+      name: 'Toonify',
       category: 'ai',
       description: 'Cartoon conversion',
-      imageCount: 1,
-      features: ['AI cartoon', 'Style options', 'Fun effects'],
-      preview: 'toon-preview',
-      imagePath: '/ui-mockups/pickadesignmode_funnytoon.png'
+      imageCount: 1
     },
-    // {
-    //   id: 'glitch-pro',
-    //   name: 'Glitch Pro X',
-    //   price: '£21.99',
-    //   category: 'ai',
-    //   description: 'Digital glitch effects',
-    //   imageCount: 1,
-    //   features: ['Glitch effects', 'Retro/Chaos modes', 'Digital art'],
-    //   preview: 'glitch-preview',
-    //   imagePath: '/ui-mockups/pickadesignmode_glitchproX.png'
-    // },
-    // {
-    //   id: 'footy-fan',
-    //   name: 'Footy Fan',
-    //   price: '£23.99',
-    //   category: 'ai',
-    //   description: 'Football team themes',
-    //   imageCount: 1,
-    //   features: ['Team colors', 'Football graphics', 'Fan style'],
-    //   preview: 'footy-preview',
-    //   imagePath: '/ui-mockups/pickadesignmode_footyfan.png'
-    // }
+    {
+      id: 'footy-fan',
+      name: 'Footy Fan',
+      category: 'ai',
+      description: 'Football team themes',
+      imageCount: 1
+    }
   ]
 
-  const handleTemplateSelect = (templateId) => {
-    const template = templates.find(t => t.id === templateId)
-    // Provide quick visual feedback before navigation
-    setSelectedTemplate(templateId)
-    
-    // Route film-strip template to film-strip screen
-    if (template.id?.startsWith('film-strip')) {
-      navigate('/film-strip', {
-        state: {
-          brand,
-          model,
-          color,
-          template,
-          selectedModelData,
-          deviceId
-        }
-      })
-    }
-    // Route multi-image templates directly to upload screen
-    else if (template?.imageCount && template.imageCount > 1) {
-      navigate('/multi-image-upload', {
-        state: {
-          brand,
-          model,
-          color,
-          template,
-          selectedModelData,
-          deviceId
-        }
-      })
-    } else {
-      navigate('/phone-preview', {
-        state: {
-          brand,
-          model,
-          color,
-          template,
-          selectedModelData,
-          deviceId
-        }
-      })
-    }
-  }
-
   const handleBack = () => {
-    navigate('/phone-brand', { 
-      state: { 
-        brand 
-      } 
+    navigate('/customize-image', {
+      state: {
+        selectedModelData,
+        deviceId
+      }
     })
   }
 
-  const getPreviewGradient = (templateId) => {
-    const gradients = {
-      'classic': 'from-blue-400 to-purple-500',
-      '2-in-1': 'from-green-400 to-blue-500',
-      '3-in-1': 'from-pink-400 to-red-500',
-      '4-in-1': 'from-yellow-400 to-orange-500',
-      'film-strip-3': 'from-gray-700 to-gray-900',
-      // 'retro-remix': 'from-orange-400 to-pink-500', // REMOVED
-      // 'cover-shoot': 'from-purple-600 to-blue-600', // REMOVED
-      'funny-toon': 'from-green-400 to-yellow-400',
-      // 'glitch-pro': 'from-red-500 to-purple-600', // REMOVED
-      // 'footy-fan': 'from-green-500 to-green-700' // REMOVED
+  const handleProgrammeSelect = (programmeId) => {
+    const programme = programmes.find(p => p.id === programmeId)
+    setSelectedTemplate(programmeId)
+
+    // Store template in centralized state
+    actions.setTemplate(programme)
+
+    // Prepare common state data (without uploadedImage since it's in centralized state)
+    const commonState = {
+      brand,
+      model,
+      color,
+      template: programme,
+      selectedModelData,
+      deviceId,
+      imageMode
     }
-    return gradients[templateId] || 'from-gray-400 to-gray-600'
+
+    // Navigate directly to main template screens
+    if (programme.id === 'classic') {
+      // Classic goes to phone preview (main classic interface)
+      navigate('/phone-preview', {
+        state: commonState
+      })
+    } else if (programme.id === 'retro-remix') {
+      // Retro Remix goes to main retro remix screen
+      navigate('/retro-remix', {
+        state: commonState
+      })
+    } else if (programme.id === 'film-strip') {
+      // Film Strip goes to main film strip screen
+      // Images already in centralized state, but add film strip specific state
+      const filmStripState = {
+        ...commonState,
+        imageTransforms: uploadedImage ? [{ x: 0, y: 0, scale: 2 }] : [],
+        imageOrientations: uploadedImage ? ['portrait'] : []
+      }
+      navigate('/film-strip', {
+        state: filmStripState
+      })
+    } else if (programme.id === 'toonify') {
+      // Toonify goes to main funny toon screen
+      navigate('/funny-toon', {
+        state: {
+          ...commonState,
+          template: { ...programme, id: 'funny-toon' } // Map to existing funny-toon
+        }
+      })
+    } else if (programme.id === 'footy-fan') {
+      // Footy Fan goes to phone preview (placeholder until dedicated screen exists)
+      navigate('/phone-preview', {
+        state: commonState
+      })
+    }
   }
 
-  // Helper to render template preview with fixed size
-  const renderTemplatePreview = (template) => {
-    /*
-      Enlarged preview wrapper to better match the dimensions shown
-      in the UI mock-up (roughly 700×1350 → aspect ≈ 1 : 1.93).
-      We keep a fixed width so four cases fit a single row on most
-      mobile screens and calculate the height accordingly.
-    */
-    return (
-      <div className="aspect-[7/13.5] w-full max-w-[120px] mx-auto rounded-xl flex items-center justify-center bg-white">
-        {/* Template preview image */}
-        <img 
-          src={template.imagePath} 
-          alt={`${template.name} template preview`}
-          className="w-full h-full object-contain rounded-xl shadow-md"
-          onError={(e) => {
-            e.target.style.display = 'none'
-            e.target.nextSibling.style.display = 'flex'
-          }}
-        />
-        {/* Fallback gradient background */}
-        <div 
-          className={`w-full h-full bg-gradient-to-br ${getPreviewGradient(template.id)} rounded-xl`}
-          style={{ display: 'none' }}
-        >
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="text-white text-xs font-medium">{template.name}</div>
-          </div>
-        </div>
-      </div>
-    )
+  // Get the appropriate SVG for the phone mockup
+  const getPhoneSvg = () => {
+    const brandName = selectedModelData?.brand || brand || 'iphone'
+    switch(brandName) {
+      case 'iphone':
+        return '/iphone-back-dual.svg'
+      case 'samsung':
+        return '/samsung-back(1).svg'
+      case 'google':
+        return '/google-back(1).svg'
+      default:
+        return '/iphone-back-dual.svg'
+    }
   }
-
-  // Group templates into 2x3 grid: 2 templates per row, 3 rows
-  const groupedTemplates = [
-    templates.slice(0, 2), // First row: Classic, 2-in-1
-    templates.slice(2, 4), // Second row: 3-in-1, 4-in-1
-    templates.slice(4, 6)  // Third row: Film Strip, Funny Toon
-  ]
 
   return (
-    <div className="screen-container">
-      <PastelBlobs />
-      
-      {/* Header */}
-      <div className="relative z-10 flex items-center p-4">
-        <button 
-          onClick={handleBack}
-          className="w-10 h-10 rounded-full bg-white border-2 border-pink-500 flex items-center justify-center active:scale-95 transition-transform absolute left-4"
-        >
-          <ArrowLeft size={20} className="text-pink-500" />
-        </button>
-        <h1 className="text-2xl md:text-4xl font-cubano text-[#424242] tracking-normal text-center w-full px-16 whitespace-nowrap">PICK A DESIGN MODE</h1>
-      </div>
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#FFFFFF',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '40px 20px',
+        fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+      }}
+    >
+      {/* Back Arrow */}
+      <button
+        onClick={handleBack}
+        style={{
+          position: 'absolute',
+          top: '40px',
+          left: '40px',
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          backgroundColor: '#FFFFFF',
+          border: '2px solid #E5E5E5',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 20,
+          transition: 'all 150ms ease-out',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.borderColor = '#111111'
+          e.target.style.transform = 'scale(1.05)'
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.borderColor = '#E5E5E5'
+          e.target.style.transform = 'scale(1)'
+        }}
+        onFocus={(e) => {
+          e.target.style.outline = '2px solid #FF7CA3'
+          e.target.style.outlineOffset = '4px'
+        }}
+        onBlur={(e) => {
+          e.target.style.outline = 'none'
+          e.target.style.outlineOffset = '0'
+        }}
+        aria-label="Go back to background options"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 18L9 12L15 6" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
 
-      {/* Content */}
-      <div className="relative z-10 flex-1 pt-2 pb-2 px-2 overflow-visible flex justify-center">
-        {/* Centered grid container with fixed width */}
-        <div className="max-w-[420px] w-full mx-auto space-y-2">
-          {groupedTemplates.map((row, idx) => (
+      {/* Header */}
+      <h1
+        style={{
+          fontSize: '36px',
+          fontWeight: '800',
+          color: '#111111',
+          textAlign: 'center',
+          margin: '0 0 40px 0',
+          lineHeight: '1.1',
+          fontFamily: '"GT Walsheim", "Proxima Nova", "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+          letterSpacing: '-0.02em'
+        }}
+      >
+        Choose Programme
+      </h1>
+
+      {/* Phone Mockup with Uploaded Image */}
+      <div
+        style={{
+          position: 'relative',
+          width: '180px',
+          height: '360px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '40px'
+        }}
+      >
+        {/* Phone outline */}
+        <img
+          src={getPhoneSvg()}
+          alt="Phone mockup"
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            filter: 'brightness(0) saturate(100%) invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0%) contrast(100%)',
+            position: 'absolute',
+            zIndex: 2
+          }}
+        />
+
+        {/* Image preview area */}
+        <div
+          style={{
+            position: 'absolute',
+            width: '85%',
+            height: '85%',
+            backgroundColor: uploadedImage ? 'transparent' : '#F5F5F5',
+            borderRadius: '25px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            zIndex: 1,
+            border: uploadedImage ? 'none' : '2px dashed #CCCCCC'
+          }}
+        >
+          {uploadedImage ? (
+            <img
+              src={uploadedImage}
+              alt="Uploaded preview"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: '25px'
+              }}
+            />
+          ) : (
             <div
-              key={idx}
-              className="grid grid-cols-2 gap-x-1 gap-y-2"
-              style={{ alignItems: 'start' }}
+              style={{
+                textAlign: 'center',
+                color: '#999999',
+                fontSize: '12px',
+                fontWeight: '400'
+              }}
             >
-              {row.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => handleTemplateSelect(template.id)}
-                  className={`flex flex-col items-center transition-transform duration-200 relative ${selectedTemplate === template.id ? 'scale-105' : ''} active:scale-95 w-full`}
-                  style={{ minWidth: 0 }}
-                >
-                  <div className="mb-1 w-full">
-                    {renderTemplatePreview(template)}
-                  </div>
-                  <div className="flex flex-col items-center justify-center text-center w-full px-0 mt-0">
-                    <span className="text-[13px] font-normal text-gray-900 font-poppins-light leading-tight w-full" style={{ wordSpacing: '-2px', maxWidth: '100%' }}>{template.name} <span className="font-bold">{template.price}</span></span>
-                  </div>
-                </button>
-              ))}
+              <div style={{ fontSize: '24px', marginBottom: '8px' }}>📱</div>
+              <div>Preview</div>
             </div>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* Next button removed for mobile-first instantaneous navigation */}
+      {/* Programme Options Grid */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px',
+          maxWidth: '400px',
+          width: '100%'
+        }}
+      >
+        {/* Row 1: Classic, Retro Remix */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '16px',
+            width: '100%'
+          }}
+        >
+          <button
+            onClick={() => handleProgrammeSelect('classic')}
+            style={{
+              padding: '20px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '2px solid #E5E5E5',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 200ms ease-out',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              fontSize: '16px',
+              fontWeight: '500',
+              color: '#111111',
+              textAlign: 'center',
+              fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#111111'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#E5E5E5'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            Classic
+          </button>
+
+          <button
+            onClick={() => handleProgrammeSelect('retro-remix')}
+            style={{
+              padding: '20px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '2px solid #E5E5E5',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 200ms ease-out',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              fontSize: '16px',
+              fontWeight: '500',
+              color: '#111111',
+              textAlign: 'center',
+              fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#111111'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#E5E5E5'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            Retro Remix
+          </button>
+        </div>
+
+        {/* Row 2: Film Strip, Toonify */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '16px',
+            width: '100%'
+          }}
+        >
+          <button
+            onClick={() => handleProgrammeSelect('film-strip')}
+            style={{
+              padding: '20px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '2px solid #E5E5E5',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 200ms ease-out',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              fontSize: '16px',
+              fontWeight: '500',
+              color: '#111111',
+              textAlign: 'center',
+              fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#111111'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#E5E5E5'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            Film Strip
+          </button>
+
+          <button
+            onClick={() => handleProgrammeSelect('toonify')}
+            style={{
+              padding: '20px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '2px solid #E5E5E5',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 200ms ease-out',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              fontSize: '16px',
+              fontWeight: '500',
+              color: '#111111',
+              textAlign: 'center',
+              fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#111111'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#E5E5E5'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            Toonify
+          </button>
+        </div>
+
+        {/* Row 3: Footy Fan (centered) */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            width: '100%'
+          }}
+        >
+          <button
+            onClick={() => handleProgrammeSelect('footy-fan')}
+            style={{
+              padding: '20px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '2px solid #E5E5E5',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              transition: 'all 200ms ease-out',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+              fontSize: '16px',
+              fontWeight: '500',
+              color: '#111111',
+              textAlign: 'center',
+              fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace',
+              width: 'calc(50% - 8px)' // Same width as buttons above
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#111111'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#E5E5E5'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)'
+            }}
+          >
+            Footy Fan
+          </button>
+        </div>
+      </div>
+
+      {/* Font Import */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap');
+      `}</style>
     </div>
   )
 }
 
-export default TemplateSelectionScreen 
+export default TemplateSelectionScreen

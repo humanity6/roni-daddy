@@ -11,11 +11,16 @@ import {
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
 import aiImageService from '../services/aiImageService'
+import { useAppState } from '../contexts/AppStateContext'
 
 const RetroRemixScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage, transform: initialTransform, aiCredits: initialCredits = 4, selectedModelData, deviceId } = location.state || {}
+  const { brand, model, color, template, transform: initialTransform, selectedModelData, deviceId } = location.state || {}
+  const { state: appState, actions } = useAppState()
+
+  // Get uploaded image from centralized state
+  const uploadedImage = appState.uploadedImages.length > 0 ? appState.uploadedImages[0] : null
 
   /* --------------------------------------------------------------------
    * UI STATE
@@ -34,8 +39,8 @@ const RetroRemixScreen = () => {
   const [availableKeywords, setAvailableKeywords] = useState([])
   const [isCustomKeyword, setIsCustomKeyword] = useState(false)
 
-  // AI Credits state (uploads left)
-  const [aiCredits] = useState(initialCredits)
+  // AI Credits from centralized state
+  const aiCredits = appState.aiCredits
 
   useEffect(() => {
     // Fetch the list of predefined style keywords so we can populate the dropdown.

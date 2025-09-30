@@ -13,13 +13,16 @@ import {
   ArrowDown
 } from 'lucide-react'
 import PastelBlobs from '../components/PastelBlobs'
+import { useAppState } from '../contexts/AppStateContext'
 
 const FunnyToonScreen = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { brand, model, color, template, uploadedImage: initialImage, transform: initialTransform, selectedModelData, deviceId } = location.state || {}
+  const { brand, model, color, template, transform: initialTransform, selectedModelData, deviceId } = location.state || {}
+  const { state: appState, actions } = useAppState()
 
-  const [uploadedImage, setUploadedImage] = useState(initialImage || null)
+  // Get uploaded image from centralized state
+  const uploadedImage = appState.uploadedImages.length > 0 ? appState.uploadedImages[0] : null
   const [toonStyle, setToonStyle] = useState('') // no style selected initially
   const [transform, setTransform] = useState(initialTransform || { x: 0, y: 0, scale: 2 })
   const fileInputRef = useRef(null)
@@ -38,7 +41,11 @@ const FunnyToonScreen = () => {
     if (file) {
       const reader = new FileReader()
       reader.onload = (e) => {
-        setUploadedImage(e.target.result)
+        // Update centralized state
+        if (appState.uploadedImages.length > 0) {
+          actions.removeImage(0)
+        }
+        actions.addImage(e.target.result)
       }
       reader.readAsDataURL(file)
     }
@@ -80,7 +87,10 @@ const FunnyToonScreen = () => {
   }
 
   const resetInputs = () => {
-    setUploadedImage(initialImage || null)
+    // Clear from centralized state
+    if (appState.uploadedImages.length > 0) {
+      actions.removeImage(0)
+    }
     setToonStyle('')
     resetTransform()
   }

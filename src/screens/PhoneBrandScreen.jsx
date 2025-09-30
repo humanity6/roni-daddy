@@ -1,8 +1,150 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PastelBlobs from '../components/PastelBlobs'
-import aiImageService from '../services/aiImageService'
 import { useAppState } from '../contexts/AppStateContext'
+
+// Device illustration components using back-view SVGs
+const DeviceIllustration = ({ deviceType, isHovered, isSelected }) => {
+  const getSvgPath = (type) => {
+    switch (type) {
+      case 'iphone':
+        return '/iphone-back-dual.svg'
+      case 'samsung':
+        return '/samsung-back(1).svg'
+      case 'google':
+        return '/google-back(1).svg'
+      default:
+        return '/iphone-back-dual.svg'
+    }
+  }
+
+  const svgPath = getSvgPath(deviceType)
+
+  return (
+    <div
+      style={{
+        width: '120px',
+        height: '240px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isHovered
+          ? 'scale(1.05) translateY(-4px)'
+          : isSelected
+            ? 'scale(1.02) translateY(-2px)'
+            : 'scale(1)',
+        filter: isSelected
+          ? 'drop-shadow(0 8px 24px rgba(0, 0, 0, 0.2))'
+          : isHovered
+            ? 'drop-shadow(0 4px 16px rgba(0, 0, 0, 0.15))'
+            : 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1))',
+        color: '#666666'
+      }}
+    >
+      <img
+        src={svgPath}
+        alt={`${deviceType} device back view`}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          filter: 'brightness(0) saturate(100%) invert(40%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0%) contrast(100%)'
+        }}
+      />
+
+    </div>
+  )
+}
+
+// Option Card Component - Now without boxes, just hover-responsive SVGs
+const OptionCard = ({ brand, isSelected, onSelect, disabled }) => {
+  const [isHovered, setIsHovered] = useState(false)
+  const [isPressed, setIsPressed] = useState(false)
+
+  const baseStyle = {
+    width: '100%',
+    minHeight: '280px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: '0',
+    padding: '24px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    transition: 'all 150ms ease-out',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '24px',
+    fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace',
+    boxShadow: 'none',
+    transform: isPressed
+      ? 'translateY(2px)'
+      : 'translateY(0px)',
+    opacity: disabled ? 0.6 : 1,
+    outline: 'none',
+    position: 'relative'
+  }
+
+  const textColor = disabled ? '#999999' : '#111111'
+
+  return (
+    <button
+      style={baseStyle}
+      onMouseEnter={() => !disabled && setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false)
+        setIsPressed(false)
+      }}
+      onMouseDown={() => !disabled && setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
+      onFocus={(e) => {
+        e.target.style.outline = '2px solid #FF7CA3'
+        e.target.style.outlineOffset = '4px'
+      }}
+      onBlur={(e) => {
+        e.target.style.outline = 'none'
+        e.target.style.outlineOffset = '0'
+      }}
+      onClick={() => !disabled && onSelect(brand.id)}
+      disabled={disabled}
+      role="radio"
+      aria-checked={isSelected}
+      aria-label={`Select ${brand.name} device`}
+    >
+      {/* Device illustration */}
+      <DeviceIllustration
+        deviceType={brand.id === 'iphone' ? 'iphone' : brand.id === 'samsung' ? 'samsung' : brand.id === 'google' ? 'google' : 'iphone'}
+        isHovered={isHovered}
+        isSelected={isSelected}
+      />
+
+      {/* Device name */}
+      <span style={{
+        fontSize: '18px',
+        fontWeight: '600',
+        color: textColor,
+        textAlign: 'center',
+        lineHeight: '1.2',
+        fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+      }}>
+        {brand.name}
+      </span>
+
+      {/* Availability indicator */}
+      {!brand.available && (
+        <span style={{
+          fontSize: '14px',
+          fontWeight: '400',
+          color: '#999999',
+          textAlign: 'center',
+          fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
+        }}>
+          Not Available
+        </span>
+      )}
+    </button>
+  )
+}
 
 const PhoneBrandScreen = () => {
   const navigate = useNavigate()
@@ -159,41 +301,51 @@ const PhoneBrandScreen = () => {
   // Loading state
   if (loading) {
     return (
-      <div 
-        style={{ 
+      <div
+        style={{
           minHeight: '100vh',
-          background: '#f8f8f8',
+          backgroundColor: '#FFFFFF',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '40px 20px',
-          position: 'relative',
-          overflow: 'hidden',
-          fontFamily: 'Cubano, sans-serif'
+          fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
         }}
       >
-        <PastelBlobs />
-        
-        <div style={{ 
-          position: 'relative', 
-          zIndex: 10,
+        <div style={{
           textAlign: 'center',
-          color: '#474746'
+          color: '#111111'
         }}>
           <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #e3e3e3',
-            borderTop: '4px solid #474746',
+            width: '48px',
+            height: '48px',
+            border: '4px solid #E5E5E5',
+            borderTop: '4px solid #FF7CA3',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
+            margin: '0 auto 32px'
           }}></div>
-          <h2 style={{ fontSize: '24px', margin: '0' }}>Loading Chinese API...</h2>
-          {deviceId && <p style={{ fontSize: '14px', margin: '10px 0 0 0', opacity: 0.7 }}>Device: {deviceId}</p>}
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: '600',
+            margin: '0 0 16px 0',
+            color: '#111111'
+          }}>
+            Loading Devices
+          </h2>
+          {deviceId && (
+            <p style={{
+              fontSize: '16px',
+              margin: '0',
+              opacity: 0.7,
+              fontWeight: '400'
+            }}>
+              Device: {deviceId}
+            </p>
+          )}
         </div>
-        
+
         <style>{`
           @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -207,50 +359,76 @@ const PhoneBrandScreen = () => {
   // Error state
   if (error) {
     return (
-      <div 
-        style={{ 
+      <div
+        style={{
           minHeight: '100vh',
-          background: '#f8f8f8',
+          backgroundColor: '#FFFFFF',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '40px 20px',
-          position: 'relative',
-          overflow: 'hidden',
-          fontFamily: 'Cubano, sans-serif'
+          fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
         }}
       >
-        <PastelBlobs />
-        
-        <div style={{ 
-          position: 'relative', 
-          zIndex: 10,
+        <div style={{
           textAlign: 'center',
-          color: '#474746',
-          maxWidth: '400px'
+          maxWidth: '480px',
+          color: '#111111'
         }}>
-          <h2 style={{ fontSize: '24px', margin: '0 0 20px 0', color: '#d32f2f' }}>Chinese API Error</h2>
-          <p style={{ fontSize: '16px', margin: '0 0 20px 0' }}>{error}</p>
+          <h2 style={{
+            fontSize: '28px',
+            fontWeight: '700',
+            margin: '0 0 24px 0',
+            color: '#EB5757'
+          }}>
+            Connection Error
+          </h2>
+          <p style={{
+            fontSize: '16px',
+            fontWeight: '400',
+            margin: '0 0 24px 0',
+            lineHeight: '1.5',
+            color: '#666666'
+          }}>
+            {error}
+          </p>
           {!deviceId && (
-            <p style={{ fontSize: '14px', margin: '0', opacity: 0.7 }}>
-              Please scan a QR code from a vending machine to access stock information.
+            <p style={{
+              fontSize: '14px',
+              margin: '0 0 32px 0',
+              opacity: 0.7,
+              fontWeight: '400'
+            }}>
+              Please scan a QR code from a vending machine to access device information.
             </p>
           )}
-          <button 
+          <button
             onClick={loadBrandsAndModels}
             style={{
-              marginTop: '20px',
-              padding: '12px 24px',
-              backgroundColor: '#474746',
+              padding: '16px 32px',
+              backgroundColor: '#FF7CA3',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '12px',
               cursor: 'pointer',
-              fontSize: '16px'
+              fontSize: '16px',
+              fontWeight: '600',
+              transition: 'all 150ms ease-out',
+              boxShadow: '0 4px 12px rgba(255, 124, 163, 0.24)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#FF69A0'
+              e.target.style.transform = 'translateY(-2px)'
+              e.target.style.boxShadow = '0 6px 16px rgba(255, 124, 163, 0.32)'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = '#FF7CA3'
+              e.target.style.transform = 'translateY(0px)'
+              e.target.style.boxShadow = '0 4px 12px rgba(255, 124, 163, 0.24)'
             }}
           >
-            Retry
+            Try Again
           </button>
         </div>
       </div>
@@ -258,203 +436,73 @@ const PhoneBrandScreen = () => {
   }
 
   return (
-    <div 
-      style={{ 
+    <div
+      style={{
         minHeight: '100vh',
-        background: '#f8f8f8',
+        backgroundColor: '#FFFFFF',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '40px 20px',
-        position: 'relative',
-        overflow: 'hidden',
-        fontFamily: 'Cubano, sans-serif'
+        fontFamily: 'IBM Plex Mono, Menlo, Monaco, Consolas, monospace'
       }}
     >
-      {/* Pastel Blobs Background */}
-      <PastelBlobs />
-
-      {/* Header Blob */}
-      <div
+      {/* Header */}
+      <h1
         style={{
-          position: 'relative',
-          width: '380px',
-          height: '140px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '20px',
-          zIndex: 10
+          fontSize: '36px',
+          fontWeight: '800',
+          color: '#111111',
+          textAlign: 'center',
+          margin: '0 0 56px 0',
+          lineHeight: '1.1',
+          fontFamily: '"GT Walsheim", "Proxima Nova", "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+          letterSpacing: '-0.02em'
         }}
       >
-        <img
-          src="/blueblob.svg"
-          alt="Header Background"
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            zIndex: -1
-          }}
-        />
-        <h1 
-          style={{
-            fontSize: '40px',
-            fontWeight: 'normal',
-            color: '#474746',
-            textAlign: 'center',
-            width: '100%',
-            margin: '0',
-            padding: '0',
-            lineHeight: '1.1',
-            fontFamily: 'Cubano, sans-serif',
-            position: 'relative',
-            zIndex: 1
-          }}
-        >CHOOSE YOUR<br/>PHONE
-        </h1>
-      </div>
+        Select Your Device
+      </h1>
 
-      {/* Phone option cards */}
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: '32px', 
-        width: '100%',
-        maxWidth: '200px',
-        marginBottom: '40px',
-        position: 'relative',
-        zIndex: 10
-      }}>
+      {/* Option Stack */}
+      <div
+        role="radiogroup"
+        aria-label="Device selection"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+          width: '100%',
+          maxWidth: '320px',
+          marginBottom: '48px'
+        }}
+        aria-live="polite"
+      >
         {brands.map((brand) => (
-          <button
+          <OptionCard
             key={brand.id}
-            onClick={() => handleBrandSelect(brand.id)}
+            brand={brand}
+            isSelected={selectedBrand === brand.id}
+            onSelect={handleBrandSelect}
             disabled={!brand.available}
-            style={{
-              borderRadius: '28px',
-              padding: '18px',
-              cursor: brand.available ? 'pointer' : 'not-allowed',
-              transition: 'transform 0.25s ease',
-              position: 'relative',
-              background: brand.frame_color || brand.frameColor,
-              border: 'none',
-              opacity: brand.available ? 1 : 0.6,
-              minWidth: '210px'
-            }}
-            onMouseEnter={(e) => {
-              if (brand.available) {
-                e.currentTarget.style.transform = 'translateY(-6px)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (brand.available) {
-                e.currentTarget.style.transform = 'translateY(0px)'
-              }
-            }}
-          >
-            {/* Inner white section */}
-            <div
-              style={{
-                background: '#ffffff',
-                borderRadius: '18px',
-                padding: '28px 24px 32px 28px',
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                minHeight: '100px'
-              }}
-            >
-              {/* Power button - top right */}
-              <div
-                style={{
-                  width: '60px',
-                  height: '36px',
-                  borderRadius: '20px',
-                  position: 'absolute',
-                  top: '10px',
-                  right: '16px',
-                  background: brand.button_color || brand.buttonColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <div
-                  style={{
-                    width: '25px',
-                    height: '10px',
-                    background: '#ffffff',
-                    borderRadius: '5px'
-                  }}
-                />
-              </div>
-
-              {/* Phone label - bottom left */}
-              <div style={{ 
-                position: 'absolute',
-                bottom: '5px',
-                left: '8px',
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: brand.subtitle ? '0px' : '0' 
-              }}>
-                                  <span
-                    style={{
-                      fontSize: '22px',
-                      fontWeight: 'normal',
-                      color: brand.available ? '#2c3e50' : '#7f8c8d',
-                      letterSpacing: '-1px',
-                      fontFamily: 'Cubano, sans-serif'
-                    }}
-                  >
-                    {brand.name}
-                  </span>
-                  {brand.subtitle && (
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        color: '#7f8c8d',
-                        fontWeight: '400',
-                        fontFamily: 'Cubano, sans-serif',
-                        marginTop: '-2px'
-                      }}
-                    >
-                      {brand.subtitle}
-                    </span>
-                  )}
-              </div>
-            </div>
-          </button>
+          />
         ))}
       </div>
 
-      {/* Logo at bottom */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        position: 'relative',
-        zIndex: 10
-      }}>
-        <img 
-          src="/logo.png" 
-          alt="Pimp My Case Logo" 
-          style={{ height: '125px', width: 'auto' }} 
-        />
-      </div>
-
-      {/* Load Cubano font */}
+      {/* Load IBM Plex Mono font and animations */}
       <style>
         {`
-          @font-face {
-            font-family: 'Cubano';
-            src: url('/fonts/Cubano.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
+          @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap');
+
+          @keyframes pulse-glow {
+            0%, 100% {
+              opacity: 0.3;
+              transform: scale(1);
+            }
+            50% {
+              opacity: 0.6;
+              transform: scale(1.05);
+            }
           }
         `}
       </style>

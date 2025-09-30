@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240" height="480" viewBox="0 0 240 480" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Phone back - Google Pixel style">
+  <!-- Phone body -->
+  <rect x="12" y="12" width="216" height="456" rx="30" ry="30" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <!-- Horizontal camera bar -->
+  <rect x="20" y="62" width="200" height="28" rx="7" ry="7" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <!-- Lenses grouped on left side of bar -->
+  <circle cx="64" cy="76" r="12" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <circle cx="98" cy="76" r="12" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+  <!-- Flash on right side of bar -->
+  <circle cx="178" cy="76" r="7" stroke="currentColor" stroke-width="4" fill="none" vector-effect="non-scaling-stroke"/>
+</svg>

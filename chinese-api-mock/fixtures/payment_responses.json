@@ -1,0 +1,104 @@
+{
+  "payData_success": {
+    "data": {
+      "id": "MSPY_PLACEHOLDER",
+      "status": "created",
+      "payment_url": "https://mock-payment-gateway.example.com/pay",
+      "expires_at": "2025-09-22T16:00:00Z",
+      "created_at": "2025-09-22T15:00:00Z"
+    }
+  },
+  "payData_error": {
+    "data": null
+  },
+  "payStatus_success": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": 3,
+        "chinese_payment_id": "MSPY_PLACEHOLDER",
+        "updated_at": "2025-09-22T15:05:00Z"
+      }
+    ]
+  },
+  "payStatus_waiting": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": 1,
+        "chinese_payment_id": "MSPY_PLACEHOLDER",
+        "updated_at": "2025-09-22T15:01:00Z"
+      }
+    ]
+  },
+  "payStatus_paying": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": 2,
+        "chinese_payment_id": "MSPY_PLACEHOLDER",
+        "updated_at": "2025-09-22T15:03:00Z"
+      }
+    ]
+  },
+  "payStatus_failed": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": 4,
+        "chinese_payment_id": "MSPY_PLACEHOLDER",
+        "updated_at": "2025-09-22T15:04:00Z",
+        "error_reason": "Insufficient funds"
+      }
+    ]
+  },
+  "orderData_success": {
+    "data": {
+      "queue_no": "QUEUE_PLACEHOLDER",
+      "order_id": "CHN_ORDER_PLACEHOLDER",
+      "estimated_completion": "2-3 minutes",
+      "printer_station": "Station A",
+      "status": "queued",
+      "created_at": "2025-09-22T15:10:00Z"
+    }
+  },
+  "orderData_error": {
+    "data": null
+  },
+  "orderStatus_success": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": "completed",
+        "queue_no": "QUEUE_PLACEHOLDER",
+        "chinese_order_id": "CHN_ORDER_PLACEHOLDER",
+        "completion_time": "2025-09-22T15:13:00Z",
+        "printer_station": "Station A"
+      }
+    ]
+  },
+  "orderStatus_printing": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": "printing",
+        "queue_no": "QUEUE_PLACEHOLDER",
+        "chinese_order_id": "CHN_ORDER_PLACEHOLDER",
+        "estimated_completion": "1-2 minutes",
+        "printer_station": "Station A"
+      }
+    ]
+  },
+  "orderStatus_pending": {
+    "data": [
+      {
+        "third_id": "PLACEHOLDER",
+        "status": "pending",
+        "queue_no": "QUEUE_PLACEHOLDER",
+        "chinese_order_id": "CHN_ORDER_PLACEHOLDER",
+        "position_in_queue": 3,
+        "estimated_wait": "3-4 minutes"
+      }
+    ]
+  }
+}
