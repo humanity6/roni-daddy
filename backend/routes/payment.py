@@ -5,9 +5,11 @@ from sqlalchemy.orm import Session
 from database import get_db
 from backend.schemas.payment import CheckoutSessionRequest, PaymentSuccessRequest
 from backend.services.payment_service import initialize_stripe
+from backend.services.chinese_payment_service import get_chinese_brands, get_chinese_stock
 from db_services import OrderService, BrandService, PhoneModelService, TemplateService
 from models import Brand, PhoneModel  # Added for Chinese API fallback validation
 from datetime import datetime, timezone
+from typing import Optional, Tuple
 import stripe
 import os
 import time
@@ -16,6 +18,160 @@ router = APIRouter()
 
 # Stripe is initialized in the payment service
 stripe_client = initialize_stripe()
+
+
+def resolve_phone_model_from_chinese_id(
+    db: Session,
+    chinese_model_id: str,
+    device_id: Optional[str]
+) -> Tuple[Brand, PhoneModel]:
+    """Resolve brand and model records for a Chinese mobile_model_id using official API data."""
+    if not chinese_model_id:
+        raise HTTPException(status_code=400, detail="chinese_model_id is required")
+
+    print(f"🔍 Resolving Chinese model ID: {chinese_model_id}")
+
+    # Fast path: check if we already have the mapping stored locally
+    existing_model = db.query(PhoneModel).filter(PhoneModel.chinese_model_id == chinese_model_id).first()
+    if existing_model:
+        brand = existing_model.brand or BrandService.get_brand_by_id(db, existing_model.brand_id)
+        if not brand:
+            raise HTTPException(status_code=500, detail="Local model mapping missing associated brand")
+        print(f"✅ Found existing model mapping: {existing_model.name} ({existing_model.id})")
+        return brand, existing_model
+
+    if not device_id:
+        raise HTTPException(
+            status_code=400,
+            detail="device_id is required to resolve official Chinese model data"
+        )
+
+    # Fetch official brand list directly from the Chinese API (no fallbacks)
+    brand_response = get_chinese_brands()
+    if not brand_response.get("success"):
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch brand list from Chinese API: {brand_response.get('message', 'Unknown error')}"
+        )
+
+    brands = brand_response.get("brands") or []
+    matched_brand_data = None
+    matched_stock_item = None
+
+    for brand_data in brands:
+        chinese_brand_id = brand_data.get("id")
+        if not chinese_brand_id:
+            continue
+
+        stock_response = get_chinese_stock(device_id=device_id, brand_id=chinese_brand_id)
+        if not stock_response.get("success"):
+            print(
+                f"⚠️ Chinese API stock lookup failed for brand {chinese_brand_id}: "
+                f"{stock_response.get('message', 'no message')}"
+            )
+            continue
+
+        for stock_item in stock_response.get("stock_items", []):
+            if stock_item.get("mobile_model_id") == chinese_model_id:
+                matched_brand_data = brand_data
+                matched_stock_item = stock_item
+                break
+
+        if matched_stock_item:
+            break
+
+    if not matched_stock_item or not matched_brand_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Chinese model ID {chinese_model_id} not found in official Chinese API stock data"
+        )
+
+    brand_name = (
+        matched_brand_data.get("e_name")
+        or matched_brand_data.get("name")
+        or matched_brand_data.get("brand_name")
+    )
+    if not brand_name:
+        raise HTTPException(status_code=502, detail="Chinese API response missing brand name for model")
+
+    chinese_brand_id = matched_brand_data.get("id")
+    brand = BrandService.get_brand_by_name(db, brand_name)
+    if brand:
+        updated = False
+        if chinese_brand_id and brand.chinese_brand_id != chinese_brand_id:
+            brand.chinese_brand_id = chinese_brand_id
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(brand)
+            print(f"✅ Updated brand {brand.name} with Chinese ID {chinese_brand_id}")
+    else:
+        brand_create_data = {
+            "name": brand_name,
+            "display_name": brand_name.upper(),
+            "chinese_brand_id": chinese_brand_id,
+            "is_available": True
+        }
+        brand = BrandService.create_brand(db, brand_create_data)
+        print(f"✅ Created new brand from Chinese API: {brand.name} ({chinese_brand_id})")
+
+    model_name = matched_stock_item.get("mobile_model_name") or matched_stock_item.get("model_name")
+    if not model_name:
+        raise HTTPException(status_code=502, detail="Chinese API response missing model name")
+
+    price_value = matched_stock_item.get("price")
+    if price_value is None:
+        raise HTTPException(status_code=502, detail="Chinese API response missing model price")
+
+    try:
+        price_float = float(price_value)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=502,
+            detail=f"Chinese API returned invalid price '{price_value}' for model {model_name}"
+        )
+
+    stock_raw = matched_stock_item.get("stock")
+    try:
+        stock_int = int(stock_raw) if stock_raw is not None else 0
+    except (TypeError, ValueError):
+        stock_int = 0
+
+    # Re-check if any local model matches by name (legacy records without Chinese ID)
+    model = db.query(PhoneModel).filter(PhoneModel.name == model_name, PhoneModel.brand_id == brand.id).first()
+    if model:
+        updated = False
+        if model.chinese_model_id != chinese_model_id:
+            model.chinese_model_id = chinese_model_id
+            updated = True
+        if model.brand_id != brand.id:
+            model.brand_id = brand.id
+            updated = True
+        current_price = float(model.price) if model.price is not None else None
+        if current_price is None or abs(current_price - price_float) > 0.0001:
+            model.price = price_float
+            updated = True
+        if model.stock != stock_int:
+            model.stock = stock_int
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(model)
+            print(f"✅ Updated existing model {model.name} with official Chinese data")
+    else:
+        model_data = {
+            "name": model_name,
+            "display_name": model_name,
+            "brand_id": brand.id,
+            "price": price_float,
+            "chinese_model_id": chinese_model_id,
+            "stock": stock_int,
+            "is_available": True
+        }
+        model = PhoneModelService.create_model(db, model_data)
+        print(f"✅ Created new model from Chinese API: {model.name} ({chinese_model_id})")
+
+    return brand, model
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(
@@ -94,6 +250,9 @@ async def payment_success_page(session_id: str, db: Session = Depends(get_db)):
         brand_name = session.metadata.get('brand', 'iPhone')
         model_name = session.metadata.get('model', 'iPhone 15 Pro')
         color = session.metadata.get('color', 'Natural Titanium')
+
+        # Resolve device information early for Chinese API lookups
+        device_id = request.order_data.get('device_id') or request.order_data.get('machine_id')
         
         # CRITICAL FIX: No hardcoded queue number generation - must come from Chinese API
         # This route should not generate queue numbers without Chinese API approval
@@ -163,13 +322,21 @@ async def process_payment_success(
             else:
                 raise HTTPException(status_code=404, detail="Order not found")
         else:
-            # Check if Chinese model data is available - skip local validation if so
             chinese_model_id_from_request = request.order_data.get('chinese_model_id')
             if chinese_model_id_from_request:
                 print(f"✅ Chinese model data available: {chinese_model_id_from_request}")
-                print(f"🔄 Skipping local database validation - Chinese API is source of truth")
-                
-                # Create minimal order without local validation - Chinese API integration will handle model validation
+
+                brand, model = resolve_phone_model_from_chinese_id(
+                    db,
+                    chinese_model_id_from_request,
+                    device_id
+                )
+
+                template = TemplateService.get_template_by_id(db, template_name)
+                if not template:
+                    print(f"❌ Template '{template_name}' not found in database")
+                    raise HTTPException(status_code=400, detail=f"Template '{template_name}' not found in database")
+
                 order_data = {
                     "stripe_session_id": request.session_id,
                     "stripe_payment_intent_id": session.payment_intent,
@@ -178,13 +345,16 @@ async def process_payment_success(
                     "status": "paid",
                     "total_amount": session.amount_total / 100,
                     "currency": session.currency.upper(),
-                    "brand_id": None,  # Will be resolved by Chinese API integration
-                    "model_id": None,  # Will be resolved by Chinese API integration  
-                    "template_id": template_name,  # Use template name directly
+                    "brand_id": brand.id,
+                    "model_id": model.id,
+                    "template_id": template.id,
                     "user_data": request.order_data
                 }
                 order = OrderService.create_order(db, order_data)
-                print(f"✅ Created order {order.id} with Chinese model data - proceeding to Chinese API integration")
+                print(
+                    f"✅ Created order {order.id} with official Chinese brand/model data "
+                    f"(brand_id={brand.id}, model_id={model.id})"
+                )
             else:
                 # Validate that brand, model, and template exist in database (existing logic)
                 print(f"🔍 DEBUGGING: Validating brand='{brand_name}', model='{model_name}', template='{template_name}'")
@@ -235,7 +405,8 @@ async def process_payment_success(
             print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
             
             # CRITICAL FIX: Retrieve vending session data if device_id is present
-            device_id = request.order_data.get('device_id')
+            if not device_id:
+                device_id = request.order_data.get('device_id')
             vending_session_data = None
             
             # If this is a vending machine payment, retrieve stored session data
