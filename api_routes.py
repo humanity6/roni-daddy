@@ -46,10 +46,14 @@ async def get_chinese_stock(device_id: str, brand_id: str):
 
 
 # Brand endpoints
-@router.get("/api/brands")  
+@router.get("/api/brands")
 async def get_brands(device_id: Optional[str] = None, db: Session = Depends(get_db)):
     """Get all phone brands with fallback to local data"""
     try:
+        # CRITICAL FIX: Normalize empty/whitespace strings to None (fixes 400 Bad Request on empty device_id)
+        if device_id is not None and not device_id.strip():
+            device_id = None
+
         print("Starting get_brands API call")
         print(f"Device ID received: {device_id}")
         

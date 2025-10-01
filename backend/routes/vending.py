@@ -655,6 +655,11 @@ async def register_user_with_session(
         session.last_activity = datetime.now(timezone.utc)
         session.user_agent = user_agent
         session.ip_address = security_info["client_ip"]  # Use validated IP from security check
+
+        # CRITICAL FIX: Reset status to active when user re-registers (fixes order-summary 400 error)
+        if session.status == "payment_pending":
+            session.status = "active"
+            print(f"⚠️  Session status reset from payment_pending to active (user re-scanning)")
         
         # Update session data with security tracking
         session_data = session.session_data or {}

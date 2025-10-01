@@ -57,6 +57,7 @@ def resolve_phone_model_from_chinese_id(
     brands = brand_response.get("brands") or []
     matched_brand_data = None
     matched_stock_item = None
+    mobile_shell_id_from_api = None  # CRITICAL FIX: Initialize mobile_shell_id
 
     for brand_data in brands:
         chinese_brand_id = brand_data.get("id")
@@ -75,6 +76,9 @@ def resolve_phone_model_from_chinese_id(
             if stock_item.get("mobile_model_id") == chinese_model_id:
                 matched_brand_data = brand_data
                 matched_stock_item = stock_item
+                # CRITICAL FIX: Extract mobile_shell_id for orderData calls
+                mobile_shell_id_from_api = stock_item.get("mobile_shell_id")
+                print(f"✅ Found mobile_shell_id from Chinese API: {mobile_shell_id_from_api}")
                 break
 
         if matched_stock_item:
@@ -154,6 +158,11 @@ def resolve_phone_model_from_chinese_id(
         if model.stock != stock_int:
             model.stock = stock_int
             updated = True
+        # CRITICAL FIX: Update mobile_shell_id if changed
+        if mobile_shell_id_from_api and model.mobile_shell_id != mobile_shell_id_from_api:
+            model.mobile_shell_id = mobile_shell_id_from_api
+            updated = True
+            print(f"✅ Updated mobile_shell_id: {mobile_shell_id_from_api}")
         if updated:
             db.commit()
             db.refresh(model)
@@ -165,11 +174,12 @@ def resolve_phone_model_from_chinese_id(
             "brand_id": brand.id,
             "price": price_float,
             "chinese_model_id": chinese_model_id,
+            "mobile_shell_id": mobile_shell_id_from_api,  # CRITICAL FIX: Store mobile_shell_id
             "stock": stock_int,
             "is_available": True
         }
         model = PhoneModelService.create_model(db, model_data)
-        print(f"✅ Created new model from Chinese API: {model.name} ({chinese_model_id})")
+        print(f"✅ Created new model from Chinese API: {model.name} ({chinese_model_id}, shell: {mobile_shell_id_from_api})")
 
     return brand, model
 
@@ -306,7 +316,11 @@ async def process_payment_success(
         brand_name = session.metadata.get('brand', 'iPhone')
         model_name = session.metadata.get('model', 'iPhone 15 Pro')
         color = session.metadata.get('color', 'Natural Titanium')
-        
+
+        # CRITICAL FIX: Extract device_id early to avoid UnboundLocalError at line 332
+        device_id = request.order_data.get('device_id') or request.order_data.get('machine_id')
+        print(f"🔍 Device ID extracted early (line 309): {device_id}")
+
         # Find or create order from the request data
         order_id = request.order_data.get('order_id')
         if order_id:
@@ -403,9 +417,9 @@ async def process_payment_success(
         chinese_queue_no = None  # Initialize Chinese queue number
         try:
             print(f"=== COMPLETE CHINESE API INTEGRATION START for order {order.id} ===")
-            
+
             # CRITICAL FIX: Retrieve vending session data if device_id is present
-            if not device_id:
+            if device_id is None:  # Fixed: Use 'is None' instead of 'not device_id' for proper None check
                 device_id = request.order_data.get('device_id')
             vending_session_data = None
             

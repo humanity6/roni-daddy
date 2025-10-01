@@ -35,6 +35,7 @@ class PhoneModel(Base):
     name = Column(String(200), nullable=False)  # "iPhone 15 Pro Max"
     display_name = Column(String(200), nullable=False)  # Display version
     chinese_model_id = Column(String(100))  # Chinese manufacturer's internal model ID
+    mobile_shell_id = Column(String(100))  # Chinese API mobile shell ID for orderData calls (CRITICAL FIX)
     price = Column(DECIMAL(10, 2), nullable=False, default=19.99)
     stock = Column(Integer, default=0)
     is_available = Column(Boolean, default=True)
